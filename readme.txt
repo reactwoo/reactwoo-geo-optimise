@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.1.12.0
+Stable tag: 0.1.13.0
 
 Experiments and CRO on ReactWoo Geo Core.
 

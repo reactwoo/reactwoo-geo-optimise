@@ -19,6 +19,25 @@ class RWGO_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 30 );
 		add_action( 'admin_post_rwgo_reset_counts', array( __CLASS__, 'handle_reset_counts' ) );
 		add_action( 'admin_post_rwgo_export_stats', array( __CLASS__, 'handle_export_stats' ) );
+		add_filter( 'rwgc_inner_nav_items', array( __CLASS__, 'filter_inner_nav_items' ), 11, 1 );
+	}
+
+	/**
+	 * Add Geo Optimise to the shared Geo Core inner nav.
+	 *
+	 * @param array $items Page slug => label.
+	 * @return array
+	 */
+	public static function filter_inner_nav_items( $items ) {
+		if ( ! is_array( $items ) ) {
+			return $items;
+		}
+		return array_merge(
+			$items,
+			array(
+				'rwgo-dashboard' => __( 'Geo Optimise', 'reactwoo-geo-optimise' ),
+			)
+		);
 	}
 
 	/**
@@ -51,6 +70,7 @@ class RWGO_Admin {
 		$last_csv_export_gmt = isset( $snapshot['last_csv_export_gmt'] ) ? (string) $snapshot['last_csv_export_gmt'] : '';
 		$assign_per_route    = isset( $snapshot['assignment_per_route_resolved'] ) ? $snapshot['assignment_per_route_resolved'] : '';
 		$capabilities_url = function_exists( 'rwgc_get_rest_capabilities_url' ) ? rwgc_get_rest_capabilities_url() : '';
+		$rwgc_nav_current = 'rwgo-dashboard';
 		include RWGO_PATH . 'admin/views/dashboard.php';
 	}
 

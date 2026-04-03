@@ -2,16 +2,21 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
+$rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-dashboard';
 ?>
-<div class="wrap">
+<div class="wrap rwgc-wrap">
 	<h1><?php esc_html_e( 'Geo Optimise', 'reactwoo-geo-optimise' ); ?></h1>
+	<p class="description"><?php esc_html_e( 'This plugin listens to Geo Core events and exposes hooks for experiments and CRO. Counters are diagnostic only.', 'reactwoo-geo-optimise' ); ?></p>
+	<?php if ( class_exists( 'RWGC_Admin', false ) ) : ?>
+		<?php RWGC_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php endif; ?>
+
 	<?php if ( ! empty( $_GET['reset'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success"><p><?php esc_html_e( 'Counters reset.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>
 
-	<p><?php esc_html_e( 'This plugin listens to Geo Core events and exposes hooks for experiments and CRO. Counters are diagnostic only.', 'reactwoo-geo-optimise' ); ?></p>
-
-	<table class="widefat striped" style="max-width:480px">
+	<div class="rwgc-card">
+	<table class="widefat striped">
 		<tbody>
 			<tr><th><?php esc_html_e( 'rwgc_geo_event (received)', 'reactwoo-geo-optimise' ); ?></th><td><?php echo esc_html( (string) $geo_events ); ?></td></tr>
 			<tr><th><?php esc_html_e( 'rwgc_route_variant_resolved', 'reactwoo-geo-optimise' ); ?></th><td><?php echo esc_html( (string) $route_hits ); ?></td></tr>
@@ -22,7 +27,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</tbody>
 	</table>
 
-	<p>
+	<p class="rwui-cta-row">
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-right:8px;">
 			<input type="hidden" name="action" value="rwgo_reset_counts" />
 			<?php wp_nonce_field( 'rwgo_reset_counts' ); ?>
@@ -35,7 +40,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 		</form>
 	</p>
 	<p class="description"><?php esc_html_e( 'Export includes plugin version, counters, site URL, UTC timestamp, assignment_per_route_resolved when routes exist, and one CSV row per experiment variant (keys experiment_variant.{slug}.{variant}). Default filename includes the site host; override with the rwgo_export_csv_filename filter. Extend the snapshot with the rwgo_stats_snapshot filter.', 'reactwoo-geo-optimise' ); ?></p>
+	</div>
 
+	<div class="rwgc-card">
 	<h2><?php esc_html_e( 'Assignment distribution (server)', 'reactwoo-geo-optimise' ); ?></h2>
 	<p class="description"><?php esc_html_e( 'Counts each first-time rwgo_get_variant assignment (not page views). Resets with “Reset counters”.', 'reactwoo-geo-optimise' ); ?></p>
 	<?php
@@ -65,7 +72,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	);
 	?>
 	<?php if ( ! empty( $rows ) ) : ?>
-		<table class="widefat striped" style="max-width:640px">
+		<table class="widefat striped">
 			<thead>
 				<tr>
 					<th scope="col"><?php esc_html_e( 'Experiment', 'reactwoo-geo-optimise' ); ?></th>
@@ -86,17 +93,22 @@ if ( ! defined( 'ABSPATH' ) ) {
 	<?php else : ?>
 		<p><?php esc_html_e( 'No experiment assignments recorded yet.', 'reactwoo-geo-optimise' ); ?></p>
 	<?php endif; ?>
+	</div>
 
+	<div class="rwgc-card">
 	<h2><?php esc_html_e( 'REST discovery', 'reactwoo-geo-optimise' ); ?></h2>
 	<?php if ( is_string( $capabilities_url ) && '' !== $capabilities_url ) : ?>
 		<p><code><?php echo esc_html( $capabilities_url ); ?></code></p>
 	<?php else : ?>
 		<p><?php esc_html_e( 'Enable REST in Geo Core → Settings.', 'reactwoo-geo-optimise' ); ?></p>
 	<?php endif; ?>
+	</div>
 
+	<div class="rwgc-card rwgc-card--full">
 	<h2><?php esc_html_e( 'Experiments (PHP)', 'reactwoo-geo-optimise' ); ?></h2>
 	<p class="description"><?php esc_html_e( 'Sticky assignment (30-day cookie): rwgo_get_variant( "my_test", array( "A", "B" ) ) or weighted: rwgo_get_variant( "my_test", array( "A", "B" ), array( 70, 30 ) ). Action rwgo_variant_assigned fires on first assignment.', 'reactwoo-geo-optimise' ); ?></p>
 
 	<h2><?php esc_html_e( 'Hooks', 'reactwoo-geo-optimise' ); ?></h2>
 	<p class="description"><?php esc_html_e( 'Subscribe to rwgo_geo_event and rwgo_route_variant_resolved in your code.', 'reactwoo-geo-optimise' ); ?></p>
+	</div>
 </div>
