@@ -34,3 +34,23 @@
   padding: 12px 0 8px;
   color: #475569;
 }
+
+.rwgo-table-comfortable th,
+.rwgo-table-comfortable td {
+  padding: 10px 12px;
+}
+
+.rwgo-empty-hint {
+  color: #64748b;
+  margin: 0;
+}
+
+.rwgo-code-block {
+  display: block;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  font-size: 12px;
+}
