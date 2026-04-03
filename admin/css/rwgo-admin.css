@@ -1,0 +1,36 @@
+/**
+ * Geo Optimise admin — complements Geo Core .rwgc-* styles.
+ */
+
+.rwgo-wrap .rwgo-hero {
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 45%, #f8fafc 100%);
+  border: 1px solid #e9d5ff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+
+.rwgo-wrap .rwgo-hero h2 {
+  margin-top: 0;
+  font-size: 18px;
+}
+
+.rwgo-wrap .rwgo-steps {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.rwgo-wrap .rwgo-dev-details {
+  margin-top: 16px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0 16px 12px;
+  background: #f8fafc;
+}
+
+.rwgo-wrap .rwgo-dev-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0 8px;
+  color: #475569;
+}

@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.1.13.0
+Stable tag: 0.1.15.0
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,11 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.1.15.0 =
+* **Admin:** **Top-level Geo Optimise menu** (Overview, Help). No longer nested under Geo Core.
+* **Geo Core dashboard:** Summary card when Geo Optimise is active.
+* **UX:** Hero steps, **Technical details** for hooks/CSV filters; **rwgo-admin.css** + Geo Core styles.
 
 = 0.1.13.0 =
 * **Admin UI:** **Geo Optimise** dashboard uses Geo Core shared layout (**`rwgc-wrap`**, **`rwgc-inner-nav`**, **`rwgc-card`**) so stats, CSV actions, and docs match Geo Core / Geo Elementor-style admin rhythm.
