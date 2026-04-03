@@ -1,6 +1,11 @@
 {
   "name": "reactwoo-geo-optimise-packaging",
   "private": true,
+  "reactwooBuild": {
+    "pluginFolder": "reactwoo-geo-optimise",
+    "zipFile": "reactwoo-geo-optimise.zip",
+    "geoCoreDependencySlug": "reactwoo-geocore"
+  },
   "scripts": {
     "package:zip": "python scripts/package_zip.py"
   }

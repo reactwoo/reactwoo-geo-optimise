@@ -65,7 +65,11 @@ class RWGO_Plugin {
 	 * @return bool
 	 */
 	private function is_geo_core_active() {
-		return function_exists( 'rwgc_is_geo_core_active' ) && rwgc_is_geo_core_active();
+		if ( function_exists( 'rwgc_is_geo_core_active' ) ) {
+			return (bool) rwgc_is_geo_core_active();
+		}
+		return class_exists( 'RWGC_Plugin', false )
+			|| ( defined( 'RWGC_VERSION' ) && defined( 'RWGC_FILE' ) );
 	}
 
 	/**

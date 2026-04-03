@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Release zip for ReactWoo Geo Optimise. Output: reactwoo-geo-optimise.zip"""
+"""Release zip for ReactWoo Geo Optimise. Paths: package.json → reactwooBuild."""
 
 from __future__ import annotations
 
+import json
 import os
 import zipfile
 from pathlib import Path
 
-ROOT_FOLDER = "reactwoo-geo-optimise"
-OUTPUT_ZIP = "reactwoo-geo-optimise.zip"
+_DEFAULT_FOLDER = "reactwoo-geo-optimise"
 
 INCLUDE_DIRS = ["admin", "includes"]
 
@@ -18,9 +18,27 @@ INCLUDE_FILES = [
 ]
 
 
+def _zip_paths(base: Path) -> tuple[str, str]:
+    pkg_path = base / "package.json"
+    zip_name = f"{_DEFAULT_FOLDER}.zip"
+    if not pkg_path.is_file():
+        return _DEFAULT_FOLDER, zip_name
+    try:
+        data = json.loads(pkg_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _DEFAULT_FOLDER, zip_name
+    cfg = data.get("reactwooBuild")
+    if not isinstance(cfg, dict):
+        return _DEFAULT_FOLDER, zip_name
+    folder = cfg.get("pluginFolder") or _DEFAULT_FOLDER
+    zfile = cfg.get("zipFile") or f"{folder}.zip"
+    return str(folder), str(zfile)
+
+
 def main() -> None:
     base = Path(__file__).resolve().parent.parent
-    out = base / OUTPUT_ZIP
+    root_folder, zip_name = _zip_paths(base)
+    out = base / zip_name
     if out.exists():
         out.unlink()
 
@@ -33,17 +51,17 @@ def main() -> None:
                 for filename in files:
                     filepath = Path(root) / filename
                     rel = filepath.relative_to(base).as_posix()
-                    zf.write(filepath, arcname=f"{ROOT_FOLDER}/{rel}")
+                    zf.write(filepath, arcname=f"{root_folder}/{rel}")
 
         for filename in INCLUDE_FILES:
             filepath = base / filename
             if filepath.is_file():
-                zf.write(filepath, arcname=f"{ROOT_FOLDER}/{filename}")
+                zf.write(filepath, arcname=f"{root_folder}/{filename}")
 
     with zipfile.ZipFile(out, "r") as zf:
         names = zf.namelist()
         if any("\\" in n for n in names) or any(
-            n.startswith(f"{ROOT_FOLDER}/{ROOT_FOLDER}/") for n in names
+            n.startswith(f"{root_folder}/{root_folder}/") for n in names
         ):
             raise RuntimeError("Invalid zip structure")
 
