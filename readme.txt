@@ -19,6 +19,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 
 == Changelog ==
 
+= 0.1.13.0 =
+* **Admin UI:** **Geo Optimise** dashboard uses Geo Core shared layout (**`rwgc-wrap`**, **`rwgc-inner-nav`**, **`rwgc-card`**) so stats, CSV actions, and docs match Geo Core / Geo Elementor-style admin rhythm.
+* **Navigation:** Registers on **`rwgc_inner_nav_items`** for quick jumps alongside other Geo Core tabs.
+
 = 0.1.12.0 =
 * **`assignment_per_route_resolved`** in **`rwgo_stats_snapshot`** (assignments divided by route events when routes exist); dashboard row.
 
