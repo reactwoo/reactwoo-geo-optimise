@@ -104,17 +104,40 @@ class RWGO_Admin {
 		$nexp = isset( $data['active_experiment_count'] ) ? (int) $data['active_experiment_count'] : 0;
 		$asg  = isset( $data['total_variant_assignments'] ) ? (int) $data['total_variant_assignments'] : 0;
 		?>
-		<div class="rwgc-card rwgc-card--highlight">
-			<h2><?php esc_html_e( 'Geo Optimise', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'Experiments and variant assignments on top of Geo Core — open Results for split counts.', 'reactwoo-geo-optimise' ); ?></p>
-			<ul>
-				<li><strong><?php esc_html_e( 'Experiments (keys)', 'reactwoo-geo-optimise' ); ?>:</strong> <?php echo esc_html( (string) $nexp ); ?></li>
-				<li><strong><?php esc_html_e( 'Variant assignments', 'reactwoo-geo-optimise' ); ?>:</strong> <?php echo esc_html( (string) $asg ); ?></li>
-			</ul>
-			<p>
+		<div class="rwgc-addon-card">
+			<div class="rwgc-addon-card__header">
+				<div class="rwgc-addon-card__icon" aria-hidden="true"><span class="dashicons dashicons-chart-area"></span></div>
+				<div class="rwgc-addon-card__heading">
+					<h3><?php esc_html_e( 'Geo Optimise', 'reactwoo-geo-optimise' ); ?></h3>
+					<p><?php esc_html_e( 'Run experiments and review geo-based variant performance and assignments.', 'reactwoo-geo-optimise' ); ?></p>
+				</div>
+			</div>
+			<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
+			<div class="rwgc-addon-card__meta">
+				<?php
+				RWGC_Admin_UI::render_pill(
+					sprintf(
+						/* translators: %d: experiment count */
+						__( 'Experiments: %d', 'reactwoo-geo-optimise' ),
+						$nexp
+					),
+					'neutral'
+				);
+				RWGC_Admin_UI::render_pill(
+					sprintf(
+						/* translators: %d: assignment count */
+						__( 'Assignments: %d', 'reactwoo-geo-optimise' ),
+						$asg
+					),
+					'neutral'
+				);
+				?>
+			</div>
+			<?php endif; ?>
+			<div class="rwgc-addon-card__actions">
 				<a href="<?php echo esc_url( $url ); ?>" class="button button-primary"><?php esc_html_e( 'Open Geo Optimise', 'reactwoo-geo-optimise' ); ?></a>
 				<a href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-results' ) ); ?>" class="button"><?php esc_html_e( 'Results', 'reactwoo-geo-optimise' ); ?></a>
-			</p>
+			</div>
 		</div>
 		<?php
 	}
@@ -137,6 +160,84 @@ class RWGO_Admin {
 			echo '<a class="' . esc_attr( $class ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . $slug ) ) . '">' . esc_html( $label ) . '</a>';
 		}
 		echo '</nav>';
+	}
+
+	/**
+	 * Context banner when opened from Geo Suite workflow (GET handoff params from Geo Core).
+	 *
+	 * @return void
+	 */
+	public static function render_suite_handoff_panel() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		if ( ! function_exists( 'rwgc_get_suite_handoff_request_context' ) ) {
+			return;
+		}
+		$ctx = rwgc_get_suite_handoff_request_context();
+		if ( empty( $ctx['active'] ) ) {
+			return;
+		}
+		$clean_url = remove_query_arg( array( 'rwgc_handoff', 'rwgc_from', 'rwgc_launcher', 'rwgc_variant_page_id' ) );
+		$launcher_labels = array(
+			'experiment'     => __( 'Geo split test', 'reactwoo-geo-optimise' ),
+			'ai_draft'       => __( 'AI draft', 'reactwoo-geo-optimise' ),
+			'create_variant' => __( 'Create page version', 'reactwoo-geo-optimise' ),
+			'commerce_rule'  => __( 'Commerce rule', 'reactwoo-geo-optimise' ),
+		);
+		$launcher = isset( $ctx['launcher'] ) ? (string) $ctx['launcher'] : '';
+		$launcher_note = '';
+		if ( '' !== $launcher ) {
+			$launcher_note = isset( $launcher_labels[ $launcher ] ) ? $launcher_labels[ $launcher ] : $launcher;
+		}
+		$vid = isset( $ctx['variant_page_id'] ) ? (int) $ctx['variant_page_id'] : 0;
+		$page = null;
+		if ( $vid > 0 ) {
+			$p = get_post( $vid );
+			if ( $p instanceof \WP_Post && 'page' === $p->post_type && current_user_can( 'edit_page', $p->ID ) ) {
+				$page = $p;
+			}
+		}
+		?>
+		<div class="rwgc-card rwgc-card--highlight rwgo-suite-handoff" role="region" aria-label="<?php echo esc_attr__( 'Geo Suite handoff', 'reactwoo-geo-optimise' ); ?>">
+			<h2><?php esc_html_e( 'Opened from Geo Suite', 'reactwoo-geo-optimise' ); ?></h2>
+			<p class="description">
+				<?php
+				if ( isset( $ctx['from'] ) && 'suite' === $ctx['from'] ) {
+					esc_html_e( 'You arrived from Suite Home or Getting Started. Use Experiments and Results to wire and read tests.', 'reactwoo-geo-optimise' );
+				} else {
+					esc_html_e( 'Geo Core linked you here to continue your workflow.', 'reactwoo-geo-optimise' );
+				}
+				if ( '' !== $launcher_note ) {
+					echo ' ';
+					echo esc_html(
+						sprintf(
+							/* translators: %s: workflow label */
+							__( 'Workflow: %s', 'reactwoo-geo-optimise' ),
+							$launcher_note
+						)
+					);
+				}
+				?>
+			</p>
+			<?php if ( $page instanceof \WP_Post ) : ?>
+				<p>
+					<strong><?php echo esc_html( get_the_title( $page ) ); ?></strong>
+					<?php
+					$edit_url = get_edit_post_link( $page->ID, 'raw' );
+					if ( is_string( $edit_url ) && '' !== $edit_url ) {
+						echo ' ';
+						echo '<a class="button button-secondary" href="' . esc_url( $edit_url ) . '">' . esc_html__( 'Open page in editor', 'reactwoo-geo-optimise' ) . '</a>';
+					}
+					?>
+				</p>
+				<p class="description"><?php esc_html_e( 'Use this page in your theme or templates with rwgo_get_variant() for sticky assignments.', 'reactwoo-geo-optimise' ); ?></p>
+			<?php elseif ( $vid > 0 ) : ?>
+				<p class="description"><?php esc_html_e( 'The linked page could not be loaded or you do not have permission to edit it.', 'reactwoo-geo-optimise' ); ?></p>
+			<?php endif; ?>
+			<p><a class="button-link" href="<?php echo esc_url( $clean_url ); ?>"><?php esc_html_e( 'Dismiss banner', 'reactwoo-geo-optimise' ); ?></a></p>
+		</div>
+		<?php
 	}
 
 	/**

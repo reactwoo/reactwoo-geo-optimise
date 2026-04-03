@@ -18,6 +18,8 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-exper
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php RWGO_Admin::render_suite_handoff_panel(); ?>
+
 	<div class="rwgc-card rwgc-card--highlight">
 		<h2><?php esc_html_e( 'How assignments work', 'reactwoo-geo-optimise' ); ?></h2>
 		<p><?php esc_html_e( 'Call rwgo_get_variant() with an experiment key and variant labels. The first visit stores a sticky cookie (~30 days); we count first-time assignments per experiment/variant on the server.', 'reactwoo-geo-optimise' ); ?></p>

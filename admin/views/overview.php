@@ -21,6 +21,8 @@ $preview_rows    = array_slice( $assignment_rows, 0, 5 );
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php RWGO_Admin::render_suite_handoff_panel(); ?>
+
 	<?php if ( ! empty( $_GET['reset'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success"><p><?php esc_html_e( 'Counters reset.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>

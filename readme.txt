@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.1.16.1
+Stable tag: 0.1.16.2
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.1.16.2 =
+* **Suite handoff:** Overview and Experiments show context when opened from Geo Suite; optional **Open page in editor** when `rwgc_variant_page_id` is present (Geo Core `rwgc_get_suite_handoff_request_context()`, 1.3.3+).
 
 = 0.1.16.1 =
 * **Release:** Patch bump for remote update pipeline (version-only).
