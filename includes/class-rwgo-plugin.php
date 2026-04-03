@@ -1,0 +1,85 @@
+<?php
+/**
+ * Geo Optimise — satellite plugin (requires Geo Core).
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Main controller for ReactWoo Geo Optimise.
+ */
+class RWGO_Plugin {
+
+	/**
+	 * @var self|null
+	 */
+	private static $instance = null;
+
+	/**
+	 * @return self
+	 */
+	public static function instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
+
+	/**
+	 * @return void
+	 */
+	public function boot() {
+		static $done = false;
+		if ( $done ) {
+			return;
+		}
+		$done = true;
+
+		if ( is_admin() ) {
+			add_action( 'admin_notices', array( $this, 'maybe_admin_notice_missing_core' ) );
+		}
+
+		if ( ! $this->is_geo_core_active() ) {
+			return;
+		}
+
+		require_once RWGO_PATH . 'includes/class-rwgo-stats.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-assignment.php';
+		require_once RWGO_PATH . 'includes/functions-rwgo.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-core-event-bridge.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-events.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-admin.php';
+		RWGO_Core_Event_Bridge::init();
+		RWGO_Events::init();
+		RWGO_Admin::init();
+
+		/**
+		 * Fires when Geo Optimise is ready (Geo Core is active).
+		 */
+		do_action( 'rwgo_loaded' );
+	}
+
+	/**
+	 * @return bool
+	 */
+	private function is_geo_core_active() {
+		return function_exists( 'rwgc_is_geo_core_active' ) && rwgc_is_geo_core_active();
+	}
+
+	/**
+	 * @return void
+	 */
+	public function maybe_admin_notice_missing_core() {
+		if ( $this->is_geo_core_active() ) {
+			return;
+		}
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p>';
+		echo esc_html__( 'ReactWoo Geo Optimise requires ReactWoo Geo Core to be installed and active.', 'reactwoo-geo-optimise' );
+		echo '</p></div>';
+	}
+}
