@@ -1,0 +1,138 @@
+name: Publish ReactWoo Geo Optimise Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Override plugin version (optional)"
+        required: false
+      channel:
+        description: "Release channel"
+        required: false
+        default: "stable"
+      rollout_percentage:
+        description: "Rollout percentage (0-100)"
+        required: false
+        default: "100"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_SLUG: reactwoo-geo-optimise
+      MAIN_PHP: reactwoo-geo-optimise.php
+      API_PUBLISH_URL: https://api.reactwoo.com/api/v5/updates/publish
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Create plugin zip
+        run: python scripts/package_zip.py
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -n "${{ github.event.inputs.version || '' }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(sed -n "s/^ \* Version: //p" "${MAIN_PHP}" | head -n1 | tr -d '\r')"
+          fi
+
+          if [[ -z "${VERSION}" ]]; then
+            echo "Could not determine plugin version."
+            exit 1
+          fi
+
+          MIN_PHP="$(sed -n "s/^ \* Requires PHP: //p" "${MAIN_PHP}" | head -n1 | tr -d '\r')"
+          if [[ -z "${MIN_PHP}" ]]; then
+            MIN_PHP="$(sed -n "s/^Requires PHP: //p" readme.txt | head -n1 | tr -d '\r')"
+          fi
+
+          TESTED_UP_TO="$(sed -n "s/^Tested up to: //p" readme.txt | head -n1 | tr -d '\r')"
+          CHANNEL="${{ github.event.inputs.channel || 'stable' }}"
+          ROLLOUT="${{ github.event.inputs.rollout_percentage || '100' }}"
+          ARTIFACT_KEY="plugins/${PLUGIN_SLUG}/${VERSION}/${PLUGIN_SLUG}.zip"
+          SHA256="$(sha256sum "${PLUGIN_SLUG}.zip" | awk '{print $1}')"
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "min_php=${MIN_PHP}" >> "$GITHUB_OUTPUT"
+          echo "tested_up_to=${TESTED_UP_TO}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+          echo "rollout=${ROLLOUT}" >> "$GITHUB_OUTPUT"
+          echo "artifact_key=${ARTIFACT_KEY}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS CLI for R2
+        shell: bash
+        run: |
+          aws configure set aws_access_key_id "${{ secrets.R2_ACCESS_KEY_ID }}"
+          aws configure set aws_secret_access_key "${{ secrets.R2_SECRET_ACCESS_KEY }}"
+          aws configure set region auto
+
+      - name: Validate and normalize R2 endpoint
+        id: r2
+        shell: bash
+        run: |
+          set -euo pipefail
+          RAW="${{ secrets.R2_ENDPOINT }}"
+          ENDPOINT="$(printf '%s' "${RAW}" | tr -d '\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          ENDPOINT="${ENDPOINT%/}"
+
+          if [[ -z "${ENDPOINT}" ]]; then
+            echo "R2_ENDPOINT secret is empty."
+            exit 1
+          fi
+
+          if [[ ! "${ENDPOINT}" =~ ^https?:// ]]; then
+            echo "R2_ENDPOINT must start with http:// or https://"
+            exit 1
+          fi
+
+          echo "::add-mask::${ENDPOINT}"
+          echo "endpoint=${ENDPOINT}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload zip to R2
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 cp "${PLUGIN_SLUG}.zip" "s3://${{ secrets.R2_BUCKET }}/${{ steps.meta.outputs.artifact_key }}" \
+            --endpoint-url "${{ steps.r2.outputs.endpoint }}"
+
+      - name: Publish release metadata to API
+        shell: bash
+        run: |
+          set -euo pipefail
+          PAYLOAD="$(cat <<EOF
+          {
+            "slug": "${PLUGIN_SLUG}",
+            "version": "${{ steps.meta.outputs.version }}",
+            "channel": "${{ steps.meta.outputs.channel }}",
+            "artifact_key": "${{ steps.meta.outputs.artifact_key }}",
+            "sha256": "${{ steps.meta.outputs.sha256 }}",
+            "min_php": "${{ steps.meta.outputs.min_php }}",
+            "tested_up_to": "${{ steps.meta.outputs.tested_up_to }}",
+            "rollout_percentage": ${{ steps.meta.outputs.rollout }}
+          }
+          EOF
+          )"
+
+          curl --fail-with-body -sS -X POST "${API_PUBLISH_URL}" \
+            -H "Authorization: Bearer ${{ secrets.UPDATES_PUBLISH_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data "${PAYLOAD}"

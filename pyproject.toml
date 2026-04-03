@@ -1,0 +1,5 @@
+[project]
+name = "reactwoo-geo-optimise-packaging"
+version = "0"
+description = "Local tooling: create release zip (scripts/package_zip.py)"
+requires-python = ">=3.9"
