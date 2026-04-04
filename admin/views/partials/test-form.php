@@ -92,7 +92,7 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 				<?php if ( $pf_source_id > 0 && get_post( $pf_source_id ) ) : ?>
 					<strong><?php echo esc_html( get_the_title( $pf_source_id ) ); ?></strong>
 					<?php
-					$sel = get_edit_post_link( $pf_source_id );
+					$sel = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $pf_source_id, $pf_test_type ) : get_edit_post_link( $pf_source_id );
 					$pl  = get_permalink( $pf_source_id );
 					?>
 					<p class="rwgo-cta-row">
@@ -137,7 +137,7 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 				<?php if ( $pf_variant_b_id > 0 && get_post( $pf_variant_b_id ) ) : ?>
 					<span><?php echo esc_html( get_the_title( $pf_variant_b_id ) ); ?></span>
 					<?php
-					$v_ed = get_edit_post_link( $pf_variant_b_id );
+					$v_ed = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $pf_variant_b_id, $pf_test_type ) : get_edit_post_link( $pf_variant_b_id );
 					$v_pl = get_permalink( $pf_variant_b_id );
 					?>
 					<p class="rwgo-cta-row">

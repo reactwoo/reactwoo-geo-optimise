@@ -45,6 +45,9 @@ class RWGO_Page_Duplicator {
 		$new_id = (int) $new_id;
 
 		self::copy_post_meta( $post_id, $new_id );
+		self::strip_geo_route_meta_from_variant( $new_id );
+		self::reset_elementor_generated_assets( $new_id );
+		self::maybe_log_duplicate_elementor_meta_debug( $post_id, $new_id );
 
 		$thumb = get_post_thumbnail_id( $post_id );
 		if ( $thumb ) {
@@ -130,5 +133,93 @@ class RWGO_Page_Duplicator {
 				add_post_meta( $dest_id, $key, maybe_unserialize( $v ) );
 			}
 		}
+
+		// Ensure Elementor document keys are single canonical values (avoids rare multi-row meta edge cases).
+		$elementor_keys = array(
+			'_elementor_data',
+			'_elementor_edit_mode',
+			'_elementor_page_settings',
+			'_elementor_template_type',
+			'_elementor_version',
+			'_wp_page_template',
+		);
+		foreach ( $elementor_keys as $ek ) {
+			$one = get_post_meta( $source_id, $ek, true );
+			if ( '' === $one || false === $one ) {
+				continue;
+			}
+			update_post_meta( $dest_id, $ek, $one );
+		}
+	}
+
+	/**
+	 * Variant B should not inherit Geo Core route bindings from Control (would tie B to A's geo routing).
+	 *
+	 * @param int $variant_id New page ID.
+	 * @return void
+	 */
+	private static function strip_geo_route_meta_from_variant( $variant_id ) {
+		$variant_id = (int) $variant_id;
+		if ( $variant_id <= 0 ) {
+			return;
+		}
+		if ( class_exists( 'RWGC_Routing', false ) ) {
+			$keys = array(
+				RWGC_Routing::META_ENABLED,
+				RWGC_Routing::META_DEFAULT_PAGE_ID,
+				RWGC_Routing::META_COUNTRY_ISO2,
+				RWGC_Routing::META_COUNTRY_PAGE_ID,
+				RWGC_Routing::META_ROLE,
+				RWGC_Routing::META_MASTER_PAGE_ID,
+			);
+			foreach ( $keys as $k ) {
+				delete_post_meta( $variant_id, $k );
+			}
+			return;
+		}
+		global $wpdb;
+		$prefix = $wpdb->esc_like( '_rwgc_route_' ) . '%';
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key LIKE %s", $variant_id, $prefix ) );
+	}
+
+	/**
+	 * Regenerate Elementor CSS for the new post ID (copied CSS references wrong post).
+	 *
+	 * @param int $variant_id New page ID.
+	 * @return void
+	 */
+	private static function reset_elementor_generated_assets( $variant_id ) {
+		$variant_id = (int) $variant_id;
+		if ( $variant_id <= 0 ) {
+			return;
+		}
+		delete_post_meta( $variant_id, '_elementor_css' );
+		delete_post_meta( $variant_id, '_elementor_screenshot' );
+	}
+
+	/**
+	 * When Geo Core debug is enabled, log Elementor meta presence on source vs duplicate.
+	 *
+	 * @param int $source_id Source post ID.
+	 * @param int $dest_id   Duplicate post ID.
+	 * @return void
+	 */
+	private static function maybe_log_duplicate_elementor_meta_debug( $source_id, $dest_id ) {
+		if ( ! class_exists( 'RWGC_Settings', false ) || ! RWGC_Settings::get( 'debug_mode', 0 ) ) {
+			return;
+		}
+		$keys = array( '_elementor_data', '_elementor_edit_mode', '_elementor_page_settings', '_wp_page_template' );
+		$out  = array(
+			'source_id' => (int) $source_id,
+			'dest_id'   => (int) $dest_id,
+		);
+		foreach ( $keys as $k ) {
+			$sv = get_post_meta( (int) $source_id, $k, true );
+			$dv = get_post_meta( (int) $dest_id, $k, true );
+			$out[ 'src_' . $k ] = is_string( $sv ) ? strlen( $sv ) : ( is_array( $sv ) ? count( $sv ) : ( $sv ? 1 : 0 ) );
+			$out[ 'dst_' . $k ] = is_string( $dv ) ? strlen( $dv ) : ( is_array( $dv ) ? count( $dv ) : ( $dv ? 1 : 0 ) );
+		}
+		error_log( '[RWGO duplicate] ' . wp_json_encode( $out ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 	}
 }

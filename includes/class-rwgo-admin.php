@@ -66,6 +66,36 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * Direct wp-admin URL to edit a page — for Elementor tests, open the Elementor builder for that post ID.
+	 *
+	 * @param int    $post_id   Page/post ID.
+	 * @param string $test_type Experiment test_type from config.
+	 * @return string Empty if user cannot edit.
+	 */
+	public static function post_builder_edit_url( $post_id, $test_type = '' ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! current_user_can( 'edit_post', $post_id ) ) {
+			return '';
+		}
+		$test_type = sanitize_key( (string) $test_type );
+		if ( 'elementor_page' === $test_type && class_exists( '\Elementor\Plugin', false ) ) {
+			$plugin = \Elementor\Plugin::$instance;
+			if ( $plugin && isset( $plugin->documents ) && is_object( $plugin->documents ) ) {
+				$doc = $plugin->documents->get( $post_id );
+				if ( $doc && method_exists( $doc, 'get_edit_url' ) ) {
+					$url = $doc->get_edit_url();
+					if ( is_string( $url ) && $url ) {
+						return $url;
+					}
+				}
+			}
+			return admin_url( 'post.php?post=' . $post_id . '&action=elementor' );
+		}
+		$link = get_edit_post_link( $post_id, 'raw' );
+		return is_string( $link ) ? $link : '';
+	}
+
+	/**
 	 * Primitive capability for add_menu_page / add_submenu_page (matches Geo Elementor: admins + WooCommerce shop managers).
 	 *
 	 * @return string

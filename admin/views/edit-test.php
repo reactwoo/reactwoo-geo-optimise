@@ -164,8 +164,9 @@ $rwgo_form_mode = 'edit';
 			<?php if ( $src_id > 0 && get_post( $src_id ) && $var_b_id > 0 && get_post( $var_b_id ) ) : ?>
 				<p class="rwgo-cta-row">
 					<?php
-					$ce = get_edit_post_link( $src_id );
-					$ve = get_edit_post_link( $var_b_id );
+					$rwgo_tt = isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab';
+					$ce      = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $src_id, $rwgo_tt ) : get_edit_post_link( $src_id );
+					$ve      = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $var_b_id, $rwgo_tt ) : get_edit_post_link( $var_b_id );
 					?>
 					<?php if ( is_string( $ce ) && $ce ) : ?>
 						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ce ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
