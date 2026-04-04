@@ -45,15 +45,63 @@ class RWGO_Plugin {
 			return;
 		}
 
+		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
+		RWGO_Settings::register_platform_filters();
+		RWGO_Settings::maybe_migrate_from_geo_core();
+		RWGO_Settings::init();
+
 		require_once RWGO_PATH . 'includes/class-rwgo-stats.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-assignment.php';
 		require_once RWGO_PATH . 'includes/functions-rwgo.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-core-event-bridge.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-events.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-experiment-cpt.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-experiment-repository.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-experiment-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-builder-detector.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-goal-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-woocommerce-goals.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-page-duplicator.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-rest-tracking.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-page-swapper.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin.php';
+		RWGO_Experiment_CPT::init();
+		RWGO_Event_Store::init();
+		RWGO_REST_Tracking::init();
+		RWGO_Runtime::init();
+		RWGO_Admin_Wizard::init();
 		RWGO_Core_Event_Bridge::init();
 		RWGO_Events::init();
 		RWGO_Admin::init();
+
+		add_action(
+			'plugins_loaded',
+			static function () {
+				if ( class_exists( 'WooCommerce', false ) ) {
+					RWGO_WooCommerce_Goals::register();
+				}
+			},
+			20
+		);
+
+		if ( class_exists( 'RWGC_Satellite_Updater', false ) ) {
+			RWGC_Satellite_Updater::register(
+				array(
+					'basename'     => plugin_basename( RWGO_FILE ),
+					'version'      => RWGO_VERSION,
+					'catalog_slug' => 'reactwoo-geo-optimise',
+					'name'         => __( 'ReactWoo Geo Optimise', 'reactwoo-geo-optimise' ),
+					'description'  => __( 'Experiments and optimisation on top of ReactWoo Geo Core.', 'reactwoo-geo-optimise' ),
+				)
+			);
+		}
 
 		/**
 		 * Fires when Geo Optimise is ready (Geo Core is active).

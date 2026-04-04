@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.1.16.2
+Stable tag: 0.2.0.0
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,15 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.2.0.0 =
+* **Product UX:** Dashboard, Create Test wizard, Tests list, Reports, Tracking Tools, Advanced (diagnostics + PHP docs); managed experiments (`rwgo_experiment` CPT); activation creates `wp_rwgo_events`; legacy admin slugs redirect to new screens.
+
+= 0.1.18.0 =
+* **Updates:** Registers **`RWGC_Satellite_Updater`** (Geo Core 1.3.4+) — update checks use the ReactWoo API + license JWT; **`download_url`** is R2-signed.
+
+= 0.1.17.0 =
+* **License:** **Geo Optimise → License** screen to save a ReactWoo product key (`rwgo_settings`); filters `rwgc_reactwoo_license_key` / `rwgc_reactwoo_api_base` (priority 15) for Geo Core’s platform client; one-time migration from Geo AI / Geo Core keys; **License** link on Geo Core dashboard card.
 
 = 0.1.16.2 =
 * **Suite handoff:** Overview and Experiments show context when opened from Geo Suite; optional **Open page in editor** when `rwgc_variant_page_id` is present (Geo Core `rwgc_get_suite_handoff_request_context()`, 1.3.3+).

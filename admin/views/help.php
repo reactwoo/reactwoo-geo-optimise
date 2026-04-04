@@ -1,4 +1,10 @@
 <?php
+/**
+ * Help — product topics (non-technical).
+ *
+ * @package ReactWooGeoOptimise
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -9,28 +15,40 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 		<?php
 		RWGC_Admin_UI::render_page_header(
 			__( 'Help', 'reactwoo-geo-optimise' ),
-			__( 'Experiments and diagnostics on top of Geo Core — not a replacement for Geo Core settings.', 'reactwoo-geo-optimise' )
+			__( 'How to run tests and read results — Geo Core still handles country detection and site-wide settings.', 'reactwoo-geo-optimise' )
 		);
 		?>
 	<?php else : ?>
-		<h1><?php esc_html_e( 'Geo Optimise — help', 'reactwoo-geo-optimise' ); ?></h1>
-		<p class="description"><?php esc_html_e( 'Experiments and diagnostics on top of Geo Core events.', 'reactwoo-geo-optimise' ); ?></p>
+		<h1><?php esc_html_e( 'Help', 'reactwoo-geo-optimise' ); ?></h1>
 	<?php endif; ?>
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
-	<div class="rwgc-card rwgc-card--highlight">
-		<h2><?php esc_html_e( 'What Geo Optimise does', 'reactwoo-geo-optimise' ); ?></h2>
-		<p><?php esc_html_e( 'It listens to Geo Core routing/geo events, counts assignments for experiments (rwgo_get_variant), and lets you export a diagnostic snapshot. It does not configure MaxMind or IP databases — that stays in Geo Core.', 'reactwoo-geo-optimise' ); ?></p>
-	</div>
-
 	<div class="rwgc-grid">
 		<div class="rwgc-card">
-			<h2><?php esc_html_e( 'Merchants & PMs', 'reactwoo-geo-optimise' ); ?></h2>
-			<p><?php esc_html_e( 'Start on Overview, read Experiments for how tests are wired, then Results for split counts. Use Events & diagnostics for reset/export.', 'reactwoo-geo-optimise' ); ?></p>
+			<h2><?php esc_html_e( 'Create your first page test', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'Use Create Test, pick the page you want to compare, choose audience and goal, then publish. You can edit each version in the block editor or Elementor like any other page.', 'reactwoo-geo-optimise' ); ?></p>
 		</div>
 		<div class="rwgc-card">
-			<h2><?php esc_html_e( 'Developers', 'reactwoo-geo-optimise' ); ?></h2>
-			<p><?php esc_html_e( 'Use rwgo_get_variant() for sticky A/B style assignments and subscribe to rwgo_geo_event / rwgo_route_variant_resolved. See Events & diagnostics for hook names.', 'reactwoo-geo-optimise' ); ?></p>
+			<h2><?php esc_html_e( 'Test visitors by country', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'In Create Test, limit who enters the test by country when that fits your plan. Geo Core provides the visitor’s country when available.', 'reactwoo-geo-optimise' ); ?></p>
+		</div>
+		<div class="rwgc-card">
+			<h2><?php esc_html_e( 'Two versions of the same page', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'We duplicate your page so you can change headlines, layout, or images without touching code. Open each version from the Tests list.', 'reactwoo-geo-optimise' ); ?></p>
+		</div>
+		<div class="rwgc-card">
+			<h2><?php esc_html_e( 'Connect Google Analytics or Tag Manager', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'For conversion tracking beyond visitor counts, open Tracking Tools and copy the snippets into your tag setup.', 'reactwoo-geo-optimise' ); ?></p>
+			<p><a class="button" href="<?php echo esc_url( RWGO_Admin::tracking_tools_url() ); ?>"><?php esc_html_e( 'Open Tracking Tools', 'reactwoo-geo-optimise' ); ?></a></p>
+		</div>
+		<div class="rwgc-card">
+			<h2><?php esc_html_e( 'Read reports', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'Reports focus on your primary goal conversion rate per variant. Revenue and ecommerce detail may still live in your analytics or store.', 'reactwoo-geo-optimise' ); ?></p>
+		</div>
+		<div class="rwgc-card">
+			<h2><?php esc_html_e( 'Developers & custom integrations', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'PHP helpers, diagnostics, and hook reference live under Developer — they are not required for normal tests.', 'reactwoo-geo-optimise' ); ?></p>
+			<p><a class="button" href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 	</div>
 </div>
