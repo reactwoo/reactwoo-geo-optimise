@@ -27,7 +27,7 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Create your first page test', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'Use Create Test, pick what you are testing, choose Control (source) and how Variant B is created, set audience and goal, then publish.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Test visitors by country', 'reactwoo-geo-optimise' ); ?></h2>
@@ -36,22 +36,22 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Two versions: Control (A) and Variant B', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'Control uses your source page. Variant B can be a duplicate, an existing page, or a new draft. After publishing, open each version from Tests → Edit Control / Edit Variant B.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Open Tests', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Open Tests', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Connect Google Analytics or Tag Manager', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'For conversion tracking beyond visitor counts, open Tracking Tools and copy the snippets into your tag setup. This is optional for basic tests.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button button-primary" href="<?php echo esc_url( RWGO_Admin::tracking_tools_url() ); ?>"><?php esc_html_e( 'Open Tracking Tools', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( RWGO_Admin::tracking_tools_url() ); ?>"><?php esc_html_e( 'Open Tracking Tools', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Read reports', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'Reports focus on your primary goal and which variant is leading. Revenue and ecommerce detail may still live in your analytics or store.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'Open Reports', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'Open Reports', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Developers & custom integrations', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'PHP helpers, diagnostics, and hook reference live under Developer — they are not required for normal tests.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button" href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 	</div>
 </div>

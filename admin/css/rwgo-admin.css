@@ -6,24 +6,154 @@
    Page shell & vertical rhythm
    ------------------------------------------------------------------------- */
 .rwgo-wrap {
-  --rwgo-radius: 15px;
+  --rwgo-radius-sm: 10px;
+  --rwgo-radius-md: 12px;
+  --rwgo-radius-lg: 16px;
+  --rwgo-radius: var(--rwgo-radius-lg);
   --rwgo-card-pad: 24px;
   --rwgo-gap: 24px;
   --rwgo-border: 1px solid #e2e8f0;
   --rwgo-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  max-width: 920px;
+  --rwgo-btn-h: 42px;
+  --rwgo-btn-pad-x: 18px;
+  --rwgo-color-accent: #5b21b6;
+  --rwgo-color-accent-hover: #4c1d95;
+  max-width: 1140px;
 }
 
 .rwgo-wrap .rwgo-notice {
-  border-radius: var(--rwgo-radius);
+  border-radius: var(--rwgo-radius-lg);
 }
 
+/* Wide technical / data-heavy screens */
 .rwgo-wrap--developer,
 .rwgo-wrap--tracking-tools,
 .rwgo-wrap--tests,
 .rwgo-wrap--reports,
 .rwgo-wrap--help {
-  max-width: 1100px;
+  max-width: 1240px;
+}
+
+/* -------------------------------------------------------------------------
+   Page header rhythm (Geo Core suite header inside Geo Optimise)
+   ------------------------------------------------------------------------- */
+.rwgo-wrap .rwgc-suite-page-header {
+  margin: 0 0 16px;
+}
+
+.rwgo-wrap .rwgc-suite-page-header h1 {
+  margin: 0;
+  padding: 0;
+}
+
+.rwgo-wrap .rwgc-suite-page-header__subtitle {
+  margin: 12px 0 0;
+  max-width: 72ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.rwgo-wrap .rwgc-suite-page-header + .rwgo-inner-nav {
+  margin-top: 0;
+}
+
+/* -------------------------------------------------------------------------
+   Notices — product alerts (integrates WP .notice inside Geo Optimise)
+   ------------------------------------------------------------------------- */
+.rwgo-wrap .rwgo-page-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 0 22px;
+}
+
+.rwgo-wrap .rwgo-page-notices:empty {
+  display: none;
+}
+
+.rwgo-wrap .rwgo-alert,
+.rwgo-wrap .notice.rwgo-alert,
+.rwgo-wrap .rwgo-page-notices > .notice {
+  position: relative;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-left: 0;
+  border-radius: var(--rwgo-radius-lg);
+  box-shadow: var(--rwgo-shadow);
+  background: #fff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.rwgo-wrap .rwgo-alert p,
+.rwgo-wrap .notice.rwgo-alert p,
+.rwgo-wrap .rwgo-page-notices > .notice p {
+  margin: 0.35em 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.rwgo-wrap .rwgo-page-notices > .notice p:first-child,
+.rwgo-wrap .rwgo-alert p:first-child {
+  margin-top: 0;
+}
+
+.rwgo-wrap .rwgo-page-notices > .notice p:last-child,
+.rwgo-wrap .rwgo-alert p:last-child {
+  margin-bottom: 0;
+}
+
+.rwgo-wrap .rwgo-alert__title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.rwgo-wrap .rwgo-alert__text {
+  margin: 0;
+  color: #475569;
+}
+
+.rwgo-wrap .rwgo-alert__actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.rwgo-wrap .notice.notice-success,
+.rwgo-wrap .rwgo-alert--success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.rwgo-wrap .notice.notice-warning,
+.rwgo-wrap .rwgo-alert--warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.rwgo-wrap .notice.notice-error,
+.rwgo-wrap .rwgo-alert--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.rwgo-wrap .notice.notice-info,
+.rwgo-wrap .rwgo-alert--info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.rwgo-wrap .rwgo-page-notices .notice-dismiss,
+.rwgo-wrap .rwgo-alert .notice-dismiss {
+  top: 10px;
+  right: 10px;
 }
 
 .rwgo-create-form {
@@ -45,7 +175,7 @@
 }
 
 .rwgo-section__title {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   font-size: 16px;
   font-weight: 600;
   color: #0f172a;
@@ -230,20 +360,131 @@ select.rwgo-input {
 }
 
 /* -------------------------------------------------------------------------
-   Buttons
+   Buttons — shared system (overrides WP defaults inside .rwgo-wrap)
    ------------------------------------------------------------------------- */
-.rwgo-wrap .button.rwgo-btn-primary,
-.rwgo-wrap .button-primary.rwgo-btn-primary {
-  border-radius: 10px;
-  padding: 8px 18px;
-  min-height: 40px;
-  line-height: 1.3;
+.rwgo-wrap a.button,
+.rwgo-wrap button.button,
+.rwgo-wrap input.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--rwgo-btn-h);
+  padding: 0 var(--rwgo-btn-pad-x);
+  border-radius: var(--rwgo-radius-md);
+  line-height: 1;
+  font-weight: 500;
+  box-sizing: border-box;
+  vertical-align: middle;
+  text-decoration: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rwgo-wrap .button.button-primary,
+.rwgo-wrap .button-primary,
+.rwgo-wrap .rwgo-btn.rwgo-btn--primary,
+.rwgo-wrap a.rwgo-btn--primary.button,
+.rwgo-wrap .rwgo-btn-primary {
+  background: var(--rwgo-color-accent);
+  border: 1px solid var(--rwgo-color-accent);
+  color: #fff;
   box-shadow: none;
 }
 
-.rwgo-wrap .button:not(.button-primary) {
-  border-radius: 10px;
-  min-height: 38px;
+.rwgo-wrap .button.button-primary:hover,
+.rwgo-wrap .button-primary:hover,
+.rwgo-wrap .rwgo-btn--primary:hover,
+.rwgo-wrap .rwgo-btn-primary:hover {
+  background: var(--rwgo-color-accent-hover);
+  border-color: var(--rwgo-color-accent-hover);
+  color: #fff;
+}
+
+.rwgo-wrap .button.button-primary:focus,
+.rwgo-wrap .button-primary:focus,
+.rwgo-wrap .rwgo-btn--primary:focus,
+.rwgo-wrap .rwgo-btn-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #c4b5fd;
+}
+
+.rwgo-wrap .button:not(.button-primary):not(.button-link):not(.rwgo-btn--tertiary):not(.rwgo-btn--danger),
+.rwgo-wrap .button.button-secondary,
+.rwgo-wrap .rwgo-btn--secondary {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  box-shadow: none;
+}
+
+.rwgo-wrap .button:not(.button-primary):not(.button-link):not(.rwgo-btn--tertiary):not(.rwgo-btn--danger):hover,
+.rwgo-wrap .button.button-secondary:hover,
+.rwgo-wrap .rwgo-btn--secondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.rwgo-wrap .button:not(.button-primary):not(.button-link):not(.rwgo-btn--tertiary):not(.rwgo-btn--danger):focus,
+.rwgo-wrap .rwgo-btn--secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #cbd5e1;
+}
+
+.rwgo-wrap .rwgo-btn--tertiary {
+  min-height: auto;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--rwgo-color-accent);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rwgo-wrap .rwgo-btn--tertiary:hover {
+  color: var(--rwgo-color-accent-hover);
+  background: transparent;
+}
+
+.rwgo-wrap .button.rwgo-btn--danger,
+.rwgo-wrap .rwgo-btn--danger {
+  background: #fff;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.rwgo-wrap .button.rwgo-btn--danger:hover,
+.rwgo-wrap .rwgo-btn--danger:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+  color: #991b1b;
+}
+
+.rwgo-wrap .button.rwgo-btn--danger:focus,
+.rwgo-wrap .rwgo-btn--danger:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #fecaca;
+}
+
+.rwgo-wrap .rwgo-btn--sm,
+.rwgo-wrap .button.button-small {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--rwgo-radius-sm);
+  font-size: 13px;
+}
+
+.rwgo-wrap .button.button-large {
+  min-height: var(--rwgo-btn-h);
+  padding: 0 var(--rwgo-btn-pad-x);
+  border-radius: var(--rwgo-radius-md);
+  line-height: 1;
+}
+
+.rwgo-wrap .rwgo-btn--full {
+  width: 100%;
+  justify-content: center;
 }
 
 .rwgo-cta-row,
@@ -276,6 +517,7 @@ select.rwgo-input {
    Inner nav (top tabs)
    ------------------------------------------------------------------------- */
 .rwgo-inner-nav.rwgc-inner-nav {
+  margin-top: 0;
   margin-bottom: 20px;
   padding: 6px;
   background: #f1f5f9;
@@ -487,6 +729,10 @@ select.rwgo-input {
   border-color: #a7f3d0;
 }
 
+.rwgo-panel > .rwgo-license-status:last-child {
+  margin-bottom: 0;
+}
+
 .rwgo-license-status dl {
   margin: 0;
   display: grid;
@@ -577,11 +823,23 @@ select.rwgo-input {
 }
 
 .rwgo-panel {
-  border-radius: 16px;
+  border-radius: var(--rwgo-radius-lg);
   padding: 24px;
   border: var(--rwgo-border);
   box-shadow: var(--rwgo-shadow);
   background: #fff;
+}
+
+.rwgo-panel__header {
+  margin-bottom: 12px;
+}
+
+.rwgo-panel__body {
+  margin-top: 0;
+}
+
+.rwgo-panel__footer {
+  margin-top: 16px;
 }
 
 .rwgo-panel > h2:first-child,
@@ -631,7 +889,12 @@ select.rwgo-input {
   align-items: center;
 }
 
-.rwgo-actions--primary-secondary .button.button-primary {
+.rwgo-actions--compact {
+  gap: 8px;
+}
+
+.rwgo-actions--primary-secondary .button.button-primary,
+.rwgo-actions--primary-secondary .rwgo-btn--primary {
   order: -1;
 }
 
@@ -700,11 +963,19 @@ select.rwgo-input {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+}
+
+.rwgo-more-actions__secondary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  align-items: center;
 }
 
 .rwgo-more-actions__body .rwgo-inline-form {
-  display: block;
+  display: inline-flex;
+  margin: 0;
 }
 
 .rwgo-more-actions__body .rwgo-inline-form .button {
@@ -715,6 +986,10 @@ select.rwgo-input {
 @media (min-width: 600px) {
   .rwgo-more-actions__body .rwgo-inline-form .button {
     width: auto;
+  }
+
+  .rwgo-more-actions__secondary-row {
+    gap: 8px 12px;
   }
 }
 
@@ -767,6 +1042,17 @@ select.rwgo-input {
 .rwgo-setting-row__control label {
   display: block;
   line-height: 1.45;
+}
+
+.rwgo-setting-row__control .rwgo-checkbox-line {
+  align-items: center;
+  gap: 10px;
+}
+
+.rwgo-setting-row__control .rwgo-checkbox-line input[type="checkbox"],
+.rwgo-setting-row__control .rwgo-checkbox-line input[type="radio"] {
+  margin: 0;
+  flex-shrink: 0;
 }
 
 /* Test cards */
@@ -979,9 +1265,10 @@ select.rwgo-input {
   margin-bottom: 0;
 }
 
-/* License layout */
+/* License layout — full main column width (same rhythm as Dashboard / Tests) */
 .rwgo-license-layout {
-  max-width: 640px;
+  width: 100%;
+  max-width: none;
 }
 
 .rwgo-license-actions-bar {
@@ -992,7 +1279,8 @@ select.rwgo-input {
   margin-top: 8px;
 }
 
-.rwgo-license-actions-bar .button-primary {
+.rwgo-license-actions-bar .button-primary,
+.rwgo-license-actions-bar .rwgo-btn--primary {
   order: -1;
 }
 
@@ -1049,7 +1337,7 @@ select.rwgo-input {
 }
 
 .rwgo-wrap--settings {
-  max-width: 920px;
+  max-width: 1140px;
 }
 
 .rwgo-wrap--license .rwgo-license-layout {

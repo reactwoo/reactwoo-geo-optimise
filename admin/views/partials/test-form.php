@@ -97,10 +97,10 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 					?>
 					<p class="rwgo-cta-row">
 						<?php if ( is_string( $sel ) && $sel ) : ?>
-							<a class="button button-small" href="<?php echo esc_url( $sel ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+							<a class="button button-small rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $sel ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
 						<?php endif; ?>
 						<?php if ( is_string( $pl ) && $pl ) : ?>
-							<a class="button button-small" href="<?php echo esc_url( $pl ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View live', 'reactwoo-geo-optimise' ); ?></a>
+							<a class="button button-small rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $pl ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View live', 'reactwoo-geo-optimise' ); ?></a>
 						<?php endif; ?>
 					</p>
 				<?php else : ?>
@@ -142,7 +142,7 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 					?>
 					<p class="rwgo-cta-row">
 						<?php if ( is_string( $v_ed ) && $v_ed ) : ?>
-							<a class="button button-small" href="<?php echo esc_url( $v_ed ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+							<a class="button button-small rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $v_ed ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
 						<?php endif; ?>
 						<?php if ( is_string( $v_pl ) && $v_pl ) : ?>
 							<a class="button button-small" href="<?php echo esc_url( $v_pl ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View live', 'reactwoo-geo-optimise' ); ?></a>
@@ -277,8 +277,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		<?php if ( $rwgo_is_edit ) : ?>
 			<p class="rwgo-hint"><?php esc_html_e( 'Changes apply to future visits. Existing visitor assignments stay sticky unless you relink Variant B.', 'reactwoo-geo-optimise' ); ?></p>
 			<div class="rwgo-cta-row">
-				<?php submit_button( __( 'Save changes', 'reactwoo-geo-optimise' ), 'primary rwgo-btn-primary', 'submit', false ); ?>
-				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a>
+				<?php submit_button( __( 'Save changes', 'reactwoo-geo-optimise' ), 'primary', 'submit', false, array( 'class' => 'button button-primary rwgo-btn rwgo-btn--primary' ) ); ?>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a>
 				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports#exp-' . (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ) ); ?>"><?php esc_html_e( 'View report', 'reactwoo-geo-optimise' ); ?></a>
 			</div>
 		<?php else : ?>

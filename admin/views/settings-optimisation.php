@@ -109,7 +109,7 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 		</div>
 
 		<p class="rwgo-actions rwgo-actions--form-submit">
-			<?php submit_button( __( 'Save settings', 'reactwoo-geo-optimise' ), 'primary', 'submit', false ); ?>
+			<?php submit_button( __( 'Save settings', 'reactwoo-geo-optimise' ), 'primary', 'submit', false, array( 'class' => 'button button-primary rwgo-btn rwgo-btn--primary' ) ); ?>
 		</p>
 	</form>
 	</div>

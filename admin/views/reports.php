@@ -58,7 +58,7 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 	<?php if ( empty( $rwgo_experiments ) ) : ?>
 		<div class="rwgc-card">
 			<p><?php esc_html_e( 'No tests yet — create a test to see how variants perform on your primary goal.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 	<?php else : ?>
 		<?php

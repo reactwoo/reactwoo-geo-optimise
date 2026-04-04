@@ -123,7 +123,7 @@ $rwgo_form_mode = 'edit';
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Test not found', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'This test could not be loaded or you do not have permission to edit it.', 'reactwoo-geo-optimise' ); ?></p>
-			<p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a></p>
+			<p><a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 	<?php else : ?>
 
@@ -168,10 +168,10 @@ $rwgo_form_mode = 'edit';
 					$ve = get_edit_post_link( $var_b_id );
 					?>
 					<?php if ( is_string( $ce ) && $ce ) : ?>
-						<a class="button button-primary" href="<?php echo esc_url( $ce ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ce ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
 					<?php if ( is_string( $ve ) && $ve ) : ?>
-						<a class="button button-primary" href="<?php echo esc_url( $ve ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ve ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
 				</p>
 			<?php endif; ?>
@@ -184,7 +184,7 @@ $rwgo_form_mode = 'edit';
 			<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $rwgo_exp_id ); ?>" />
 			<?php wp_nonce_field( 'rwgo_duplicate_test' ); ?>
 			<p class="rwgo-hint"><?php esc_html_e( 'Need a different structure or source? Duplicate creates a new test draft.', 'reactwoo-geo-optimise' ); ?></p>
-			<button type="submit" class="button"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
+			<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
 		</form>
 	<?php endif; ?>
 </div>

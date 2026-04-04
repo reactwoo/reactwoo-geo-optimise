@@ -75,8 +75,8 @@ $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total :
 				<li><span class="rwgo-step-num" aria-hidden="true">4</span> <?php esc_html_e( 'View results', 'reactwoo-geo-optimise' ); ?></li>
 			</ol>
 			<p class="rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
-				<a class="button button-primary button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
-				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'View reports', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button button-primary button-large rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'View reports', 'reactwoo-geo-optimise' ); ?></a>
 			</p>
 		</div>
 	<?php else : ?>
@@ -88,8 +88,8 @@ $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total :
 				<li><?php esc_html_e( 'Use Tracking Tools only when you need GA4, GTM, or a data layer — not required for basic tests.', 'reactwoo-geo-optimise' ); ?></li>
 			</ol>
 			<p class="rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
-				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
-				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'View tests', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'View tests', 'reactwoo-geo-optimise' ); ?></a>
 			</p>
 		</div>
 	<?php endif; ?>
@@ -104,8 +104,8 @@ $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total :
 			);
 		?></p>
 		<p class="rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'View tests', 'reactwoo-geo-optimise' ); ?></a>
-			<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'View reports', 'reactwoo-geo-optimise' ); ?></a>
+			<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'View tests', 'reactwoo-geo-optimise' ); ?></a>
+			<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'View reports', 'reactwoo-geo-optimise' ); ?></a>
 		</p>
 	</div>
 	</div>

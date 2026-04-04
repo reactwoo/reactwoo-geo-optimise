@@ -36,7 +36,7 @@ $rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) 
 		<div class="rwgo-panel rwgo-panel--compact">
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Create and publish a test first — snippets are generated for each goal and measurement point.', 'reactwoo-geo-optimise' ); ?></p>
 			<p class="rwgo-actions">
-				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
 			</p>
 		</div>
 	<?php else : ?>

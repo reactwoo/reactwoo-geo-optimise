@@ -93,10 +93,11 @@ $rwgo_status_pill_class = static function ( $st ) {
 
 	<div class="rwgo-stack">
 	<?php if ( ! empty( $_GET['rwgo_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-		<div class="notice notice-success is-dismissible rwgo-notice rwgo-panel rwgo-panel--compact">
-			<p><strong><?php esc_html_e( 'Test published successfully.', 'reactwoo-geo-optimise' ); ?></strong>
+		<div class="rwgo-page-notices">
+		<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success">
+			<p class="rwgo-alert__text"><strong><?php esc_html_e( 'Test published successfully.', 'reactwoo-geo-optimise' ); ?></strong>
 			<?php esc_html_e( 'Control and Variant B are ready. Open Edit Test to review targeting and goals.', 'reactwoo-geo-optimise' ); ?></p>
-			<p class="rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
+			<div class="rwgo-alert__actions rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
 				<?php
 				$c_edit = $rwgo_control_id > 0 ? get_edit_post_link( $rwgo_control_id ) : false;
 				$v_edit = $rwgo_var_b_id > 0 ? get_edit_post_link( $rwgo_var_b_id ) : false;
@@ -104,23 +105,28 @@ $rwgo_status_pill_class = static function ( $st ) {
 				$edit_t = $rwgo_created_id > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::edit_test_url( $rwgo_created_id ) : '';
 				?>
 				<?php if ( $edit_t ) : ?>
-					<a class="button button-primary" href="<?php echo esc_url( $edit_t ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
+					<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $edit_t ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
 				<?php endif; ?>
 				<?php if ( is_string( $c_edit ) && $c_edit ) : ?>
-					<a class="button" href="<?php echo esc_url( $c_edit ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+					<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $c_edit ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
 				<?php endif; ?>
 				<?php if ( is_string( $v_edit ) && $v_edit ) : ?>
-					<a class="button" href="<?php echo esc_url( $v_edit ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+					<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $v_edit ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
 				<?php endif; ?>
-				<a class="button" href="<?php echo esc_url( $exp_h ); ?>"><?php esc_html_e( 'View report', 'reactwoo-geo-optimise' ); ?></a>
-			</p>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $exp_h ); ?>"><?php esc_html_e( 'View report', 'reactwoo-geo-optimise' ); ?></a>
+			</div>
+		</div>
 		</div>
 	<?php endif; ?>
 	<?php if ( ! empty( $_GET['rwgo_updated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Test status updated.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Test status updated.', 'reactwoo-geo-optimise' ); ?></p></div>
+		</div>
 	<?php endif; ?>
 	<?php if ( ! empty( $_GET['rwgo_duplicated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Test duplicated as a draft.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Test duplicated as a draft.', 'reactwoo-geo-optimise' ); ?></p></div>
+		</div>
 	<?php endif; ?>
 
 	<?php if ( empty( $rwgo_experiments ) ) : ?>
@@ -211,7 +217,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 						<span class="rwgo-version-row__label"><?php esc_html_e( 'Control (A)', 'reactwoo-geo-optimise' ); ?></span>
 						<span class="rwgo-version-row__page"><?php echo $src > 0 ? esc_html( $src_title ) : '—'; ?></span>
 						<?php if ( is_string( $c_edit ) && $c_edit ) : ?>
-							<a class="button button-small" href="<?php echo esc_url( $c_edit ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+							<a class="button button-small rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $c_edit ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
 						<?php endif; ?>
 					</div>
 					<div class="rwgo-version-row">
@@ -226,9 +232,9 @@ $rwgo_status_pill_class = static function ( $st ) {
 
 			<div class="rwgo-test-card__actions rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile">
 				<?php if ( '' !== $edit_url ) : ?>
-					<a class="button button-primary" href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
+					<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
 				<?php endif; ?>
-				<a class="button" href="<?php echo esc_url( $report_u ); ?>"><?php esc_html_e( 'View Report', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $report_u ); ?>"><?php esc_html_e( 'View Report', 'reactwoo-geo-optimise' ); ?></a>
 			</div>
 
 			<details class="rwgo-more-actions">
@@ -245,19 +251,20 @@ $rwgo_status_pill_class = static function ( $st ) {
 							<a href="<?php echo esc_url( get_permalink( $var_b_id ) ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View Variant B live', 'reactwoo-geo-optimise' ); ?></a>
 						<?php endif; ?>
 					</p>
+					<div class="rwgo-more-actions__secondary-row">
 					<?php if ( 'active' === $st ) : ?>
 						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
 							<input type="hidden" name="action" value="rwgo_pause_test" />
 							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
 							<?php wp_nonce_field( 'rwgo_pause_test' ); ?>
-							<button type="submit" class="button"><?php esc_html_e( 'Pause Test', 'reactwoo-geo-optimise' ); ?></button>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'Pause Test', 'reactwoo-geo-optimise' ); ?></button>
 						</form>
 					<?php elseif ( 'paused' === $st ) : ?>
 						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
 							<input type="hidden" name="action" value="rwgo_resume_test" />
 							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
 							<?php wp_nonce_field( 'rwgo_resume_test' ); ?>
-							<button type="submit" class="button"><?php esc_html_e( 'Resume Test', 'reactwoo-geo-optimise' ); ?></button>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'Resume Test', 'reactwoo-geo-optimise' ); ?></button>
 						</form>
 					<?php endif; ?>
 					<?php if ( 'completed' !== $st ) : ?>
@@ -265,15 +272,16 @@ $rwgo_status_pill_class = static function ( $st ) {
 							<input type="hidden" name="action" value="rwgo_end_test" />
 							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
 							<?php wp_nonce_field( 'rwgo_end_test' ); ?>
-							<button type="submit" class="button"><?php esc_html_e( 'End Test', 'reactwoo-geo-optimise' ); ?></button>
+							<button type="submit" class="button rwgo-btn rwgo-btn--danger rwgo-btn--sm"><?php esc_html_e( 'End Test', 'reactwoo-geo-optimise' ); ?></button>
 						</form>
 					<?php endif; ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
 						<input type="hidden" name="action" value="rwgo_duplicate_test" />
 						<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
 						<?php wp_nonce_field( 'rwgo_duplicate_test' ); ?>
-						<button type="submit" class="button"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
+						<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
 					</form>
+					</div>
 				</div>
 			</details>
 		</article>

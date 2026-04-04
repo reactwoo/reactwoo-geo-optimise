@@ -33,17 +33,21 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php if ( ! empty( $_GET['rwgo_disconnected'] ) || isset( $_GET['rwgo_license_test'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+	<div class="rwgo-page-notices">
 	<?php if ( ! empty( $_GET['rwgo_disconnected'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-		<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'License key removed from this site.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'License key removed from this site.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>
 	<?php if ( isset( $_GET['rwgo_license_test'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php if ( '1' === (string) $_GET['rwgo_license_test'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Connection OK — license validated with the ReactWoo API.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Connection OK — license validated with the ReactWoo API.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( '0' === (string) $_GET['rwgo_license_test'] ) : ?>
-			<div class="notice notice-error is-dismissible rwgo-notice"><p><?php esc_html_e( 'Could not validate the license. Check the key, API base, and network, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<div class="notice notice-error is-dismissible rwgo-alert rwgo-alert--danger"><p class="rwgo-alert__text"><?php esc_html_e( 'Could not validate the license. Check the key, API base, and network, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( 'na' === (string) $_GET['rwgo_license_test'] ) : ?>
-			<div class="notice notice-warning is-dismissible rwgo-notice"><p><?php esc_html_e( 'Geo Core platform client is not available — validation could not run.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<div class="notice notice-warning is-dismissible rwgo-alert rwgo-alert--warning"><p class="rwgo-alert__text"><?php esc_html_e( 'Geo Core platform client is not available — validation could not run.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
+	<?php endif; ?>
+	</div>
 	<?php endif; ?>
 
 	<div class="rwgo-stack rwgo-license-layout">
@@ -101,7 +105,7 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-license-test-form">
 							<input type="hidden" name="action" value="rwgo_test_license" />
 							<?php wp_nonce_field( 'rwgo_test_license' ); ?>
-							<button type="submit" class="button"><?php esc_html_e( 'Test connection', 'reactwoo-geo-optimise' ); ?></button>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Test connection', 'reactwoo-geo-optimise' ); ?></button>
 						</form>
 						<span class="rwgo-license-actions-bar__hint"><?php esc_html_e( 'Validates that the saved key can obtain an API token.', 'reactwoo-geo-optimise' ); ?></span>
 					<?php endif; ?>
