@@ -46,15 +46,13 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 		<?php endif; ?>
 	<?php endif; ?>
 
-	<div class="rwgc-grid" style="align-items: flex-start;">
-		<div class="rwgc-card" style="max-width: 560px;">
-			<h2><?php esc_html_e( 'Product license', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="description"><?php esc_html_e( 'Your license is connected and stored on this site when a key is saved. Leave the field blank to keep the current key.', 'reactwoo-geo-optimise' ); ?></p>
-
+	<div class="rwgo-stack rwgo-license-layout">
+		<div class="rwgo-panel rwgo-panel--compact">
+			<h2 class="rwgo-section__title"><?php esc_html_e( 'License status', 'reactwoo-geo-optimise' ); ?></h2>
 			<div class="rwgo-license-status <?php echo $lic_ok ? 'is-ok' : ''; ?>">
 				<dl>
 					<dt><?php esc_html_e( 'Status', 'reactwoo-geo-optimise' ); ?></dt>
-					<dd><?php echo $lic_ok ? esc_html__( 'License active — key on file', 'reactwoo-geo-optimise' ) : esc_html__( 'No active license saved', 'reactwoo-geo-optimise' ); ?></dd>
+					<dd><?php echo $lic_ok ? esc_html__( 'Connected — key saved on this site', 'reactwoo-geo-optimise' ) : esc_html__( 'No active license saved', 'reactwoo-geo-optimise' ); ?></dd>
 					<?php if ( $last_time ) : ?>
 						<dt><?php esc_html_e( 'Last validation', 'reactwoo-geo-optimise' ); ?></dt>
 						<dd>
@@ -69,38 +67,47 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 					<?php endif; ?>
 				</dl>
 			</div>
-
-			<form method="post" action="options.php" class="rwgo-license-form">
-				<?php settings_fields( 'rwgo_license_group' ); ?>
-				<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="license" />
-				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><label for="rwgo_reactwoo_license_key"><?php esc_html_e( 'License key', 'reactwoo-geo-optimise' ); ?></label></th>
-						<td>
-							<input type="password" id="rwgo_reactwoo_license_key" name="<?php echo esc_attr( $option_key ); ?>[reactwoo_license_key]" value="" class="regular-text rwgo-input" autocomplete="off" placeholder="<?php echo esc_attr__( 'Enter new key or leave blank to keep current', 'reactwoo-geo-optimise' ); ?>" />
-							<p class="description"><?php esc_html_e( 'Leave blank to keep the saved key.', 'reactwoo-geo-optimise' ); ?></p>
-						</td>
-					</tr>
-				</table>
-				<?php submit_button( __( 'Save license', 'reactwoo-geo-optimise' ), 'primary', 'submit', false ); ?>
-			</form>
-
-			<?php if ( $lic_ok && class_exists( 'RWGC_Platform_Client', false ) ) : ?>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-license-test-form">
-					<input type="hidden" name="action" value="rwgo_test_license" />
-					<?php wp_nonce_field( 'rwgo_test_license' ); ?>
-					<p class="rwgo-cta-row">
-						<button type="submit" class="button"><?php esc_html_e( 'Test connection', 'reactwoo-geo-optimise' ); ?></button>
-						<span class="rwgo-hint"><?php esc_html_e( 'Checks that your saved key can obtain an API token.', 'reactwoo-geo-optimise' ); ?></span>
-					</p>
-				</form>
-			<?php endif; ?>
-
-			<?php if ( $lic_ok ) : ?>
-				<p class="rwgo-license-actions">
-					<a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rwgo-license&rwgo_action=clear_license' ), 'rwgo_clear_license' ) ); ?>" onclick="return window.confirm(<?php echo esc_js( __( 'Remove the license key from this site?', 'reactwoo-geo-optimise' ) ); ?>);"><?php esc_html_e( 'Disconnect', 'reactwoo-geo-optimise' ); ?></a>
-				</p>
-			<?php endif; ?>
 		</div>
+
+		<form method="post" action="options.php" class="rwgo-panel">
+			<?php settings_fields( 'rwgo_license_group' ); ?>
+			<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="license" />
+
+			<h2 class="rwgo-section__title"><?php esc_html_e( 'License key', 'reactwoo-geo-optimise' ); ?></h2>
+			<p class="rwgo-section__lead"><?php esc_html_e( 'Your license is connected and stored on this site when a key is saved. Leave the field blank to keep the current key.', 'reactwoo-geo-optimise' ); ?></p>
+
+			<div class="rwgo-setting-rows">
+				<div class="rwgo-setting-row">
+					<div class="rwgo-setting-row__label">
+						<label for="rwgo_reactwoo_license_key"><?php esc_html_e( 'Key', 'reactwoo-geo-optimise' ); ?></label>
+					</div>
+					<div class="rwgo-setting-row__control">
+						<input type="password" id="rwgo_reactwoo_license_key" name="<?php echo esc_attr( $option_key ); ?>[reactwoo_license_key]" value="" class="regular-text rwgo-input" autocomplete="off" placeholder="<?php echo esc_attr__( 'Enter new key or leave blank to keep current', 'reactwoo-geo-optimise' ); ?>" />
+						<p class="rwgo-setting-row__hint"><?php esc_html_e( 'Leave blank to keep the saved key.', 'reactwoo-geo-optimise' ); ?></p>
+					</div>
+				</div>
+			</div>
+
+			<div class="rwgo-license-actions-bar">
+				<?php submit_button( __( 'Save license', 'reactwoo-geo-optimise' ), 'primary', 'submit', false ); ?>
+			</div>
+		</form>
+
+		<?php if ( $lic_ok ) : ?>
+			<div class="rwgo-panel rwgo-panel--compact rwgo-license-actions-panel">
+				<h2 class="screen-reader-text"><?php esc_html_e( 'More license actions', 'reactwoo-geo-optimise' ); ?></h2>
+				<div class="rwgo-license-actions-bar">
+					<?php if ( class_exists( 'RWGC_Platform_Client', false ) ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-license-test-form">
+							<input type="hidden" name="action" value="rwgo_test_license" />
+							<?php wp_nonce_field( 'rwgo_test_license' ); ?>
+							<button type="submit" class="button"><?php esc_html_e( 'Test connection', 'reactwoo-geo-optimise' ); ?></button>
+						</form>
+						<span class="rwgo-license-actions-bar__hint"><?php esc_html_e( 'Validates that the saved key can obtain an API token.', 'reactwoo-geo-optimise' ); ?></span>
+					<?php endif; ?>
+					<a class="rwgo-link-destructive" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rwgo-license&rwgo_action=clear_license' ), 'rwgo_clear_license' ) ); ?>" onclick="return window.confirm(<?php echo esc_js( __( 'Remove the license key from this site?', 'reactwoo-geo-optimise' ) ); ?>);"><?php esc_html_e( 'Disconnect', 'reactwoo-geo-optimise' ); ?></a>
+				</div>
+			</div>
+		<?php endif; ?>
 	</div>
 </div>
