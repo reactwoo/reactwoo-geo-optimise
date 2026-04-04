@@ -46,7 +46,7 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 		<?php
 		RWGC_Admin_UI::render_page_header(
 			__( 'Reports', 'reactwoo-geo-optimise' ),
-			__( 'Primary goal conversion rates and traffic split — not raw engineering counters.', 'reactwoo-geo-optimise' )
+			__( 'See which variant is leading on your primary goal — technical metrics stay secondary.', 'reactwoo-geo-optimise' )
 		);
 		?>
 	<?php else : ?>
@@ -113,10 +113,13 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 			?>
 			<div class="rwgc-card rwgc-card--full" id="<?php echo esc_attr( 'exp-' . (int) $exp_post->ID ); ?>">
 				<h2><?php echo esc_html( get_the_title( $exp_post ) ); ?></h2>
-				<p><strong><?php esc_html_e( 'Summary', 'reactwoo-geo-optimise' ); ?></strong> — <?php echo esc_html( $summary ); ?></p>
+				<div class="rwgo-report-summary">
+					<p class="rwgo-report-summary__goal"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></p>
+					<p class="rwgo-report-summary__headline"><?php echo esc_html( $primary_label ? $primary_label : '—' ); ?></p>
+					<p class="rwgo-report-summary__meta"><?php echo esc_html( $summary ); ?></p>
+				</div>
 				<ul class="rwgo-report-meta">
 					<li><?php esc_html_e( 'Status:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $st ); ?></li>
-					<li><?php esc_html_e( 'Primary goal:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $primary_label ); ?></li>
 					<li><?php esc_html_e( 'Visitors assigned (total):', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( (string) $total_assign ); ?></li>
 				</ul>
 				<?php if ( ! $assignment_only && ! empty( $variants_rows ) ) : ?>

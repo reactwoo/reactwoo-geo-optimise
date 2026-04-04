@@ -20,7 +20,7 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 		<?php
 		RWGC_Admin_UI::render_page_header(
 			__( 'Settings', 'reactwoo-geo-optimise' ),
-			__( 'How the plugin detects builders and attaches goals — tuned for your site, without exposing raw jargon in the test wizard.', 'reactwoo-geo-optimise' )
+			__( 'These settings control how Geo Optimise behaves by default across your site.', 'reactwoo-geo-optimise' )
 		);
 		?>
 	<?php else : ?>
@@ -29,12 +29,12 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
-	<form method="post" action="options.php" class="rwgc-card">
+	<form method="post" action="options.php" class="rwgc-card rwgo-card">
 		<?php settings_fields( 'rwgo_license_group' ); ?>
 		<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="optimisation" />
 
 		<h2><?php esc_html_e( 'Builder & detection', 'reactwoo-geo-optimise' ); ?></h2>
-		<p class="description"><?php esc_html_e( 'These presets control how we infer Elementor, blocks, and WooCommerce context. Technical details stay under Developer.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Default site-wide preferences for how we infer Elementor, blocks, and WooCommerce context. Technical details stay under Developer.', 'reactwoo-geo-optimise' ); ?></p>
 
 		<table class="form-table" role="presentation">
 			<tr>
@@ -86,12 +86,12 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 				</td>
 			</tr>
 			<tr>
-				<th scope="row"><?php esc_html_e( 'Publishing', 'reactwoo-geo-optimise' ); ?></th>
+				<th scope="row"><?php esc_html_e( 'Publish confirmation', 'reactwoo-geo-optimise' ); ?></th>
 				<td>
 					<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[require_goal_confirm_publish]" value="0" />
 					<label>
 						<input type="checkbox" name="<?php echo esc_attr( $option_key ); ?>[require_goal_confirm_publish]" value="1" <?php checked( ! empty( $settings['require_goal_confirm_publish'] ) ); ?> />
-						<?php esc_html_e( 'Require a confirmation checkbox on Create Test before a test can be published.', 'reactwoo-geo-optimise' ); ?>
+						<?php esc_html_e( 'Require an extra confirmation step before a test can be published.', 'reactwoo-geo-optimise' ); ?>
 					</label>
 				</td>
 			</tr>
@@ -101,7 +101,7 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 					<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[strict_binding_mode]" value="0" />
 					<label>
 						<input type="checkbox" name="<?php echo esc_attr( $option_key ); ?>[strict_binding_mode]" value="1" <?php checked( ! empty( $settings['strict_binding_mode'] ) ); ?> />
-						<?php esc_html_e( 'Prefer explicit selectors and fingerprints over loose matches (advanced).', 'reactwoo-geo-optimise' ); ?>
+						<?php esc_html_e( 'Prefer explicit CSS selectors and element fingerprints over loose matches. Useful for strict tag setups; can require more markup work.', 'reactwoo-geo-optimise' ); ?>
 					</label>
 				</td>
 			</tr>

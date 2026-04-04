@@ -56,6 +56,16 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * Edit Test screen (managed experiment post).
+	 *
+	 * @param int $experiment_id Experiment CPT post ID.
+	 * @return string
+	 */
+	public static function edit_test_url( $experiment_id ) {
+		return admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . absint( $experiment_id ) );
+	}
+
+	/**
 	 * Primitive capability for add_menu_page / add_submenu_page (matches Geo Elementor: admins + WooCommerce shop managers).
 	 *
 	 * @return string
@@ -90,8 +100,10 @@ class RWGO_Admin {
 	public static function init() {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_legacy_tools' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 26 );
+		add_action( 'admin_menu', array( __CLASS__, 'hide_edit_test_submenu' ), 999 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 		add_action( 'admin_init', array( __CLASS__, 'handle_license_actions' ) );
+		add_action( 'admin_post_rwgo_test_license', array( __CLASS__, 'handle_test_license' ) );
 		add_action( 'admin_post_rwgo_reset_counts', array( __CLASS__, 'handle_reset_counts' ) );
 		add_action( 'admin_post_rwgo_export_stats', array( __CLASS__, 'handle_export_stats' ) );
 		add_action( 'admin_post_rwgo_pause_test', array( __CLASS__, 'handle_pause_test' ) );
@@ -239,7 +251,7 @@ class RWGO_Admin {
 			'rwgo-settings'       => __( 'Settings', 'reactwoo-geo-optimise' ),
 			'rwgo-license'        => __( 'License', 'reactwoo-geo-optimise' ),
 		);
-		echo '<nav class="rwgc-inner-nav" aria-label="' . esc_attr__( 'Geo Optimise section navigation', 'reactwoo-geo-optimise' ) . '">';
+		echo '<nav class="rwgc-inner-nav rwgo-inner-nav" aria-label="' . esc_attr__( 'Geo Optimise section navigation', 'reactwoo-geo-optimise' ) . '">';
 		foreach ( $items as $slug => $label ) {
 			$class = 'rwgc-inner-nav__link' . ( $slug === $current ? ' is-active' : '' );
 			echo '<a class="' . esc_attr( $class ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . $slug ) ) . '">' . esc_html( $label ) . '</a>';
@@ -455,6 +467,50 @@ class RWGO_Admin {
 			'rwgo-license',
 			array( __CLASS__, 'render_license' )
 		);
+
+		add_submenu_page(
+			self::MENU_PARENT,
+			__( 'Edit Test', 'reactwoo-geo-optimise' ),
+			' ',
+			$cap,
+			'rwgo-edit-test',
+			array( __CLASS__, 'render_edit_test' )
+		);
+	}
+
+	/**
+	 * Hide Edit Test from the left admin submenu (reachable via Tests list and direct URL).
+	 *
+	 * @return void
+	 */
+	public static function hide_edit_test_submenu() {
+		remove_submenu_page( self::MENU_PARENT, 'rwgo-edit-test' );
+	}
+
+	/**
+	 * Try JWT login against ReactWoo API (validates stored license key).
+	 *
+	 * @return void
+	 */
+	public static function handle_test_license() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_test_license' );
+		if ( class_exists( 'RWGC_Platform_Client', false ) ) {
+			RWGC_Platform_Client::clear_token_cache();
+			$tok = RWGC_Platform_Client::get_access_token();
+			if ( is_wp_error( $tok ) ) {
+				update_option( 'rwgo_license_last_check', array( 'ok' => false, 'time' => gmdate( 'c' ), 'error' => $tok->get_error_message() ), false );
+				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=0' ) );
+				exit;
+			}
+			update_option( 'rwgo_license_last_check', array( 'ok' => true, 'time' => gmdate( 'c' ) ), false );
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=1' ) );
+			exit;
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=na' ) );
+		exit;
 	}
 
 	/**
@@ -532,6 +588,23 @@ class RWGO_Admin {
 		}
 		$rwgc_nav_current = 'rwgo-create-test';
 		include RWGO_PATH . 'admin/views/wizard-create-test.php';
+	}
+
+	/**
+	 * Edit Test — update settings for a managed experiment.
+	 *
+	 * @return void
+	 */
+	public static function render_edit_test() {
+		if ( ! self::can_manage() ) {
+			return;
+		}
+		$data = self::get_view_data();
+		foreach ( $data as $k => $v ) {
+			${$k} = $v;
+		}
+		$rwgc_nav_current = 'rwgo-tests';
+		include RWGO_PATH . 'admin/views/edit-test.php';
 	}
 
 	/**

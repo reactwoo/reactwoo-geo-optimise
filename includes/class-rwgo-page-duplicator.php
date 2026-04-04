@@ -63,6 +63,49 @@ class RWGO_Page_Duplicator {
 	}
 
 	/**
+	 * Empty draft for Variant B (same post type as source); user edits after publish.
+	 *
+	 * @param int    $post_id    Source post ID.
+	 * @param string $test_title Experiment title (for draft name).
+	 * @return int|\WP_Error New post ID.
+	 */
+	public static function create_blank_variant( $post_id, $test_title = '' ) {
+		$post_id = (int) $post_id;
+		$post    = get_post( $post_id );
+		if ( ! $post instanceof \WP_Post ) {
+			return new \WP_Error( 'rwgo_blank_missing', __( 'Source page not found.', 'reactwoo-geo-optimise' ) );
+		}
+		$test_title = is_string( $test_title ) ? trim( $test_title ) : '';
+		$suffix     = '' !== $test_title ? $test_title : __( 'Test', 'reactwoo-geo-optimise' );
+		$new_post   = array(
+			'post_title'   => sprintf(
+				/* translators: %s: test name */
+				__( 'Variant B — %s', 'reactwoo-geo-optimise' ),
+				$suffix
+			),
+			'post_content' => '',
+			'post_excerpt' => '',
+			'post_status'  => 'draft',
+			'post_type'    => $post->post_type,
+			'post_author'  => get_current_user_id() ? get_current_user_id() : (int) $post->post_author,
+			'post_name'    => '',
+		);
+		$new_id = wp_insert_post( wp_slash( $new_post ), true );
+		if ( is_wp_error( $new_id ) ) {
+			return $new_id;
+		}
+		$new_id = (int) $new_id;
+		/**
+		 * After a blank variant placeholder is created.
+		 *
+		 * @param int $new_id    New post ID.
+		 * @param int $source_id Source post ID.
+		 */
+		do_action( 'rwgo_blank_variant_created', $new_id, $post_id );
+		return $new_id;
+	}
+
+	/**
 	 * @param int $source_id Source post ID.
 	 * @param int $dest_id Destination post ID.
 	 * @return void

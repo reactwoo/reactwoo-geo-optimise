@@ -26,10 +26,12 @@ $rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) 
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
-	<p class="description">
-		<?php esc_html_e( 'Need PHP hooks, raw counters, or CSV export?', 'reactwoo-geo-optimise' ); ?>
-		<a href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a>
-	</p>
+	<div class="rwgo-orient rwgo-card">
+		<h2><?php esc_html_e( 'Optional — you usually do not need this', 'reactwoo-geo-optimise' ); ?></h2>
+		<p><?php esc_html_e( 'You do not need Tracking Tools to run a basic page test. Use this area when you are connecting Google Tag Manager, GA4, or a data layer to validate or extend measurement.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="rwgo-hint"><?php esc_html_e( 'Need PHP hooks, raw counters, or CSV export?', 'reactwoo-geo-optimise' ); ?>
+			<a href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a></p>
+	</div>
 
 	<div class="rwgo-tools-tab-panel" role="region">
 		<?php include RWGO_PATH . 'admin/views/partials/tools-section-tracking.php'; ?>

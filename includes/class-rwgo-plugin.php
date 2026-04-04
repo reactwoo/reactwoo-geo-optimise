@@ -63,6 +63,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-woocommerce-goals.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-duplicator.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-admin-content-catalog.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';

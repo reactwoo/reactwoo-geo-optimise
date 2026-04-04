@@ -38,6 +38,11 @@ $tabs = array(
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<div class="rwgo-orient rwgo-card">
+		<h2><?php esc_html_e( 'Who this is for', 'reactwoo-geo-optimise' ); ?></h2>
+		<p><?php esc_html_e( 'Developers, agencies wiring custom themes, and support staff debugging integrations. Normal page tests created in wp-admin do not require this section.', 'reactwoo-geo-optimise' ); ?></p>
+	</div>
+
 	<h2 class="nav-tab-wrapper rwgo-tools-nav" role="tablist">
 		<?php foreach ( $tabs as $slug => $label ) : ?>
 			<a href="<?php echo esc_url( RWGO_Admin::developer_url( $slug ) ); ?>"
