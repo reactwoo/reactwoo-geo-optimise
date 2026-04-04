@@ -22,6 +22,21 @@ class RWGO_Settings {
 	public static function init() {
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'update_option_' . self::OPTION_KEY, array( __CLASS__, 'maybe_clear_jwt_on_change' ), 10, 2 );
+		// options.php defaults to manage_options; allow same caps as RWGO_Admin::required_capability() (e.g. shop managers).
+		add_filter( 'option_page_capability_rwgo_license_group', array( __CLASS__, 'filter_option_page_capability' ) );
+	}
+
+	/**
+	 * Settings API / options.php capability for rwgo_license_group (must match add_menu_page cap).
+	 *
+	 * @param string $cap Default manage_options.
+	 * @return string
+	 */
+	public static function filter_option_page_capability( $cap ) {
+		if ( class_exists( 'RWGO_Admin', false ) ) {
+			return RWGO_Admin::required_capability();
+		}
+		return $cap;
 	}
 
 	/**
@@ -93,6 +108,10 @@ class RWGO_Settings {
 	 * @return void
 	 */
 	public static function register_settings() {
+		$cap = 'manage_options';
+		if ( class_exists( 'RWGO_Admin', false ) ) {
+			$cap = RWGO_Admin::required_capability();
+		}
 		register_setting(
 			'rwgo_license_group',
 			self::OPTION_KEY,
@@ -100,6 +119,7 @@ class RWGO_Settings {
 				'type'              => 'array',
 				'sanitize_callback' => array( __CLASS__, 'sanitize_settings' ),
 				'default'           => self::get_defaults(),
+				'capability'        => $cap,
 			)
 		);
 	}
