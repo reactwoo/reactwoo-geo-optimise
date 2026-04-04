@@ -27,7 +27,7 @@ class RWGO_Admin_Wizard {
 	 * @return void
 	 */
 	public static function handle_create_test() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_create_test' );

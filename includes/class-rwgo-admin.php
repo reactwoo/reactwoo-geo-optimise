@@ -56,6 +56,35 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * Primitive capability for add_menu_page / add_submenu_page (matches Geo Elementor: admins + WooCommerce shop managers).
+	 *
+	 * @return string
+	 */
+	public static function required_capability() {
+		$default_cap = 'manage_options';
+		if ( ! current_user_can( 'manage_options' ) && current_user_can( 'manage_woocommerce' ) ) {
+			$default_cap = 'manage_woocommerce';
+		}
+		$capability = apply_filters( 'rwgo_required_capability', $default_cap );
+		if ( ! is_string( $capability ) || '' === $capability ) {
+			$capability = $default_cap;
+		}
+		if ( ! current_user_can( $capability ) && current_user_can( 'manage_options' ) ) {
+			$capability = 'manage_options';
+		}
+		return $capability;
+	}
+
+	/**
+	 * Whether the current user may use Geo Optimise wp-admin screens and actions.
+	 *
+	 * @return bool
+	 */
+	public static function can_manage() {
+		return current_user_can( self::required_capability() );
+	}
+
+	/**
 	 * @return void
 	 */
 	public static function init() {
@@ -147,7 +176,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_geo_core_summary_card() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -224,7 +253,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_suite_handoff_panel() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		if ( ! function_exists( 'rwgc_get_suite_handoff_request_context' ) ) {
@@ -334,10 +363,12 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function register_menu() {
+		$cap = self::required_capability();
+
 		add_menu_page(
 			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
 			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			self::MENU_PARENT,
 			array( __CLASS__, 'render_dashboard' ),
 			'dashicons-chart-line',
@@ -348,7 +379,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Dashboard', 'reactwoo-geo-optimise' ),
 			__( 'Dashboard', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			self::MENU_PARENT,
 			array( __CLASS__, 'render_dashboard' )
 		);
@@ -357,7 +388,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-create-test',
 			array( __CLASS__, 'render_create_test' )
 		);
@@ -366,7 +397,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Tests', 'reactwoo-geo-optimise' ),
 			__( 'Tests', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-tests',
 			array( __CLASS__, 'render_tests' )
 		);
@@ -375,7 +406,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Reports', 'reactwoo-geo-optimise' ),
 			__( 'Reports', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-reports',
 			array( __CLASS__, 'render_reports' )
 		);
@@ -384,7 +415,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-tracking-tools',
 			array( __CLASS__, 'render_tracking_tools' )
 		);
@@ -393,7 +424,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Developer', 'reactwoo-geo-optimise' ),
 			__( 'Developer', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-developer',
 			array( __CLASS__, 'render_developer' )
 		);
@@ -402,7 +433,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Geo Optimise — Help', 'reactwoo-geo-optimise' ),
 			__( 'Help', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-help',
 			array( __CLASS__, 'render_help' )
 		);
@@ -411,7 +442,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Geo Optimise — Settings', 'reactwoo-geo-optimise' ),
 			__( 'Settings', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-settings',
 			array( __CLASS__, 'render_settings' )
 		);
@@ -420,7 +451,7 @@ class RWGO_Admin {
 			self::MENU_PARENT,
 			__( 'Geo Optimise — License', 'reactwoo-geo-optimise' ),
 			__( 'License', 'reactwoo-geo-optimise' ),
-			'manage_options',
+			$cap,
 			'rwgo-license',
 			array( __CLASS__, 'render_license' )
 		);
@@ -432,7 +463,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function handle_license_actions() {
-		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+		if ( ! is_admin() || ! self::can_manage() ) {
 			return;
 		}
 		if ( empty( $_GET['page'] ) || 'rwgo-license' !== $_GET['page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -455,7 +486,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_settings() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$rwgc_nav_current = 'rwgo-settings';
@@ -466,7 +497,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_license() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$rwgc_nav_current = 'rwgo-license';
@@ -477,7 +508,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_dashboard() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -492,7 +523,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_create_test() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -507,7 +538,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_tests() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -525,7 +556,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_reports() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -545,7 +576,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function maybe_redirect_legacy_tools() {
-		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+		if ( ! is_admin() || ! self::can_manage() ) {
 			return;
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- query arg only.
@@ -568,7 +599,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_tracking_tools() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -588,7 +619,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_developer() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$data = self::get_view_data();
@@ -606,7 +637,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_help() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			return;
 		}
 		$rwgc_nav_current = 'rwgo-help';
@@ -617,7 +648,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function handle_reset_counts() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_reset_counts' );
@@ -656,7 +687,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	private static function mutate_test_status( $status, $nonce_action ) {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( $nonce_action );
@@ -681,7 +712,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function handle_duplicate_test() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_duplicate_test' );
@@ -737,7 +768,7 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function handle_export_stats() {
-		if ( ! current_user_can( 'manage_options' ) ) {
+		if ( ! self::can_manage() ) {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_export_stats' );

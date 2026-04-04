@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.2.0.0
+Stable tag: 0.2.0.1
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,11 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.2.0.1 =
+* **Admin:** Menu and screen access use the same capability model as Geo Elementor (`manage_options`, or `manage_woocommerce` when the user is a WooCommerce shop manager without `manage_options`). Filter: `rwgo_required_capability`.
+* **REST:** JSON body fallback when `get_json_params()` is empty (e.g. some `sendBeacon` requests).
+* **Diagnostics:** Raw counters include stored goal-event total; REST discovery shows the client goal endpoint URL.
 
 = 0.2.0.0 =
 * **Product UX:** Dashboard, Create Test wizard, Tests list, Reports, Tracking Tools, Advanced (diagnostics + PHP docs); managed experiments (`rwgo_experiment` CPT); activation creates `wp_rwgo_events`; legacy admin slugs redirect to new screens.
