@@ -100,7 +100,7 @@ class RWGO_Admin {
 	public static function init() {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_legacy_tools' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 26 );
-		add_action( 'admin_menu', array( __CLASS__, 'hide_edit_test_submenu' ), 999 );
+		add_action( 'admin_head', array( __CLASS__, 'hide_edit_test_submenu_css' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 		add_action( 'admin_init', array( __CLASS__, 'handle_license_actions' ) );
 		add_action( 'admin_post_rwgo_test_license', array( __CLASS__, 'handle_test_license' ) );
@@ -479,12 +479,26 @@ class RWGO_Admin {
 	}
 
 	/**
-	 * Hide Edit Test from the left admin submenu (reachable via Tests list and direct URL).
+	 * Hide Edit Test from the left admin submenu without remove_submenu_page().
+	 * WordPress remove_submenu_page() calls remove_all_actions() on the page hook, which
+	 * unregisters render_edit_test and breaks admin.php?page=rwgo-edit-test (redirect after create).
 	 *
 	 * @return void
 	 */
-	public static function hide_edit_test_submenu() {
-		remove_submenu_page( self::MENU_PARENT, 'rwgo-edit-test' );
+	public static function hide_edit_test_submenu_css() {
+		if ( ! self::can_manage() ) {
+			return;
+		}
+		?>
+		<style id="rwgo-hide-edit-test-submenu">
+		#toplevel_page_rwgo-dashboard .wp-submenu li:has(> a[href*="page=rwgo-edit-test"]) {
+			display: none !important;
+		}
+		#toplevel_page_rwgo-dashboard .wp-submenu a[href*="page=rwgo-edit-test"] {
+			display: none !important;
+		}
+		</style>
+		<?php
 	}
 
 	/**
