@@ -129,6 +129,8 @@ if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src_id > 0 && $var_b_id >
 	$rwgo_fidelity_label = isset( $fidelity_labels[ $rwgo_fidelity_status ] ) ? $fidelity_labels[ $rwgo_fidelity_status ] : $rwgo_fidelity_status;
 }
 
+$rwgo_defined_goal_pending = ! empty( $rwgo_cfg['defined_goal_pending'] );
+
 $rwgo_form_mode = 'edit';
 ?>
 <div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--edit-test">
@@ -167,6 +169,33 @@ $rwgo_form_mode = 'edit';
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Test created. Review settings below, then edit Control or Variant B as needed.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php endif; ?>
+		<?php if ( ! empty( $_GET['rwgo_needs_defined_goal'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Test created. This test still needs a defined goal. Edit the page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, opt-in, or destination page you want to measure — then return here and pick it under Goal & tracking.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-notice__actions">
+					<?php
+					$rwgo_s = $src_id > 0 ? $src_id : 0;
+					$rwgo_v = $var_b_id > 0 ? $var_b_id : 0;
+					$rwgo_tt = isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab';
+					if ( $rwgo_s > 0 && class_exists( 'RWGO_Admin', false ) ) {
+						$ce = RWGO_Admin::post_builder_edit_url( $rwgo_s, $rwgo_tt );
+						if ( is_string( $ce ) && $ce ) {
+							echo '<a class="button rwgo-btn rwgo-btn--secondary" href="' . esc_url( $ce ) . '">' . esc_html__( 'Edit Control', 'reactwoo-geo-optimise' ) . '</a> ';
+						}
+					}
+					if ( $rwgo_v > 0 && class_exists( 'RWGO_Admin', false ) ) {
+						$ve = RWGO_Admin::post_builder_edit_url( $rwgo_v, $rwgo_tt );
+						if ( is_string( $ve ) && $ve ) {
+							echo '<a class="button rwgo-btn rwgo-btn--secondary" href="' . esc_url( $ve ) . '">' . esc_html__( 'Edit Variant B', 'reactwoo-geo-optimise' ) . '</a> ';
+						}
+					}
+					?>
+					<span class="description"><?php esc_html_e( 'Or choose automatic goal detection in Goal & tracking below.', 'reactwoo-geo-optimise' ); ?></span>
+				</p>
+			</div>
+		<?php endif; ?>
+		<?php if ( $rwgo_defined_goal_pending && empty( $_GET['rwgo_needs_defined_goal'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Defined goal not set: this test is using automatic goal detection until you select a builder-defined goal below.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-error rwgo-notice"><p>

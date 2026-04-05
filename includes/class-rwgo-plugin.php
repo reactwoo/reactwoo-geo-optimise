@@ -88,6 +88,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-elementor-goals.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gutenberg-goals.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-goal-meta.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-elementor-page-goal.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-swapper.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
@@ -99,6 +100,7 @@ class RWGO_Plugin {
 		RWGO_Elementor_Goals::init();
 		RWGO_Gutenberg_Goals::init();
 		RWGO_Page_Goal_Meta::init();
+		RWGO_Elementor_Page_Goal::init();
 		RWGO_Runtime::init();
 		RWGO_Admin_Wizard::init();
 		RWGO_Core_Event_Bridge::init();

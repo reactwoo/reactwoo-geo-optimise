@@ -274,15 +274,16 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 		</fieldset>
 		<input type="hidden" name="rwgo_defined_goal" id="rwgo_defined_goal" value="<?php echo esc_attr( $pf_defined_json ); ?>" />
 		<div id="rwgo-goal-wrap" class="rwgo-field rwgo-goal-wrap" <?php echo 'traffic_only' === $pf_winner_mode ? ' style="display:none;"' : ''; ?>>
+			<p class="rwgo-section__lead"><?php esc_html_e( 'CTA goals can be defined directly in Elementor and Gutenberg on buttons, links, forms, and other conversion points. Destination goals are set per page. Automatic detection is available when you prefer not to use builder markers yet.', 'reactwoo-geo-optimise' ); ?></p>
 			<fieldset class="rwgo-fieldset rwgo-fieldset--tight">
 				<legend class="rwgo-field__label"><?php esc_html_e( 'Goal source', 'reactwoo-geo-optimise' ); ?></legend>
 				<label class="rwgo-radio-line">
 					<input type="radio" name="rwgo_goal_selection_mode" value="defined" class="rwgo-goal-sel-mode" <?php checked( $pf_goal_sel_mode, 'defined' ); ?> />
-					<span><?php esc_html_e( 'Use a defined CTA or destination goal', 'reactwoo-geo-optimise' ); ?></span>
+					<span><?php esc_html_e( 'Use a defined CTA, form, or destination goal', 'reactwoo-geo-optimise' ); ?></span>
 				</label>
 				<label class="rwgo-radio-line">
 					<input type="radio" name="rwgo_goal_selection_mode" value="automatic" class="rwgo-goal-sel-mode" <?php checked( $pf_goal_sel_mode, 'automatic' ); ?> />
-					<span><?php esc_html_e( 'Use automatic detection (wizard)', 'reactwoo-geo-optimise' ); ?></span>
+					<span><?php esc_html_e( 'Use automatic detection', 'reactwoo-geo-optimise' ); ?></span>
 				</label>
 			</fieldset>
 			<div id="rwgo-defined-goal-panel" class="rwgo-field" <?php echo 'defined' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
@@ -290,8 +291,8 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 				<select id="rwgo_defined_goal_select" class="rwgo-input" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
 					<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
 				</select>
-				<p class="rwgo-hint"><?php esc_html_e( 'Use a defined goal for more precise tracking and winner selection.', 'reactwoo-geo-optimise' ); ?></p>
-				<p class="rwgo-hint"><?php esc_html_e( 'Tip: Goals can be defined directly in Elementor, Gutenberg, or on destination pages for more precise tracking.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-hint"><?php esc_html_e( 'Prefer a defined goal for reliable tracking and clear winner labels in reports.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-hint"><?php esc_html_e( 'If none appear yet, publish your pages and add Geo Optimise goals in the builder (CTAs, forms, opt-ins) or enable a destination goal on a thank-you page.', 'reactwoo-geo-optimise' ); ?></p>
 			</div>
 			<div id="rwgo-automatic-goal-panel" class="rwgo-field" <?php echo 'automatic' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
 				<label class="rwgo-field__label" for="rwgo_goal_type"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></label>

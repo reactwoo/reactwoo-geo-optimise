@@ -24,6 +24,85 @@ class RWGO_Page_Goal_Meta {
 		add_action( 'init', array( __CLASS__, 'register_meta_keys' ) );
 		add_action( 'add_meta_boxes', array( __CLASS__, 'add_meta_box' ) );
 		add_action( 'save_post', array( __CLASS__, 'save_post' ), 10, 2 );
+		add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_block_document_panel' ) );
+		add_action( 'updated_post_meta', array( __CLASS__, 'sync_destination_ids_on_meta_change' ), 10, 4 );
+		add_action( 'added_post_meta', array( __CLASS__, 'sync_destination_ids_on_meta_change' ), 10, 4 );
+	}
+
+	/**
+	 * Post types that have destination meta registered (for Gutenberg panel).
+	 *
+	 * @return list<string>
+	 */
+	public static function get_supported_post_types() {
+		$types = get_post_types(
+			array(
+				'public' => true,
+			),
+			'names'
+		);
+		if ( ! is_array( $types ) ) {
+			$types = array( 'post', 'page' );
+		}
+		return array_values( array_map( 'sanitize_key', $types ) );
+	}
+
+	/**
+	 * When meta is saved via REST (block editor), fill stable goal/handler IDs.
+	 *
+	 * @param int    $meta_id Meta row ID.
+	 * @param int    $post_id Post ID.
+	 * @param string $meta_key Meta key.
+	 * @param mixed  $meta_value Meta value.
+	 * @return void
+	 */
+	public static function sync_destination_ids_on_meta_change( $meta_id, $post_id, $meta_key, $meta_value ) {
+		unset( $meta_id );
+		if ( RWGO_Defined_Goal_Service::META_DEST_ENABLED !== $meta_key ) {
+			return;
+		}
+		if ( '1' !== (string) $meta_value && 'yes' !== (string) $meta_value ) {
+			return;
+		}
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return;
+		}
+		RWGO_Defined_Goal_Service::maybe_fill_destination_ids( $post_id );
+	}
+
+	/**
+	 * Gutenberg: document sidebar panel for destination goals (same keys as meta box).
+	 *
+	 * @return void
+	 */
+	public static function enqueue_block_document_panel() {
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			return;
+		}
+		wp_enqueue_script(
+			'rwgo-page-goal-document',
+			RWGO_URL . 'admin/js/rwgo-page-goal-document.js',
+			array(
+				'wp-plugins',
+				'wp-edit-post',
+				'wp-element',
+				'wp-components',
+				'wp-data',
+				'wp-core-data',
+				'wp-i18n',
+			),
+			RWGO_VERSION,
+			true
+		);
+		wp_set_script_translations( 'rwgo-page-goal-document', 'reactwoo-geo-optimise' );
+		wp_localize_script(
+			'rwgo-page-goal-document',
+			'rwgoPageGoalDocument',
+			array(
+				'supportedPostTypes' => self::get_supported_post_types(),
+			)
+		);
 	}
 
 	/**

@@ -45,11 +45,11 @@ class RWGO_Defined_Goal_Service {
 	 */
 	public static function map_ui_goal_type_to_experiment( $ui_type ) {
 		$ui_type = sanitize_key( (string) $ui_type );
-		if ( 'add_to_cart' === $ui_type ) {
-			return 'click';
-		}
 		if ( in_array( $ui_type, array( 'page_visit', 'thank_you', 'lead_confirmation', 'checkout_success', 'custom_destination' ), true ) ) {
 			return 'page_view';
+		}
+		if ( in_array( $ui_type, array( 'form_submit', 'checkbox_optin' ), true ) ) {
+			return 'form_submit';
 		}
 		return 'click';
 	}
@@ -147,17 +147,21 @@ class RWGO_Defined_Goal_Service {
 					if ( '' === $label ) {
 						$label = __( 'Elementor CTA', 'reactwoo-geo-optimise' );
 					}
+					$note = isset( $settings['rwgo_goal_note'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_note'] ) : '';
 					$out[] = array(
-						'goal_id'        => $ids['goal_id'],
-						'goal_label'     => $label,
-						'goal_type'      => self::map_ui_goal_type_to_experiment( $ui_t ),
-						'ui_goal_type'   => $ui_t,
-						'source_type'    => 'elementor_widget',
-						'source_post_id' => $post_id,
-						'handler_id'     => $ids['handler_id'],
-						'builder'        => 'elementor',
-						'is_defined'     => true,
-						'elementor_id'   => $eid,
+						'goal_id'           => $ids['goal_id'],
+						'goal_label'        => $label,
+						'goal_type'         => self::map_ui_goal_type_to_experiment( $ui_t ),
+						'ui_goal_type'      => $ui_t,
+						'source_type'       => 'elementor_widget',
+						'goal_origin'       => 'elementor_widget',
+						'goal_origin_label' => __( 'Elementor widget', 'reactwoo-geo-optimise' ),
+						'source_post_id'  => $post_id,
+						'handler_id'      => $ids['handler_id'],
+						'builder'         => 'elementor',
+						'is_defined'      => true,
+						'elementor_id'    => $eid,
+						'goal_note'       => $note,
 					);
 				}
 			}
@@ -199,43 +203,71 @@ class RWGO_Defined_Goal_Service {
 				continue;
 			}
 			$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
-			if ( 'core/button' === $name ) {
-				$a = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
-				if ( ! empty( $a['rwgoGoalEnabled'] ) ) {
-					$gid = isset( $a['rwgoGoalId'] ) ? sanitize_key( (string) $a['rwgoGoalId'] ) : '';
-					$hid = isset( $a['rwgoHandlerId'] ) ? sanitize_key( (string) $a['rwgoHandlerId'] ) : '';
-					if ( '' === $gid || '' === $hid ) {
-						$sig = wp_json_encode( $a );
-						$h   = hash( 'sha256', 'rwgo|gb|' . $post_id . '|' . ( is_string( $sig ) ? $sig : '' ) );
-						if ( '' === $gid ) {
-							$gid = 'goal_' . substr( $h, 0, 14 );
-						}
-						if ( '' === $hid ) {
-							$hid = 'hdl_' . substr( $h, 14, 14 );
-						}
+			$a    = isset( $block['attrs'] ) && is_array( $block['attrs'] ) ? $block['attrs'] : array();
+			if ( $name && ! empty( $a['rwgoGoalEnabled'] ) ) {
+				$gid = isset( $a['rwgoGoalId'] ) ? sanitize_key( (string) $a['rwgoGoalId'] ) : '';
+				$hid = isset( $a['rwgoHandlerId'] ) ? sanitize_key( (string) $a['rwgoHandlerId'] ) : '';
+				if ( '' === $gid || '' === $hid ) {
+					$sig = wp_json_encode( array( 'n' => $name, 'a' => $a ) );
+					$h   = hash( 'sha256', 'rwgo|gb|' . $post_id . '|' . ( is_string( $sig ) ? $sig : '' ) );
+					if ( '' === $gid ) {
+						$gid = 'goal_' . substr( $h, 0, 14 );
 					}
-					$label = isset( $a['rwgoGoalLabel'] ) ? sanitize_text_field( (string) $a['rwgoGoalLabel'] ) : '';
-					$ui_t  = isset( $a['rwgoGoalType'] ) ? sanitize_key( (string) $a['rwgoGoalType'] ) : 'cta_click';
-					if ( '' === $label ) {
-						$label = __( 'Button', 'reactwoo-geo-optimise' );
+					if ( '' === $hid ) {
+						$hid = 'hdl_' . substr( $h, 14, 14 );
 					}
-					$out[] = array(
-						'goal_id'        => $gid,
-						'goal_label'     => $label,
-						'goal_type'      => self::map_ui_goal_type_to_experiment( $ui_t ),
-						'ui_goal_type'   => $ui_t,
-						'source_type'    => 'gutenberg_block',
-						'source_post_id' => $post_id,
-						'handler_id'     => $hid,
-						'builder'        => 'gutenberg',
-						'is_defined'     => true,
-					);
 				}
+				$label = isset( $a['rwgoGoalLabel'] ) ? sanitize_text_field( (string) $a['rwgoGoalLabel'] ) : '';
+				$ui_t  = isset( $a['rwgoGoalType'] ) ? sanitize_key( (string) $a['rwgoGoalType'] ) : 'cta_click';
+				if ( '' === $label ) {
+					$label = self::default_label_for_block( $name );
+				}
+				$note = isset( $a['rwgoGoalNote'] ) ? sanitize_text_field( (string) $a['rwgoGoalNote'] ) : '';
+				$out[] = array(
+					'goal_id'           => $gid,
+					'goal_label'        => $label,
+					'goal_type'         => self::map_ui_goal_type_to_experiment( $ui_t ),
+					'ui_goal_type'      => $ui_t,
+					'source_type'       => 'gutenberg_block',
+					'goal_origin'       => 'gutenberg_block',
+					'goal_origin_label' => __( 'Gutenberg block', 'reactwoo-geo-optimise' ),
+					'block_name'        => $name,
+					'source_post_id'    => $post_id,
+					'handler_id'        => $hid,
+					'builder'           => 'gutenberg',
+					'is_defined'        => true,
+					'goal_note'         => $note,
+				);
 			}
 			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
 				self::walk_blocks( $post_id, $block['innerBlocks'], $out );
 			}
 		}
+	}
+
+	/**
+	 * @param string $block_name Block name.
+	 * @return string
+	 */
+	private static function default_label_for_block( $block_name ) {
+		$block_name = (string) $block_name;
+		$map        = array(
+			'core/button'          => __( 'Button', 'reactwoo-geo-optimise' ),
+			'core/read-more'       => __( 'Read more link', 'reactwoo-geo-optimise' ),
+			'core/navigation-link' => __( 'Navigation link', 'reactwoo-geo-optimise' ),
+			'core/image'           => __( 'Image link', 'reactwoo-geo-optimise' ),
+			'core/media-text'      => __( 'Media & text CTA', 'reactwoo-geo-optimise' ),
+			'core/cover'           => __( 'Cover CTA', 'reactwoo-geo-optimise' ),
+			'core/file'            => __( 'File download', 'reactwoo-geo-optimise' ),
+			'core/social-link'     => __( 'Social link', 'reactwoo-geo-optimise' ),
+		);
+		if ( isset( $map[ $block_name ] ) ) {
+			return $map[ $block_name ];
+		}
+		if ( 0 === strpos( $block_name, 'woocommerce/' ) ) {
+			return __( 'Store CTA', 'reactwoo-geo-optimise' );
+		}
+		return __( 'Block goal', 'reactwoo-geo-optimise' );
 	}
 
 	/**
@@ -276,6 +308,8 @@ class RWGO_Defined_Goal_Service {
 			'goal_type'           => 'page_view',
 			'ui_goal_type'        => $ui_t,
 			'source_type'         => 'page_destination',
+			'goal_origin'         => 'page_destination',
+			'goal_origin_label'   => __( 'Page destination', 'reactwoo-geo-optimise' ),
 			'source_post_id'      => $post_id,
 			'handler_id'          => $hid,
 			'builder'             => '',

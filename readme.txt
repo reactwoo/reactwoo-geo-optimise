@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.2
+Stable tag: 0.3.3
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,11 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.3 =
+* **Builder-defined goals:** Expanded Elementor and Gutenberg coverage (CTAs, forms, links, Woo blocks); goal types and filters; form-submit + Elementor AJAX success handling in front-end tracking.
+* **Destination goals:** Elementor document settings + Gutenberg document sidebar panel (same meta as classic box); REST meta sync for stable goal IDs.
+* **Tests:** Defined-goal pending state, create/edit notices, Tests list health when a defined goal is still expected.
 
 = 0.3.2 =
 * **Variant duplication:** Builder-aware Elementor duplicate path with validation, regeneration hooks, and extensibility filters; Variant B only attaches when validation passes; recovery UX and fidelity indicators on Tests / Edit Test.

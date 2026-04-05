@@ -208,7 +208,7 @@
 				}
 				var handlers = goal.handlers || [];
 				handlers.forEach(function (h) {
-					if (!h || h.handler_type !== 'click') {
+					if (!h || (h.handler_type !== 'click' && h.handler_type !== 'form_submit')) {
 						return;
 					}
 					var gid = goal.goal_id;
@@ -314,6 +314,9 @@
 		if (!form || form.tagName !== 'FORM' || !form.getAttribute('data-rwgo-experiment-key')) {
 			return;
 		}
+		if (getAttr(form, 'data-rwgo-form-strategy') === 'elementor_success' && getAttr(form, 'data-rwgo-goal-type') === 'form_submit') {
+			return;
+		}
 		var expKey = getAttr(form, 'data-rwgo-experiment-key');
 		var goalId = getAttr(form, 'data-rwgo-goal-id');
 		var handlerId = getAttr(form, 'data-rwgo-handler-id');
@@ -334,8 +337,73 @@
 		});
 	}
 
+	function stampElementorFormWidgets() {
+		document.querySelectorAll('.elementor-widget-form[data-rwgo-goal-id]').forEach(function (wrap) {
+			var form = wrap.querySelector('form.elementor-form');
+			if (!form) {
+				form = wrap.querySelector('form');
+			}
+			if (!form) {
+				return;
+			}
+			[
+				'data-rwgo-goal-id',
+				'data-rwgo-goal-label',
+				'data-rwgo-goal-type',
+				'data-rwgo-handler-id',
+				'data-rwgo-builder',
+				'data-rwgo-element-fingerprint'
+			].forEach(function (a) {
+				var v = wrap.getAttribute(a);
+				if (v && !form.getAttribute(a)) {
+					form.setAttribute(a, v);
+				}
+			});
+			if (getAttr(form, 'data-rwgo-goal-type') === 'form_submit') {
+				form.setAttribute('data-rwgo-form-strategy', 'elementor_success');
+			}
+		});
+	}
+
+	function bindElementorFormAjaxSuccess() {
+		if (typeof window.jQuery === 'undefined') {
+			return;
+		}
+		var $ = window.jQuery;
+		$(document).on('submit_success', '.elementor-form', function () {
+			var form = this;
+			if (getAttr(form, 'data-rwgo-form-strategy') !== 'elementor_success') {
+				return;
+			}
+			if (!form.getAttribute('data-rwgo-experiment-key')) {
+				return;
+			}
+			var expKey = getAttr(form, 'data-rwgo-experiment-key');
+			var goalId = getAttr(form, 'data-rwgo-goal-id');
+			var handlerId = getAttr(form, 'data-rwgo-handler-id');
+			if (!expKey || !goalId || !handlerId) {
+				return;
+			}
+			if (strictBinding && !stampAllowed(form)) {
+				return;
+			}
+			var exp = findExperiment(expKey);
+			if (!exp) {
+				return;
+			}
+			var variantId = resolveVariantId(form, exp);
+			var fp = getAttr(form, 'data-rwgo-element-fingerprint') || '';
+			window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
+				element_fingerprint: fp,
+				source: 'elementor_form_success'
+			});
+		});
+	}
+
 	function runDomReady() {
+		stampElementorFormWidgets();
 		stampExperimentBindings();
+		bindElementorFormAjaxSuccess();
 		maybeFirePageViews();
 	}
 

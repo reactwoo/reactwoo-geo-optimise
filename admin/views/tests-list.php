@@ -238,6 +238,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 			$vb_title  = $var_b_id > 0 ? get_the_title( $var_b_id ) : '';
 			$st_key    = sanitize_key( (string) $st );
 			$variant_incomplete = ( 'completed' !== $st_key ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+			$goal_pending       = ! empty( $cfg['defined_goal_pending'] ) && empty( $cfg['assignment_only'] ) && ( isset( $cfg['winner_mode'] ) ? 'traffic_only' !== $cfg['winner_mode'] : true );
 			$fidelity_status    = 'neutral';
 			$fidelity_label     = '';
 			if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src > 0 && $var_b_id > 0 ) {
@@ -272,8 +273,8 @@ $rwgo_status_pill_class = static function ( $st ) {
 				</div>
 				<div class="rwgo-test-card__pills">
 					<span class="rwgo-pill <?php echo esc_attr( $rwgo_status_pill_class( $st ) ); ?>"><?php echo esc_html( $st ); ?></span>
-					<?php if ( $variant_incomplete ) : ?>
-						<span class="rwgo-pill rwgo-pill--incomplete"><?php esc_html_e( 'Incomplete', 'reactwoo-geo-optimise' ); ?></span>
+					<?php if ( $variant_incomplete || $goal_pending ) : ?>
+						<span class="rwgo-pill rwgo-pill--incomplete"><?php echo esc_html( $goal_pending && ! $variant_incomplete ? __( 'Goal pending', 'reactwoo-geo-optimise' ) : __( 'Incomplete', 'reactwoo-geo-optimise' ) ); ?></span>
 					<?php endif; ?>
 				</div>
 			</header>
@@ -287,7 +288,15 @@ $rwgo_status_pill_class = static function ( $st ) {
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Variants:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
-				<span class="rwgo-status-strip__item rwgo-status-strip__health <?php echo $variant_incomplete ? 'rwgo-status-strip__health--bad' : 'rwgo-status-strip__health--ok'; ?>"><?php esc_html_e( 'Health:', 'reactwoo-geo-optimise' ); ?> <?php echo $variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?></span>
+				<span class="rwgo-status-strip__item rwgo-status-strip__health <?php echo $variant_incomplete || $goal_pending ? 'rwgo-status-strip__health--bad' : 'rwgo-status-strip__health--ok'; ?>"><?php esc_html_e( 'Health:', 'reactwoo-geo-optimise' ); ?> <?php
+				if ( $variant_incomplete ) {
+					esc_html_e( 'Missing variant', 'reactwoo-geo-optimise' );
+				} elseif ( $goal_pending ) {
+					esc_html_e( 'Defined goal pending', 'reactwoo-geo-optimise' );
+				} else {
+					esc_html_e( 'Ready', 'reactwoo-geo-optimise' );
+				}
+				?></span>
 				<?php if ( $var_b_id > 0 && '' !== $fidelity_label && 'neutral' !== $fidelity_status ) : ?>
 					<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 					<span class="rwgo-status-strip__item rwgo-status-strip__fidelity rwgo-status-strip__fidelity--<?php echo esc_attr( str_replace( '_', '-', $fidelity_status ) ); ?>"><?php esc_html_e( 'Fidelity:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $fidelity_label ); ?></span>

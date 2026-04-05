@@ -1,11 +1,12 @@
 /**
- * Geo Optimise — Inspector panel for core/button.
+ * Geo Optimise — Inspector panel for CTA-capable blocks.
  */
 (function (wp) {
 	'use strict';
 	if (!wp || !wp.hooks || !wp.compose || !wp.element || !wp.blockEditor || !wp.components || !wp.i18n) {
 		return;
 	}
+
 	var addFilter = wp.hooks.addFilter;
 	var createHigherOrderComponent = wp.compose.createHigherOrderComponent;
 	var Fragment = wp.element.Fragment;
@@ -18,41 +19,51 @@
 	var SelectControl = wp.components.SelectControl;
 	var __ = wp.i18n.__;
 
-	function ensureIds(setAttributes, attrs) {
-		if (!attrs.rwgoGoalEnabled) {
-			return;
+	function supportedBlocks() {
+		if (typeof rwgoBlockGoals !== 'undefined' && rwgoBlockGoals.blockNames && rwgoBlockGoals.blockNames.length) {
+			return rwgoBlockGoals.blockNames;
 		}
-		if (attrs.rwgoGoalId && attrs.rwgoHandlerId) {
-			return;
-		}
-		var r = '';
-		try {
-			if (window.crypto && window.crypto.getRandomValues) {
-				var a = new Uint8Array(8);
-				window.crypto.getRandomValues(a);
-				r = Array.prototype.map.call(a, function (b) {
-					return ('0' + b.toString(16)).slice(-2);
-				}).join('');
-			}
-		} catch (e) {
-			r = '';
-		}
-		if (!r) {
-			r = 'x' + String(Date.now()) + Math.random().toString(16).slice(2, 10);
-		}
-		setAttributes({
-			rwgoGoalId: attrs.rwgoGoalId || 'goal_' + r.slice(0, 14),
-			rwgoHandlerId: attrs.rwgoHandlerId || 'hdl_' + r.slice(0, 14)
-		});
+		return ['core/button'];
 	}
 
-	var withRwgoButtonGoals = createHigherOrderComponent(function (BlockEdit) {
+	function isSupported(name) {
+		return supportedBlocks().indexOf(name) !== -1;
+	}
+
+	function goalTypeOptions(blockName) {
+		var n = blockName || '';
+		if (n.indexOf('woocommerce/') === 0) {
+			return [
+				{ label: __('Add to cart', 'reactwoo-geo-optimise'), value: 'add_to_cart' },
+				{ label: __('Begin checkout', 'reactwoo-geo-optimise'), value: 'begin_checkout' },
+				{ label: __('CTA click', 'reactwoo-geo-optimise'), value: 'cta_click' },
+				{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
+			];
+		}
+		if (n.indexOf('form') !== -1 || n === 'core/file' || n === 'woocommerce/add-to-cart-form') {
+			return [
+				{ label: __('Form submit', 'reactwoo-geo-optimise'), value: 'form_submit' },
+				{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
+			];
+		}
+		return [
+			{ label: __('CTA click', 'reactwoo-geo-optimise'), value: 'cta_click' },
+			{ label: __('Navigation click', 'reactwoo-geo-optimise'), value: 'navigation_click' },
+			{ label: __('Form submit', 'reactwoo-geo-optimise'), value: 'form_submit' },
+			{ label: __('Checkbox / opt-in interaction', 'reactwoo-geo-optimise'), value: 'checkbox_optin' },
+			{ label: __('Add to cart', 'reactwoo-geo-optimise'), value: 'add_to_cart' },
+			{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
+		];
+	}
+
+	var withRwgoBlockGoals = createHigherOrderComponent(function (BlockEdit) {
 		return function (props) {
-			if (props.name !== 'core/button') {
+			if (!isSupported(props.name)) {
 				return createElement(BlockEdit, props);
 			}
 			var attrs = props.attributes || {};
 			var setAttributes = props.setAttributes;
+			var gopts = goalTypeOptions(props.name);
 			return createElement(
 				Fragment,
 				null,
@@ -93,31 +104,26 @@
 								setAttributes(next);
 							},
 							help: __(
-								'Turn this on if clicks on this block should be available as a measurable goal in Geo Optimise tests.',
+								'Turn this on if this block should be available as a measurable goal in Geo Optimise tests (CTAs, links, forms, and store actions).',
 								'reactwoo-geo-optimise'
 							)
 						}),
 						attrs.rwgoGoalEnabled
 							? createElement(TextControl, {
 									label: __('Goal label', 'reactwoo-geo-optimise'),
-									placeholder: __('e.g. Main CTA', 'reactwoo-geo-optimise'),
+									placeholder: __('e.g. Primary hero CTA', 'reactwoo-geo-optimise'),
 									value: attrs.rwgoGoalLabel || '',
 									onChange: function (v) {
 										setAttributes({ rwgoGoalLabel: v });
 									},
-									help: __('Used in Geo Optimise when selecting the winning goal for a test.', 'reactwoo-geo-optimise')
+									help: __('Used in test setup and reports to identify this goal clearly.', 'reactwoo-geo-optimise')
 							  })
 							: null,
 						attrs.rwgoGoalEnabled
 							? createElement(SelectControl, {
 									label: __('Goal type', 'reactwoo-geo-optimise'),
 									value: attrs.rwgoGoalType || 'cta_click',
-									options: [
-										{ label: __('CTA click', 'reactwoo-geo-optimise'), value: 'cta_click' },
-										{ label: __('Navigation click', 'reactwoo-geo-optimise'), value: 'navigation_click' },
-										{ label: __('Add to cart', 'reactwoo-geo-optimise'), value: 'add_to_cart' },
-										{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
-									],
+									options: gopts,
 									onChange: function (v) {
 										setAttributes({ rwgoGoalType: v });
 									}
@@ -140,7 +146,7 @@
 				)
 			);
 		};
-	}, 'withRwgoButtonGoals');
+	}, 'withRwgoBlockGoals');
 
-	addFilter('editor.BlockEdit', 'rwgo/core-button-goals', withRwgoButtonGoals);
+	addFilter('editor.BlockEdit', 'rwgo/block-goals', withRwgoBlockGoals);
 })(window.wp);
