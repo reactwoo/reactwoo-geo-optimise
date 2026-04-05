@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.3
+Stable tag: 0.3.4
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.4 =
+* **Variant B naming:** Central `RWGO_Page_Naming_Service` for predictable titles and slugs; explicit uniqueness against published, draft, private, and trashed posts; optional trash slug reuse filter; post-insert slug verification after duplicate and Elementor normalize.
+* **UX:** Success notices show created variant title and URL; hint that trashed variant pages keep URL slugs reserved.
 
 = 0.3.3 =
 * **Builder-defined goals:** Expanded Elementor and Gutenberg coverage (CTAs, forms, links, Woo blocks); goal types and filters; form-submit + Elementor AJAX success handling in front-end tracking.

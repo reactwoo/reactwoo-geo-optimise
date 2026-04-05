@@ -15,6 +15,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RWGO_Page_Duplicator {
 
 	/**
+	 * Intended slug/title for the last duplicate_standard_post run (Elementor verify step).
+	 *
+	 * @var string
+	 */
+	private static $last_variant_intended_slug = '';
+
+	/**
+	 * @var string
+	 */
+	private static $last_variant_intended_title = '';
+
+	/**
 	 * Single entry: duplicate for tests, validate, return new ID or WP_Error.
 	 *
 	 * @param int $source_post_id Source post ID.
@@ -22,6 +34,8 @@ class RWGO_Page_Duplicator {
 	 */
 	public static function duplicate_page( $source_post_id ) {
 		$source_post_id = (int) $source_post_id;
+		self::$last_variant_intended_slug  = '';
+		self::$last_variant_intended_title = '';
 		if ( $source_post_id <= 0 ) {
 			return new \WP_Error( 'rwgo_dup_missing', __( 'Source page not found.', 'reactwoo-geo-optimise' ) );
 		}
@@ -109,14 +123,62 @@ class RWGO_Page_Duplicator {
 			return new \WP_Error( 'rwgo_dup_missing', __( 'Source page not found.', 'reactwoo-geo-optimise' ) );
 		}
 
+		self::$last_variant_intended_slug  = '';
+		self::$last_variant_intended_title = '';
+
+		$source_slug = is_string( $post->post_name ) ? $post->post_name : '';
+		if ( '' === trim( (string) $source_slug ) ) {
+			$source_slug = sanitize_title( $post->post_title );
+		}
+
+		$base_title = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::generate_variant_title( $post->post_title, 'B' )
+			: $post->post_title . ' — ' . __( 'Variant B', 'reactwoo-geo-optimise' );
+		$final_title = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::ensure_unique_variant_title( $base_title, $post->post_type, 0 )
+			: $base_title;
+
+		$base_slug = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::generate_variant_slug( $source_slug, 'b' )
+			: sanitize_title( $source_slug ) . '-variant-b';
+		$slug_info = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::ensure_unique_slug( $base_slug, $post->post_type, 0 )
+			: array(
+				'slug'              => $base_slug,
+				'conflict_detected' => false,
+				'conflict_count'    => 0,
+			);
+		$final_slug = isset( $slug_info['slug'] ) ? (string) $slug_info['slug'] : $base_slug;
+
+		if ( class_exists( 'RWGO_Page_Naming_Service', false ) ) {
+			RWGO_Page_Naming_Service::log_naming(
+				array(
+					'event'             => 'variant_duplicate_prepare',
+					'source_post_id'    => $post_id,
+					'source_title'      => $post->post_title,
+					'source_slug'       => $source_slug,
+					'base_title'        => $base_title,
+					'intended_title'    => $final_title,
+					'base_slug'         => $base_slug,
+					'intended_slug'     => $final_slug,
+					'final_slug'        => $final_slug,
+					'conflict_detected' => ! empty( $slug_info['conflict_detected'] ),
+					'conflict_count'    => isset( $slug_info['conflict_count'] ) ? (int) $slug_info['conflict_count'] : 0,
+				)
+			);
+		}
+
+		self::$last_variant_intended_slug  = $final_slug;
+		self::$last_variant_intended_title = $final_title;
+
 		$new_post = array(
-			'post_title'     => $post->post_title . ' — ' . __( 'Variant B', 'reactwoo-geo-optimise' ),
+			'post_title'     => $final_title,
 			'post_content'   => $post->post_content,
 			'post_excerpt'   => $post->post_excerpt,
 			'post_status'    => 'draft',
 			'post_type'      => $post->post_type,
 			'post_author'    => get_current_user_id() ? get_current_user_id() : (int) $post->post_author,
-			'post_name'      => '',
+			'post_name'      => $final_slug,
 			'comment_status' => $post->comment_status,
 			'ping_status'    => $post->ping_status,
 			'menu_order'     => (int) $post->menu_order,
@@ -127,6 +189,24 @@ class RWGO_Page_Duplicator {
 			return $new_id;
 		}
 		$new_id = (int) $new_id;
+
+		if ( class_exists( 'RWGO_Page_Naming_Service', false ) ) {
+			RWGO_Page_Naming_Service::verify_variant_identity_after_save( $new_id, $final_slug, $final_title, $post_id, 'duplicate_after_insert' );
+			$pchk = get_post( $new_id );
+			if ( $pchk instanceof \WP_Post ) {
+				RWGO_Page_Naming_Service::log_naming(
+					array(
+						'event'          => 'variant_duplicate_post_insert',
+						'source_post_id' => $post_id,
+						'new_post_id'    => $new_id,
+						'intended_slug'  => $final_slug,
+						'actual_slug'    => $pchk->post_name,
+						'intended_title' => $final_title,
+						'actual_title'   => $pchk->post_title,
+					)
+				);
+			}
+		}
 
 		self::copy_post_meta( $post_id, $new_id );
 		self::strip_geo_route_meta_from_variant( $new_id );
@@ -153,6 +233,15 @@ class RWGO_Page_Duplicator {
 		}
 		$new_id = (int) $res;
 		self::elementor_normalize_duplicate( (int) $source_post_id, $new_id );
+		if ( class_exists( 'RWGO_Page_Naming_Service', false ) && '' !== self::$last_variant_intended_slug ) {
+			RWGO_Page_Naming_Service::verify_variant_identity_after_save(
+				$new_id,
+				self::$last_variant_intended_slug,
+				self::$last_variant_intended_title,
+				(int) $source_post_id,
+				'elementor_after_normalize'
+			);
+		}
 		self::elementor_regenerate_post_assets( $new_id );
 		return $new_id;
 	}
@@ -541,24 +630,65 @@ class RWGO_Page_Duplicator {
 		}
 		$test_title = is_string( $test_title ) ? trim( $test_title ) : '';
 		$suffix     = '' !== $test_title ? $test_title : __( 'Test', 'reactwoo-geo-optimise' );
-		$new_post   = array(
-			'post_title'   => sprintf(
-				/* translators: %s: test name */
-				__( 'Variant B — %s', 'reactwoo-geo-optimise' ),
-				$suffix
-			),
+		$base_title = sprintf(
+			/* translators: %s: test name */
+			__( 'Variant B — %s', 'reactwoo-geo-optimise' ),
+			$suffix
+		);
+		$final_title = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::ensure_unique_variant_title( $base_title, $post->post_type, 0 )
+			: $base_title;
+
+		$slug_source = sanitize_title( $suffix );
+		if ( '' === $slug_source ) {
+			$slug_source = 'variant-b';
+		}
+		$base_slug = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::generate_variant_slug( $slug_source, 'b' )
+			: $slug_source . '-variant-b';
+		$slug_info = class_exists( 'RWGO_Page_Naming_Service', false )
+			? RWGO_Page_Naming_Service::ensure_unique_slug( $base_slug, $post->post_type, 0 )
+			: array(
+				'slug'              => $base_slug,
+				'conflict_detected' => false,
+				'conflict_count'    => 0,
+			);
+		$final_slug = isset( $slug_info['slug'] ) ? (string) $slug_info['slug'] : $base_slug;
+
+		if ( class_exists( 'RWGO_Page_Naming_Service', false ) ) {
+			RWGO_Page_Naming_Service::log_naming(
+				array(
+					'event'             => 'blank_variant_prepare',
+					'source_post_id'    => $post_id,
+					'source_title'      => $post->post_title,
+					'source_slug'       => $slug_source,
+					'intended_title'    => $final_title,
+					'base_slug'         => $base_slug,
+					'intended_slug'     => $final_slug,
+					'conflict_detected' => ! empty( $slug_info['conflict_detected'] ),
+					'conflict_count'    => isset( $slug_info['conflict_count'] ) ? (int) $slug_info['conflict_count'] : 0,
+				)
+			);
+		}
+
+		$new_post = array(
+			'post_title'   => $final_title,
 			'post_content' => '',
 			'post_excerpt' => '',
 			'post_status'  => 'draft',
 			'post_type'    => $post->post_type,
 			'post_author'  => get_current_user_id() ? get_current_user_id() : (int) $post->post_author,
-			'post_name'    => '',
+			'post_name'    => $final_slug,
 		);
 		$new_id = wp_insert_post( wp_slash( $new_post ), true );
 		if ( is_wp_error( $new_id ) ) {
 			return $new_id;
 		}
 		$new_id = (int) $new_id;
+
+		if ( class_exists( 'RWGO_Page_Naming_Service', false ) ) {
+			RWGO_Page_Naming_Service::verify_variant_identity_after_save( $new_id, $final_slug, $final_title, $post_id, 'blank_after_insert' );
+		}
 		/**
 		 * After a blank variant placeholder is created.
 		 *

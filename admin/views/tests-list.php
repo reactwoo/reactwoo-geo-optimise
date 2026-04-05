@@ -102,8 +102,51 @@ $rwgo_status_pill_class = static function ( $st ) {
 		</div>
 	<?php endif; ?>
 	<?php if ( ! empty( $_GET['rwgo_regenerated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<?php
+		$rwgo_regen_exp = isset( $_GET['rwgo_experiment_id'] ) ? absint( wp_unslash( $_GET['rwgo_experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_regen_vid = 0;
+		if ( $rwgo_regen_exp > 0 && class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$rwgo_regen_cfg = RWGO_Experiment_Repository::get_config( $rwgo_regen_exp );
+			if ( ! empty( $rwgo_regen_cfg['variants'] ) && is_array( $rwgo_regen_cfg['variants'] ) ) {
+				foreach ( $rwgo_regen_cfg['variants'] as $row ) {
+					if ( is_array( $row ) && isset( $row['variant_id'] ) && 'var_b' === sanitize_key( (string) $row['variant_id'] ) ) {
+						$rwgo_regen_vid = (int) ( $row['page_id'] ?? 0 );
+						break;
+					}
+				}
+			}
+		}
+		$rwgo_regen_vpost = ( $rwgo_regen_vid > 0 ) ? get_post( $rwgo_regen_vid ) : null;
+		$rwgo_regen_url   = ( $rwgo_regen_vpost instanceof \WP_Post ) ? get_permalink( $rwgo_regen_vid ) : '';
+		if ( $rwgo_regen_url && function_exists( 'wp_make_link_relative' ) ) {
+			$rwgo_regen_url = wp_make_link_relative( $rwgo_regen_url );
+		}
+		?>
 		<div class="rwgo-page-notices">
-			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Variant B was recreated from Control.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success">
+				<?php if ( $rwgo_regen_vpost instanceof \WP_Post && is_string( $rwgo_regen_url ) && '' !== $rwgo_regen_url ) : ?>
+					<p class="rwgo-alert__text">
+						<?php
+						printf(
+							/* translators: %s: variant page title */
+							esc_html__( 'Variant created: %s', 'reactwoo-geo-optimise' ),
+							esc_html( get_the_title( $rwgo_regen_vpost ) )
+						);
+						?>
+					</p>
+					<p class="rwgo-alert__text">
+						<?php
+						printf(
+							/* translators: %s: relative or full URL path to variant */
+							esc_html__( 'URL: %s', 'reactwoo-geo-optimise' ),
+							esc_html( $rwgo_regen_url )
+						);
+						?>
+					</p>
+				<?php else : ?>
+					<p class="rwgo-alert__text"><?php esc_html_e( 'Variant B was recreated from Control.', 'reactwoo-geo-optimise' ); ?></p>
+				<?php endif; ?>
+			</div>
 		</div>
 	<?php endif; ?>
 	<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>

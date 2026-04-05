@@ -67,6 +67,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-log.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-slug-scaffold.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-page-naming-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-duplicator.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-variant-lifecycle.php';
 		if ( class_exists( 'RWGO_DB_Schema', false ) ) {

@@ -162,13 +162,73 @@ $rwgo_form_mode = 'edit';
 			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Variant B was copied into Control and this test was marked completed.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_regenerated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Variant B was recreated from Control.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<?php
+			$rwgo_regen_vpost = ( $var_b_id > 0 ) ? get_post( $var_b_id ) : null;
+			$rwgo_regen_url   = ( $rwgo_regen_vpost instanceof \WP_Post ) ? get_permalink( $var_b_id ) : '';
+			if ( $rwgo_regen_url && function_exists( 'wp_make_link_relative' ) ) {
+				$rwgo_regen_url = wp_make_link_relative( $rwgo_regen_url );
+			}
+			?>
+			<div class="notice notice-success is-dismissible rwgo-notice">
+				<?php if ( $rwgo_regen_vpost instanceof \WP_Post && is_string( $rwgo_regen_url ) && '' !== $rwgo_regen_url ) : ?>
+					<p>
+						<?php
+						printf(
+							/* translators: %s: variant page title */
+							esc_html__( 'Variant created: %s', 'reactwoo-geo-optimise' ),
+							esc_html( get_the_title( $rwgo_regen_vpost ) )
+						);
+						?>
+					</p>
+					<p>
+						<?php
+						printf(
+							/* translators: %s: relative or full URL path to variant */
+							esc_html__( 'URL: %s', 'reactwoo-geo-optimise' ),
+							esc_html( $rwgo_regen_url )
+						);
+						?>
+					</p>
+				<?php else : ?>
+					<p><?php esc_html_e( 'Variant B was recreated from Control.', 'reactwoo-geo-optimise' ); ?></p>
+				<?php endif; ?>
+			</div>
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_detached'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Variant B was removed from this test. The test is paused until you link a new variant.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
-			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Test created. Review settings below, then edit Control or Variant B as needed.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<?php
+			$rwgo_vc_mode = isset( $rwgo_cfg['variant_creation'] ) ? sanitize_key( (string) $rwgo_cfg['variant_creation'] ) : '';
+			$rwgo_created_vpost = ( $var_b_id > 0 && in_array( $rwgo_vc_mode, array( 'duplicate', 'blank' ), true ) ) ? get_post( $var_b_id ) : null;
+			$rwgo_created_url   = ( $rwgo_created_vpost instanceof \WP_Post ) ? get_permalink( $var_b_id ) : '';
+			if ( $rwgo_created_url && function_exists( 'wp_make_link_relative' ) ) {
+				$rwgo_created_url = wp_make_link_relative( $rwgo_created_url );
+			}
+			?>
+			<div class="notice notice-success is-dismissible rwgo-notice">
+				<p><?php esc_html_e( 'Test created. Review settings below, then edit Control or Variant B as needed.', 'reactwoo-geo-optimise' ); ?></p>
+				<?php if ( $rwgo_created_vpost instanceof \WP_Post && is_string( $rwgo_created_url ) && '' !== $rwgo_created_url ) : ?>
+					<p>
+						<?php
+						printf(
+							/* translators: %s: variant page title */
+							esc_html__( 'Variant created: %s', 'reactwoo-geo-optimise' ),
+							esc_html( get_the_title( $rwgo_created_vpost ) )
+						);
+						?>
+					</p>
+					<p>
+						<?php
+						printf(
+							/* translators: %s: relative or full URL path to variant */
+							esc_html__( 'URL: %s', 'reactwoo-geo-optimise' ),
+							esc_html( $rwgo_created_url )
+						);
+						?>
+					</p>
+				<?php endif; ?>
+			</div>
 		<?php endif; ?>
 		<?php if ( ! empty( $_GET['rwgo_needs_defined_goal'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Test created. This test still needs a defined goal. Edit the page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, opt-in, or destination page you want to measure — then return here and pick it under Goal & tracking.', 'reactwoo-geo-optimise' ); ?></p>
