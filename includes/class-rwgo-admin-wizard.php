@@ -105,7 +105,10 @@ class RWGO_Admin_Wizard {
 		} else {
 			$dup_res = RWGO_Page_Duplicator::duplicate_page( $source );
 			if ( is_wp_error( $dup_res ) ) {
-				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=dup' ) );
+				$dup_err = class_exists( 'RWGO_Page_Duplicator', false )
+					? RWGO_Page_Duplicator::duplicate_redirect_error_arg( $dup_res )
+					: 'dup';
+				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=' . rawurlencode( $dup_err ) ) );
 				exit;
 			}
 			$dup = (int) $dup_res;
@@ -128,33 +131,53 @@ class RWGO_Admin_Wizard {
 			? RWGO_Builder_Detector::detect( $source )
 			: array();
 
-		$goals           = array();
-		$primary_goal_id = '';
-		$assignment_only = ( 'traffic_only' === $winner_mode );
+		$goal_selection_mode = isset( $_POST['rwgo_goal_selection_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_goal_selection_mode'] ) ) : 'automatic'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! in_array( $goal_selection_mode, array( 'automatic', 'defined' ), true ) ) {
+			$goal_selection_mode = 'automatic';
+		}
+
+		$goals             = array();
+		$primary_goal_id   = '';
+		$assignment_only   = ( 'traffic_only' === $winner_mode );
 
 		if ( $assignment_only ) {
-			$goals = array();
+			$goals               = array();
+			$goal_selection_mode = 'traffic_only';
+		} elseif ( 'defined' === $goal_selection_mode ) {
+			$raw = isset( $_POST['rwgo_defined_goal'] ) ? wp_unslash( $_POST['rwgo_defined_goal'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$def = is_string( $raw ) ? json_decode( $raw, true ) : null;
+			if ( is_array( $def ) && ! empty( $def['goal_id'] ) && ! empty( $def['handler_id'] ) ) {
+				$built           = self::build_goals_from_defined_selection( $def );
+				$goals           = $built['goals'];
+				$primary_goal_id = $built['primary_goal_id'];
+			} else {
+				$goal_selection_mode = 'automatic';
+				$built               = self::build_goals_from_goal_type( $goal_type );
+				$goals               = $built['goals'];
+				$primary_goal_id     = $built['primary_goal_id'];
+			}
 		} else {
-			$built = self::build_goals_from_goal_type( $goal_type );
-			$goals = $built['goals'];
+			$built           = self::build_goals_from_goal_type( $goal_type );
+			$goals           = $built['goals'];
 			$primary_goal_id = $built['primary_goal_id'];
 		}
 
 		$config = array(
-			'experiment_key'    => $key,
-			'status'            => 'active',
-			'test_type'         => $test_type,
-			'variant_creation'  => $variant_mode,
-			'source_page_id'    => $source,
-			'builder_type'      => isset( $detection['builder'] ) ? (string) $detection['builder'] : self::legacy_detect_builder_string( $source ),
-			'builder_detection' => $detection,
-			'variants'          => RWGO_Experiment_Service::default_variants( $source, $dup ),
-			'targeting'         => $targeting,
-			'traffic_weights'   => array( 'control' => 0.5, 'var_b' => 0.5 ),
-			'goals'             => $goals,
-			'winner_mode'       => $assignment_only ? 'traffic_only' : 'goal',
-			'assignment_only'   => $assignment_only,
-			'primary_goal_id'   => $primary_goal_id,
+			'experiment_key'       => $key,
+			'status'               => 'active',
+			'test_type'            => $test_type,
+			'variant_creation'     => $variant_mode,
+			'source_page_id'       => $source,
+			'builder_type'         => isset( $detection['builder'] ) ? (string) $detection['builder'] : self::legacy_detect_builder_string( $source ),
+			'builder_detection'    => $detection,
+			'variants'             => RWGO_Experiment_Service::default_variants( $source, $dup ),
+			'targeting'            => $targeting,
+			'traffic_weights'      => array( 'control' => 0.5, 'var_b' => 0.5 ),
+			'goals'                => $goals,
+			'winner_mode'          => $assignment_only ? 'traffic_only' : 'goal',
+			'assignment_only'      => $assignment_only,
+			'primary_goal_id'      => $primary_goal_id,
+			'goal_selection_mode'  => $goal_selection_mode,
 		);
 
 		$exp_post = wp_insert_post(
@@ -249,23 +272,43 @@ class RWGO_Admin_Wizard {
 			);
 		}
 
+		$goal_selection_mode = isset( $_POST['rwgo_goal_selection_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_goal_selection_mode'] ) ) : 'automatic'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! in_array( $goal_selection_mode, array( 'automatic', 'defined' ), true ) ) {
+			$goal_selection_mode = 'automatic';
+		}
+
 		$assignment_only = ( 'traffic_only' === $winner_mode );
 		$goals             = array();
 		$primary_goal_id   = isset( $prev['primary_goal_id'] ) ? (string) $prev['primary_goal_id'] : '';
 
-		$prev_traffic = ! empty( $prev['assignment_only'] ) || ( isset( $prev['winner_mode'] ) && 'traffic_only' === $prev['winner_mode'] );
+		$prev_traffic  = ! empty( $prev['assignment_only'] ) || ( isset( $prev['winner_mode'] ) && 'traffic_only' === $prev['winner_mode'] );
 		$prev_goal_inf = self::infer_goal_type_from_config( $prev );
+		$prev_mode     = isset( $prev['goal_selection_mode'] ) ? sanitize_key( (string) $prev['goal_selection_mode'] ) : 'automatic';
 
 		if ( $assignment_only ) {
-			$goals           = array();
-			$primary_goal_id = '';
-		} elseif ( ! $prev_traffic && ! $assignment_only && $prev_goal_inf === $goal_type ) {
+			$goals               = array();
+			$primary_goal_id     = '';
+			$goal_selection_mode = 'traffic_only';
+		} elseif ( 'defined' === $goal_selection_mode ) {
+			$raw = isset( $_POST['rwgo_defined_goal'] ) ? wp_unslash( $_POST['rwgo_defined_goal'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$def = is_string( $raw ) ? json_decode( $raw, true ) : null;
+			if ( is_array( $def ) && ! empty( $def['goal_id'] ) && ! empty( $def['handler_id'] ) ) {
+				$built           = self::build_goals_from_defined_selection( $def );
+				$goals           = $built['goals'];
+				$primary_goal_id = $built['primary_goal_id'];
+			} else {
+				$goals               = isset( $prev['goals'] ) && is_array( $prev['goals'] ) ? $prev['goals'] : array();
+				$primary_goal_id     = isset( $prev['primary_goal_id'] ) ? (string) $prev['primary_goal_id'] : '';
+				$goal_selection_mode = '' !== $prev_mode ? $prev_mode : 'automatic';
+			}
+		} elseif ( ! $prev_traffic && ! $assignment_only && $prev_goal_inf === $goal_type && 'automatic' === $prev_mode && 'automatic' === $goal_selection_mode ) {
 			$goals           = isset( $prev['goals'] ) && is_array( $prev['goals'] ) ? $prev['goals'] : array();
 			$primary_goal_id = isset( $prev['primary_goal_id'] ) ? (string) $prev['primary_goal_id'] : '';
 		} else {
-			$built           = self::build_goals_from_goal_type( $goal_type );
-			$goals           = $built['goals'];
-			$primary_goal_id = $built['primary_goal_id'];
+			$built               = self::build_goals_from_goal_type( $goal_type );
+			$goals               = $built['goals'];
+			$primary_goal_id     = $built['primary_goal_id'];
+			$goal_selection_mode = 'automatic';
 		}
 
 		$variants = isset( $prev['variants'] ) && is_array( $prev['variants'] ) ? $prev['variants'] : RWGO_Experiment_Service::default_variants( $source, 0 );
@@ -294,7 +337,10 @@ class RWGO_Admin_Wizard {
 		} elseif ( 'duplicate_source' === $var_action ) {
 			$dup_res = RWGO_Page_Duplicator::duplicate_page( $source );
 			if ( is_wp_error( $dup_res ) ) {
-				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'dup' ) ) );
+				$dup_err = class_exists( 'RWGO_Page_Duplicator', false )
+					? RWGO_Page_Duplicator::duplicate_redirect_error_arg( $dup_res )
+					: 'dup';
+				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => $dup_err ) ) );
 				exit;
 			}
 			$variants         = self::patch_variants_var_b( $variants, (int) $dup_res );
@@ -308,13 +354,14 @@ class RWGO_Admin_Wizard {
 		}
 
 		$config = array(
-			'targeting'         => $targeting,
-			'goals'             => $goals,
-			'winner_mode'       => $assignment_only ? 'traffic_only' : 'goal',
-			'assignment_only'   => $assignment_only,
-			'primary_goal_id'   => $primary_goal_id,
-			'variants'          => $variants,
-			'variant_creation'  => $variant_creation,
+			'targeting'           => $targeting,
+			'goals'               => $goals,
+			'winner_mode'         => $assignment_only ? 'traffic_only' : 'goal',
+			'assignment_only'     => $assignment_only,
+			'primary_goal_id'     => $primary_goal_id,
+			'goal_selection_mode' => $goal_selection_mode,
+			'variants'            => $variants,
+			'variant_creation'    => $variant_creation,
 		);
 
 		wp_update_post(
@@ -392,6 +439,9 @@ class RWGO_Admin_Wizard {
 		if ( ! empty( $cfg['assignment_only'] ) || ( isset( $cfg['winner_mode'] ) && 'traffic_only' === $cfg['winner_mode'] ) ) {
 			return 'traffic_only';
 		}
+		if ( ! empty( $cfg['goal_selection_mode'] ) && 'defined' === sanitize_key( (string) $cfg['goal_selection_mode'] ) ) {
+			return 'defined';
+		}
 		$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
 		foreach ( $goals as $g ) {
 			if ( ! is_array( $g ) || empty( $g['is_primary'] ) ) {
@@ -426,6 +476,126 @@ class RWGO_Admin_Wizard {
 			return 'gutenberg';
 		}
 		return 'classic';
+	}
+
+	/**
+	 * JSON payload for Edit Test form (restores defined goal picker).
+	 *
+	 * @param array<string, mixed> $cfg Experiment config.
+	 * @return string JSON or empty.
+	 */
+	public static function defined_goal_json_from_config( array $cfg ) {
+		$goals      = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
+		$primary_id = isset( $cfg['primary_goal_id'] ) ? sanitize_key( (string) $cfg['primary_goal_id'] ) : '';
+		$pick       = null;
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
+				continue;
+			}
+			if ( '' !== $primary_id && sanitize_key( (string) $g['goal_id'] ) === $primary_id ) {
+				$pick = $g;
+				break;
+			}
+			if ( null === $pick && ! empty( $g['is_primary'] ) ) {
+				$pick = $g;
+			}
+		}
+		if ( null === $pick && ! empty( $goals[0] ) && is_array( $goals[0] ) ) {
+			$pick = $goals[0];
+		}
+		if ( ! is_array( $pick ) ) {
+			return '';
+		}
+		$handlers = isset( $pick['handlers'] ) && is_array( $pick['handlers'] ) ? $pick['handlers'] : array();
+		$h        = isset( $handlers[0] ) && is_array( $handlers[0] ) ? $handlers[0] : array();
+		$payload  = array(
+			'goal_id'               => (string) ( $pick['goal_id'] ?? '' ),
+			'handler_id'            => (string) ( $h['handler_id'] ?? '' ),
+			'goal_label'            => (string) ( $pick['label'] ?? '' ),
+			'source_type'           => (string) ( $pick['source_type'] ?? '' ),
+			'destination_page_id'   => (int) ( $pick['destination_page_id'] ?? $h['destination_page_id'] ?? 0 ),
+			'source_post_id'        => (int) ( $pick['source_post_id'] ?? 0 ),
+			'builder'               => (string) ( $pick['builder'] ?? '' ),
+			'ui_goal_type'          => (string) ( $pick['ui_goal_type'] ?? '' ),
+		);
+		return (string) wp_json_encode( $payload );
+	}
+
+	/**
+	 * Build goals from a builder-defined goal payload (REST / form JSON).
+	 *
+	 * @param array<string, mixed> $def Normalized goal payload.
+	 * @return array{goals: array<int, array<string, mixed>>, primary_goal_id: string}
+	 */
+	public static function build_goals_from_defined_selection( array $def ) {
+		$goal_id    = sanitize_key( (string) ( $def['goal_id'] ?? '' ) );
+		$handler_id = sanitize_key( (string) ( $def['handler_id'] ?? '' ) );
+		$label      = sanitize_text_field( (string) ( $def['goal_label'] ?? '' ) );
+		$source_type = sanitize_key( (string) ( $def['source_type'] ?? '' ) );
+		if ( '' === $goal_id || '' === $handler_id ) {
+			return self::build_goals_from_goal_type( 'page_view' );
+		}
+		if ( '' === $label ) {
+			$label = __( 'Conversion goal', 'reactwoo-geo-optimise' );
+		}
+		if ( 'page_destination' === $source_type ) {
+			$dest = (int) ( $def['destination_page_id'] ?? $def['source_post_id'] ?? 0 );
+			$ui   = isset( $def['ui_goal_type'] ) ? sanitize_key( (string) $def['ui_goal_type'] ) : 'page_visit';
+			return array(
+				'goals'           => array(
+					array(
+						'goal_id'             => $goal_id,
+						'goal_type'           => 'page_view',
+						'label'               => $label,
+						'is_primary'          => true,
+						'is_defined'          => true,
+						'source_type'         => 'page_destination',
+						'goal_origin'         => 'page_destination',
+						'ui_goal_type'        => $ui,
+						'destination_page_id' => $dest,
+						'handlers'            => array(
+							array(
+								'handler_id'            => $handler_id,
+								'handler_type'          => 'page_view',
+								'destination_page_id'   => $dest,
+								'label'                 => $label,
+								'dedupe'                => 'once_per_session',
+							),
+						),
+					),
+				),
+				'primary_goal_id' => $goal_id,
+			);
+		}
+		$b  = isset( $def['builder'] ) ? sanitize_key( (string) $def['builder'] ) : '';
+		$o  = '' !== $source_type ? $source_type : 'defined';
+		$ui = isset( $def['ui_goal_type'] ) ? sanitize_key( (string) $def['ui_goal_type'] ) : '';
+		return array(
+			'goals'           => array(
+				array(
+					'goal_id'    => $goal_id,
+					'goal_type'  => 'click',
+					'label'      => $label,
+					'is_primary' => true,
+					'is_defined' => true,
+					'source_type'=> $o,
+					'goal_origin'=> $o,
+					'ui_goal_type'=> $ui,
+					'builder'    => $b,
+					'handlers'   => array(
+						array(
+							'handler_id'   => $handler_id,
+							'handler_type' => 'click',
+							'label'        => $label,
+							'selector'     => '',
+							'dedupe'       => 'allow_multiple',
+							'event_name'   => 'rwgo_goal_fired',
+						),
+					),
+				),
+			),
+			'primary_goal_id' => $goal_id,
+		);
 	}
 
 	/**

@@ -40,6 +40,8 @@ $rwgo_form_mode = 'create';
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Choose a valid Variant B page that matches the test type and is different from Control.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( 'source_type' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'The selected source does not match the test type. Pick again or change the test type.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php elseif ( 'dup_invalid' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Variant B could not be created as a valid duplicate of your source page (builder data did not validate). The test was not created. Try again, pick an existing page as Variant B, or create a blank variant.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php else : ?>
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Could not create the test. Check fields and permissions, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>

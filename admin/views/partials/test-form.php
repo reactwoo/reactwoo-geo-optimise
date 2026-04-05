@@ -28,9 +28,15 @@ $pf_targeting_mode  = isset( $rwgo_prefill['targeting_mode'] ) ? sanitize_key( (
 $pf_countries       = isset( $rwgo_prefill['countries_csv'] ) ? (string) $rwgo_prefill['countries_csv'] : '';
 $pf_winner_mode     = isset( $rwgo_prefill['winner_mode'] ) ? sanitize_key( (string) $rwgo_prefill['winner_mode'] ) : 'goal';
 $pf_goal_type       = isset( $rwgo_prefill['goal_type'] ) ? sanitize_key( (string) $rwgo_prefill['goal_type'] ) : 'page_view';
+$pf_goal_sel_mode   = isset( $rwgo_prefill['goal_selection_mode'] ) ? sanitize_key( (string) $rwgo_prefill['goal_selection_mode'] ) : 'automatic';
+$pf_defined_json    = isset( $rwgo_prefill['defined_goal_json'] ) ? (string) $rwgo_prefill['defined_goal_json'] : '';
 if ( 'traffic_only' === $pf_goal_type ) {
 	$pf_winner_mode = 'traffic_only';
 	$pf_goal_type   = 'page_view';
+}
+$pf_goal_type_auto = $pf_goal_type;
+if ( 'defined' === $pf_goal_type_auto ) {
+	$pf_goal_type_auto = 'page_view';
 }
 
 $type_labels = array(
@@ -42,9 +48,11 @@ $type_labels = array(
 );
 
 $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
+$pf_source_id_for_goals = isset( $rwgo_prefill['source_id'] ) ? (int) $rwgo_prefill['source_id'] : 0;
+$pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_prefill['variant_b_id'] : 0;
 ?>
 <?php if ( $rwgo_is_edit ) : ?>
-<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form rwgo-create-form--edit-reorder" id="<?php echo esc_attr( $form_id ); ?>">
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form rwgo-create-form--edit-reorder" id="<?php echo esc_attr( $form_id ); ?>" data-rwgo-form-mode="edit" data-rwgo-source-id="<?php echo esc_attr( (string) $pf_source_id_for_goals ); ?>" data-rwgo-variant-b-id="<?php echo esc_attr( (string) $pf_var_b_for_goals ); ?>">
 	<input type="hidden" name="action" value="rwgo_update_test" />
 	<?php wp_nonce_field( 'rwgo_update_test' ); ?>
 	<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ); ?>" />
@@ -56,7 +64,7 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 	?>
 	<input type="hidden" name="rwgo_return_context" value="<?php echo esc_attr( $rwgo_rc ); ?>" />
 <?php else : ?>
-<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>">
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>" data-rwgo-form-mode="create" data-rwgo-source-id="0" data-rwgo-variant-b-id="0">
 	<input type="hidden" name="action" value="rwgo_create_test" />
 	<?php wp_nonce_field( 'rwgo_create_test' ); ?>
 <?php endif; ?>
@@ -201,7 +209,7 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 					<input type="radio" name="rwgo_variant_mode" value="duplicate" checked="checked" class="rwgo-variant-mode" />
 					<span class="rwgo-radio-card__body">
 						<strong><?php esc_html_e( 'Duplicate source automatically (recommended)', 'reactwoo-geo-optimise' ); ?></strong>
-						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Geo Optimise creates a copy of your source content so you can edit Variant B without affecting Control (A). Builder data is copied when present.', 'reactwoo-geo-optimise' ); ?></span>
+						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Geo Optimise will create a full editable duplicate of the source page, including supported builder data. If duplication fails, the variant will not be attached and you can choose another recovery option.', 'reactwoo-geo-optimise' ); ?></span>
 					</span>
 				</label>
 				<label class="rwgo-radio-card">
@@ -264,18 +272,40 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 				<span><strong><?php esc_html_e( 'Traffic split only', 'reactwoo-geo-optimise' ); ?></strong> — <?php esc_html_e( 'Measure reach per variant without choosing a conversion winner.', 'reactwoo-geo-optimise' ); ?></span>
 			</label>
 		</fieldset>
+		<input type="hidden" name="rwgo_defined_goal" id="rwgo_defined_goal" value="<?php echo esc_attr( $pf_defined_json ); ?>" />
 		<div id="rwgo-goal-wrap" class="rwgo-field rwgo-goal-wrap" <?php echo 'traffic_only' === $pf_winner_mode ? ' style="display:none;"' : ''; ?>>
-			<label class="rwgo-field__label" for="rwgo_goal_type"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></label>
-			<select name="rwgo_goal_type" id="rwgo_goal_type" class="rwgo-input" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
-				<option value="page_view" <?php selected( $pf_goal_type, 'page_view' ); ?>><?php esc_html_e( 'Page view', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="cta_click" <?php selected( $pf_goal_type, 'cta_click' ); ?>><?php esc_html_e( 'CTA click', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="form_submit" <?php selected( $pf_goal_type, 'form_submit' ); ?>><?php esc_html_e( 'Form submission', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="add_to_cart" <?php selected( $pf_goal_type, 'add_to_cart' ); ?>><?php esc_html_e( 'Add to cart', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="begin_checkout" <?php selected( $pf_goal_type, 'begin_checkout' ); ?>><?php esc_html_e( 'Begin checkout', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="purchase" <?php selected( $pf_goal_type, 'purchase' ); ?>><?php esc_html_e( 'Purchase', 'reactwoo-geo-optimise' ); ?></option>
-				<option value="custom_event" <?php selected( $pf_goal_type, 'custom_event' ); ?>><?php esc_html_e( 'Custom event', 'reactwoo-geo-optimise' ); ?></option>
-			</select>
-			<p class="rwgo-hint"><?php esc_html_e( 'The primary goal is the metric used to determine which version is leading. You can refine technical bindings later in Tracking Tools or Developer if needed.', 'reactwoo-geo-optimise' ); ?></p>
+			<fieldset class="rwgo-fieldset rwgo-fieldset--tight">
+				<legend class="rwgo-field__label"><?php esc_html_e( 'Goal source', 'reactwoo-geo-optimise' ); ?></legend>
+				<label class="rwgo-radio-line">
+					<input type="radio" name="rwgo_goal_selection_mode" value="defined" class="rwgo-goal-sel-mode" <?php checked( $pf_goal_sel_mode, 'defined' ); ?> />
+					<span><?php esc_html_e( 'Use a defined CTA or destination goal', 'reactwoo-geo-optimise' ); ?></span>
+				</label>
+				<label class="rwgo-radio-line">
+					<input type="radio" name="rwgo_goal_selection_mode" value="automatic" class="rwgo-goal-sel-mode" <?php checked( $pf_goal_sel_mode, 'automatic' ); ?> />
+					<span><?php esc_html_e( 'Use automatic detection (wizard)', 'reactwoo-geo-optimise' ); ?></span>
+				</label>
+			</fieldset>
+			<div id="rwgo-defined-goal-panel" class="rwgo-field" <?php echo 'defined' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
+				<label class="rwgo-field__label" for="rwgo_defined_goal_select"><?php esc_html_e( 'Detected goals', 'reactwoo-geo-optimise' ); ?></label>
+				<select id="rwgo_defined_goal_select" class="rwgo-input" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
+					<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
+				</select>
+				<p class="rwgo-hint"><?php esc_html_e( 'Use a defined goal for more precise tracking and winner selection.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-hint"><?php esc_html_e( 'Tip: Goals can be defined directly in Elementor, Gutenberg, or on destination pages for more precise tracking.', 'reactwoo-geo-optimise' ); ?></p>
+			</div>
+			<div id="rwgo-automatic-goal-panel" class="rwgo-field" <?php echo 'automatic' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
+				<label class="rwgo-field__label" for="rwgo_goal_type"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></label>
+				<select name="rwgo_goal_type" id="rwgo_goal_type" class="rwgo-input" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
+					<option value="page_view" <?php selected( $pf_goal_type_auto, 'page_view' ); ?>><?php esc_html_e( 'Page view', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="cta_click" <?php selected( $pf_goal_type_auto, 'cta_click' ); ?>><?php esc_html_e( 'CTA click', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="form_submit" <?php selected( $pf_goal_type_auto, 'form_submit' ); ?>><?php esc_html_e( 'Form submission', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="add_to_cart" <?php selected( $pf_goal_type_auto, 'add_to_cart' ); ?>><?php esc_html_e( 'Add to cart', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="begin_checkout" <?php selected( $pf_goal_type_auto, 'begin_checkout' ); ?>><?php esc_html_e( 'Begin checkout', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="purchase" <?php selected( $pf_goal_type_auto, 'purchase' ); ?>><?php esc_html_e( 'Purchase', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="custom_event" <?php selected( $pf_goal_type_auto, 'custom_event' ); ?>><?php esc_html_e( 'Custom event', 'reactwoo-geo-optimise' ); ?></option>
+				</select>
+				<p class="rwgo-hint"><?php esc_html_e( 'The primary goal is the metric used to determine which version is leading. Automatic goals work without builder markers; defined goals are preferred when available.', 'reactwoo-geo-optimise' ); ?></p>
+			</div>
 		</div>
 	</section>
 
@@ -314,6 +344,16 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		<?php endif; ?>
 	</section>
 </form>
+<script type="application/json" id="rwgo-test-form-goals-config"><?php
+echo wp_json_encode(
+	array(
+		'restUrl'            => esc_url_raw( rest_url( 'rwgo/v1/defined-goals' ) ),
+		'nonce'              => wp_create_nonce( 'wp_rest' ),
+		'initialDefinedJson' => $pf_defined_json,
+		'initialMode'        => $pf_goal_sel_mode,
+	)
+);
+?></script>
 <?php if ( ! $rwgo_is_edit ) : ?>
 <script type="text/javascript">
 (function () {

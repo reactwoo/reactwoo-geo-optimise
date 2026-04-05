@@ -79,9 +79,15 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-content-catalog.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-defined-goal-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-rest-tracking.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-rest-defined-goals.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-elementor-goals.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-gutenberg-goals.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-page-goal-meta.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-swapper.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
@@ -89,6 +95,10 @@ class RWGO_Plugin {
 		RWGO_Experiment_CPT::init();
 		RWGO_Event_Store::init();
 		RWGO_REST_Tracking::init();
+		RWGO_REST_Defined_Goals::init();
+		RWGO_Elementor_Goals::init();
+		RWGO_Gutenberg_Goals::init();
+		RWGO_Page_Goal_Meta::init();
 		RWGO_Runtime::init();
 		RWGO_Admin_Wizard::init();
 		RWGO_Core_Event_Bridge::init();

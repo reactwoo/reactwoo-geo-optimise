@@ -93,16 +93,23 @@ $rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) 
 										JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT
 									);
 									$js     = 'window.dispatchEvent(new CustomEvent("rwgo:goal", { detail: ' . $detail . ' }));';
-									$dl_obj = array_merge(
-										array( 'event' => 'rwgo_goal_fired' ),
-										array(
-											'rwgo_experiment_key'  => $key,
-											'rwgo_experiment_id'   => (int) $exp_post->ID,
-											'rwgo_goal_id'         => $gid,
-											'rwgo_handler_id'      => $hid,
-											'rwgo_variant_id'      => 'var_b',
-											'rwgo_page_context_id' => $src,
-										)
+									$glabel_ex = isset( $goal['label'] ) ? (string) $goal['label'] : $gid;
+									$bt_sl     = class_exists( 'RWGO_GTM_Handoff', false )
+										? RWGO_GTM_Handoff::builder_slug_for_datalayer( $cfg )
+										: ( isset( $cfg['builder_type'] ) ? sanitize_key( (string) $cfg['builder_type'] ) : '' );
+									$dl_obj    = array(
+										'event'                => 'rwgo_goal_fired',
+										'rwgo_test_name'       => get_the_title( $exp_post ),
+										'rwgo_experiment_key'  => $key,
+										'rwgo_variant_id'      => 'var_b',
+										'rwgo_variant_label'   => class_exists( 'RWGO_GTM_Handoff', false )
+											? ( RWGO_GTM_Handoff::variant_labels_map( $cfg )['var_b'] ?? 'Variant B' )
+											: __( 'Variant B', 'reactwoo-geo-optimise' ),
+										'rwgo_goal_id'         => $gid,
+										'rwgo_goal_label'      => $glabel_ex,
+										'rwgo_handler_id'      => $hid,
+										'rwgo_page_context_id' => $src,
+										'rwgo_builder'         => $bt_sl,
 									);
 									$dl     = "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push(" . wp_json_encode( $dl_obj, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . ');';
 									?>

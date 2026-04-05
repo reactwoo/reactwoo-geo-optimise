@@ -62,9 +62,18 @@ class RWGO_Goal_Registry {
 				? RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $queried_post_id )
 				: '';
 
+			$variant_labels = class_exists( 'RWGO_GTM_Handoff', false )
+				? RWGO_GTM_Handoff::variant_labels_map( $cfg )
+				: array();
+
 			$experiments[] = array(
 				'experimentId'     => (int) $post->ID,
 				'experimentKey'    => (string) $cfg['experiment_key'],
+				'testName'         => get_the_title( $post ),
+				'builder'          => class_exists( 'RWGO_GTM_Handoff', false )
+					? RWGO_GTM_Handoff::builder_slug_for_datalayer( $cfg )
+					: ( isset( $cfg['builder_type'] ) ? sanitize_key( (string) $cfg['builder_type'] ) : '' ),
+				'variantLabels'    => $variant_labels,
 				'sourcePageId'     => $source,
 				'goals'            => $goals,
 				'resolvedVariant'  => (string) $resolved_variant,

@@ -117,6 +117,10 @@ $rwgo_status_pill_class = static function ( $st ) {
 					esc_html_e( 'Could not remove Variant B from this test.', 'reactwoo-geo-optimise' );
 				} elseif ( 'regen' === $err ) {
 					esc_html_e( 'Could not regenerate Variant B from Control.', 'reactwoo-geo-optimise' );
+				} elseif ( 'dup_invalid' === $err ) {
+					esc_html_e( 'Variant B could not be created as a valid duplicate. The test was not updated. Try again, use an existing page, or create a blank variant.', 'reactwoo-geo-optimise' );
+				} elseif ( 'regen_invalid' === $err ) {
+					esc_html_e( 'Variant B could not be regenerated as a valid duplicate. The previous variant was left unchanged.', 'reactwoo-geo-optimise' );
 				} elseif ( 'delete' === $err ) {
 					esc_html_e( 'Could not delete this test.', 'reactwoo-geo-optimise' );
 				} else {
@@ -234,6 +238,18 @@ $rwgo_status_pill_class = static function ( $st ) {
 			$vb_title  = $var_b_id > 0 ? get_the_title( $var_b_id ) : '';
 			$st_key    = sanitize_key( (string) $st );
 			$variant_incomplete = ( 'completed' !== $st_key ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+			$fidelity_status    = 'neutral';
+			$fidelity_label     = '';
+			if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src > 0 && $var_b_id > 0 ) {
+				$fidelity_status = RWGO_Page_Duplicator::get_variant_fidelity_status( $src, $var_b_id );
+				$fidelity_map    = array(
+					'ready'            => __( 'Ready', 'reactwoo-geo-optimise' ),
+					'missing_builder'  => __( 'Missing builder data', 'reactwoo-geo-optimise' ),
+					'builder_mismatch' => __( 'Builder mismatch', 'reactwoo-geo-optimise' ),
+					'duplicate_failed' => __( 'Duplicate validation failed', 'reactwoo-geo-optimise' ),
+				);
+				$fidelity_label = isset( $fidelity_map[ $fidelity_status ] ) ? $fidelity_map[ $fidelity_status ] : '';
+			}
 			$can_edit_exp       = current_user_can( 'edit_post', $exp_post->ID );
 			$can_delete_exp     = current_user_can( 'delete_post', $exp_post->ID );
 			$tests_list_url     = admin_url( 'admin.php?page=rwgo-tests' );
@@ -245,6 +261,8 @@ $rwgo_status_pill_class = static function ( $st ) {
 			$control_ok         = $src > 0 && get_post( $src ) && is_post_publicly_viewable( $src );
 			$variant_b_ok       = $var_b_id > 0 && get_post( $var_b_id ) && is_post_publicly_viewable( $var_b_id );
 			$edit_variants_url  = '' !== $edit_url ? $edit_url . '#rwgo-sec-variants' : '';
+			$gtm_payload        = class_exists( 'RWGO_GTM_Handoff', false ) ? RWGO_GTM_Handoff::build_modal_payload_for_test( $exp_post, $cfg ) : null;
+			$gtm_json             = $gtm_payload ? wp_json_encode( $gtm_payload, JSON_UNESCAPED_UNICODE ) : '';
 			?>
 		<article class="rwgo-test-card rwgo-panel rwgo-test-card--detail" id="<?php echo esc_attr( 'exp-row-' . (int) $exp_post->ID ); ?>">
 			<header class="rwgo-test-card__header rwgo-test-card__header--detail">
@@ -270,6 +288,10 @@ $rwgo_status_pill_class = static function ( $st ) {
 				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Variants:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 				<span class="rwgo-status-strip__item rwgo-status-strip__health <?php echo $variant_incomplete ? 'rwgo-status-strip__health--bad' : 'rwgo-status-strip__health--ok'; ?>"><?php esc_html_e( 'Health:', 'reactwoo-geo-optimise' ); ?> <?php echo $variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?></span>
+				<?php if ( $var_b_id > 0 && '' !== $fidelity_label && 'neutral' !== $fidelity_status ) : ?>
+					<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
+					<span class="rwgo-status-strip__item rwgo-status-strip__fidelity rwgo-status-strip__fidelity--<?php echo esc_attr( str_replace( '_', '-', $fidelity_status ) ); ?>"><?php esc_html_e( 'Fidelity:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $fidelity_label ); ?></span>
+				<?php endif; ?>
 			</div>
 
 			<div class="rwgo-meta-strip rwgo-meta-strip--tests" role="list">
@@ -277,30 +299,66 @@ $rwgo_status_pill_class = static function ( $st ) {
 				<span class="rwgo-meta-pill" role="listitem"><?php esc_html_e( 'Source:', 'reactwoo-geo-optimise' ); ?> <?php if ( $src > 0 ) : ?><a href="<?php echo esc_url( get_edit_post_link( $src ) ); ?>"><?php echo esc_html( get_the_title( $src ) ); ?></a><?php else : ?>—<?php endif; ?></span>
 			</div>
 
-			<div class="rwgo-btn-row rwgo-test-card__toolbar rwgo-btn-row--wrap">
-				<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $report_u ); ?>"><?php esc_html_e( 'View Report', 'reactwoo-geo-optimise' ); ?></a>
-				<?php if ( '' !== $edit_url ) : ?>
-					<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
-				<?php endif; ?>
-				<?php if ( 'active' === $st ) : ?>
+			<div class="rwgo-test-card__action-rows">
+				<div class="rwgo-btn-row rwgo-test-card__toolbar rwgo-test-card__toolbar--primary rwgo-btn-row--wrap">
+					<?php if ( '' !== $edit_url ) : ?>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $edit_url ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $report_u ); ?>"><?php esc_html_e( 'View Report', 'reactwoo-geo-optimise' ); ?></a>
+					<?php if ( $gtm_payload && '' !== $gtm_json ) : ?>
+						<button type="button" class="rwgo-btn rwgo-btn--icon" data-rwgo-gtm-open="1" data-rwgo-gtm-json="<?php echo esc_attr( $gtm_json ); ?>" title="<?php esc_attr_e( 'Generate GTM setup', 'reactwoo-geo-optimise' ); ?>" aria-label="<?php esc_attr_e( 'GTM setup — copy trigger, variables, GA4 mapping, and example payload for this test', 'reactwoo-geo-optimise' ); ?>">
+							<span class="dashicons dashicons-tag" aria-hidden="true"></span>
+						</button>
+					<?php else : ?>
+						<button type="button" class="rwgo-btn rwgo-btn--icon rwgo-btn--icon-disabled" disabled title="<?php esc_attr_e( 'Tracking setup unavailable — configure a goal first', 'reactwoo-geo-optimise' ); ?>" aria-label="<?php esc_attr_e( 'Tracking setup unavailable — configure a goal first', 'reactwoo-geo-optimise' ); ?>">
+							<span class="dashicons dashicons-tag" aria-hidden="true"></span>
+						</button>
+					<?php endif; ?>
+					<span class="rwgo-btn-row__spacer" aria-hidden="true"></span>
+					<?php if ( $can_delete_exp ) : ?>
+						<button type="button" class="button rwgo-btn rwgo-btn--danger-outline" data-rwgo-open-delete="1" data-rwgo-exp-id="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>"><?php esc_html_e( 'Delete Test', 'reactwoo-geo-optimise' ); ?></button>
+					<?php endif; ?>
+				</div>
+				<div class="rwgo-btn-row rwgo-test-card__toolbar rwgo-test-card__toolbar--secondary rwgo-btn-row--wrap">
+					<?php if ( is_string( $c_builder ) && $c_builder ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact" href="<?php echo esc_url( $c_builder ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( $var_b_id > 0 && is_string( $v_builder ) && $v_builder ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact" href="<?php echo esc_url( $v_builder ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( 'active' === $st ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+							<input type="hidden" name="action" value="rwgo_pause_test" />
+							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
+							<?php wp_nonce_field( 'rwgo_pause_test' ); ?>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact"><?php esc_html_e( 'Pause Test', 'reactwoo-geo-optimise' ); ?></button>
+						</form>
+					<?php elseif ( 'paused' === $st ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+							<input type="hidden" name="action" value="rwgo_resume_test" />
+							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
+							<?php wp_nonce_field( 'rwgo_resume_test' ); ?>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact"><?php esc_html_e( 'Resume Test', 'reactwoo-geo-optimise' ); ?></button>
+						</form>
+					<?php endif; ?>
+					<?php if ( 'completed' !== $st ) : ?>
+						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'End this test?', 'reactwoo-geo-optimise' ) ); ?>');">
+							<input type="hidden" name="action" value="rwgo_end_test" />
+							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
+							<?php wp_nonce_field( 'rwgo_end_test' ); ?>
+							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact"><?php esc_html_e( 'End Test', 'reactwoo-geo-optimise' ); ?></button>
+						</form>
+					<?php endif; ?>
 					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-						<input type="hidden" name="action" value="rwgo_pause_test" />
+						<input type="hidden" name="action" value="rwgo_duplicate_test" />
 						<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
-						<?php wp_nonce_field( 'rwgo_pause_test' ); ?>
-						<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Pause Test', 'reactwoo-geo-optimise' ); ?></button>
+						<?php wp_nonce_field( 'rwgo_duplicate_test' ); ?>
+						<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
 					</form>
-				<?php elseif ( 'paused' === $st ) : ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-						<input type="hidden" name="action" value="rwgo_resume_test" />
-						<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
-						<?php wp_nonce_field( 'rwgo_resume_test' ); ?>
-						<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Resume Test', 'reactwoo-geo-optimise' ); ?></button>
-					</form>
-				<?php endif; ?>
-				<span class="rwgo-btn-row__spacer" aria-hidden="true"></span>
-				<?php if ( $can_delete_exp ) : ?>
-					<button type="button" class="button rwgo-btn rwgo-btn--danger-outline" data-rwgo-open-delete="1" data-rwgo-exp-id="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>"><?php esc_html_e( 'Delete Test', 'reactwoo-geo-optimise' ); ?></button>
-				<?php endif; ?>
+					<?php if ( $can_edit_exp && 'completed' !== $st_key && $var_b_id > 0 && get_post( $var_b_id ) && class_exists( 'RWGO_Admin', false ) ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact" href="<?php echo esc_url( RWGO_Admin::promote_winner_url( (int) $exp_post->ID, 'tests' ) ); ?>"><?php esc_html_e( 'Promote Winner', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</div>
 			</div>
 
 			<section class="rwgo-variants-section" aria-labelledby="rwgo-variants-heading-<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>">
@@ -369,36 +427,19 @@ $rwgo_status_pill_class = static function ( $st ) {
 				</div>
 			</section>
 
-			<details class="rwgo-more-actions">
-				<summary class="rwgo-more-actions__summary"><?php esc_html_e( 'More actions', 'reactwoo-geo-optimise' ); ?></summary>
-				<div class="rwgo-more-actions__body">
-					<div class="rwgo-btn-row rwgo-btn-row--wrap rwgo-more-actions__row">
-						<?php if ( is_string( $c_live ) && $c_live ) : ?>
-							<a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $c_live ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View Control live', 'reactwoo-geo-optimise' ); ?></a>
-						<?php endif; ?>
-						<?php if ( is_string( $v_live ) && $v_live ) : ?>
-							<a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm" href="<?php echo esc_url( $v_live ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View Variant B live', 'reactwoo-geo-optimise' ); ?></a>
-						<?php endif; ?>
-						<?php if ( 'completed' !== $st ) : ?>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'End this test?', 'reactwoo-geo-optimise' ) ); ?>');">
-								<input type="hidden" name="action" value="rwgo_end_test" />
-								<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
-								<?php wp_nonce_field( 'rwgo_end_test' ); ?>
-								<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'End Test', 'reactwoo-geo-optimise' ); ?></button>
-							</form>
-						<?php endif; ?>
-						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-							<input type="hidden" name="action" value="rwgo_duplicate_test" />
-							<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) $exp_post->ID ); ?>" />
-							<?php wp_nonce_field( 'rwgo_duplicate_test' ); ?>
-							<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
-						</form>
-						<?php if ( $can_edit_exp && 'completed' !== $st_key && $var_b_id > 0 && get_post( $var_b_id ) && class_exists( 'RWGO_Admin', false ) ) : ?>
-							<a class="button rwgo-btn rwgo-btn--primary rwgo-btn--sm" href="<?php echo esc_url( RWGO_Admin::promote_winner_url( (int) $exp_post->ID, 'tests' ) ); ?>"><?php esc_html_e( 'Promote Winner', 'reactwoo-geo-optimise' ); ?></a>
-						<?php endif; ?>
-					</div>
-				</div>
-			</details>
+			<?php if ( ( is_string( $c_live ) && $c_live ) || ( is_string( $v_live ) && $v_live ) ) : ?>
+				<p class="rwgo-test-card__live-links">
+					<?php if ( is_string( $c_live ) && $c_live ) : ?>
+						<a href="<?php echo esc_url( $c_live ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View Control live', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( is_string( $c_live ) && $c_live && is_string( $v_live ) && $v_live ) : ?>
+						<span class="rwgo-test-card__live-sep" aria-hidden="true">·</span>
+					<?php endif; ?>
+					<?php if ( is_string( $v_live ) && $v_live ) : ?>
+						<a href="<?php echo esc_url( $v_live ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'View Variant B live', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</p>
+			<?php endif; ?>
 		</article>
 			<?php
 		endforeach;
@@ -424,6 +465,15 @@ $rwgo_status_pill_class = static function ( $st ) {
 						<button type="submit" class="button rwgo-btn rwgo-btn--danger"><?php esc_html_e( 'Delete test', 'reactwoo-geo-optimise' ); ?></button>
 					</div>
 				</form>
+			</div>
+		</dialog>
+		<dialog class="rwgo-dialog rwgo-dialog--wide" id="rwgo-gtm-modal" aria-labelledby="rwgo-gtm-modal-title">
+			<div class="rwgo-dialog__inner rwgo-gtm-modal__wrap">
+				<h2 class="rwgo-dialog__title" id="rwgo-gtm-modal-title"></h2>
+				<div id="rwgo-gtm-modal-body" class="rwgo-gtm-modal__body"></div>
+				<div class="rwgo-btn-row rwgo-gtm-modal__footer">
+					<button type="button" class="button rwgo-btn rwgo-btn--secondary" data-rwgo-gtm-close="1"><?php esc_html_e( 'Close', 'reactwoo-geo-optimise' ); ?></button>
+				</div>
 			</div>
 		</dialog>
 		<script>

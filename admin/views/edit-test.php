@@ -67,19 +67,24 @@ if ( ! in_array( $rwgo_return_ctx, array( 'tests', 'reports' ), true ) ) {
 	$rwgo_return_ctx = '';
 }
 
+$rwgo_goal_sel_mode = isset( $rwgo_cfg['goal_selection_mode'] ) ? sanitize_key( (string) $rwgo_cfg['goal_selection_mode'] ) : 'automatic';
+$rwgo_def_goal_json = class_exists( 'RWGO_Admin_Wizard', false ) ? RWGO_Admin_Wizard::defined_goal_json_from_config( $rwgo_cfg ) : '';
+
 $rwgo_prefill = array(
-	'experiment_id'   => $rwgo_exp_id,
-	'name'            => $rwgo_exp_post instanceof \WP_Post ? get_the_title( $rwgo_exp_post ) : '',
-	'test_type'       => isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab',
-	'source_id'       => $src_id,
-	'variant_b_id'    => $var_b_id,
-	'targeting_mode'  => $tgt_mode,
-	'countries_csv'   => $countries,
-	'winner_mode'       => $wm,
-	'goal_type'         => $goal_type,
-	'status'            => isset( $rwgo_cfg['status'] ) ? (string) $rwgo_cfg['status'] : '',
-	'experiment_key'    => isset( $rwgo_cfg['experiment_key'] ) ? (string) $rwgo_cfg['experiment_key'] : '',
-	'return_context'    => $rwgo_return_ctx,
+	'experiment_id'      => $rwgo_exp_id,
+	'name'               => $rwgo_exp_post instanceof \WP_Post ? get_the_title( $rwgo_exp_post ) : '',
+	'test_type'          => isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab',
+	'source_id'          => $src_id,
+	'variant_b_id'       => $var_b_id,
+	'targeting_mode'     => $tgt_mode,
+	'countries_csv'      => $countries,
+	'winner_mode'        => $wm,
+	'goal_type'          => $goal_type,
+	'goal_selection_mode'=> $rwgo_goal_sel_mode,
+	'defined_goal_json'  => $rwgo_def_goal_json,
+	'status'             => isset( $rwgo_cfg['status'] ) ? (string) $rwgo_cfg['status'] : '',
+	'experiment_key'     => isset( $rwgo_cfg['experiment_key'] ) ? (string) $rwgo_cfg['experiment_key'] : '',
+	'return_context'     => $rwgo_return_ctx,
 );
 
 $key_for_stats = $rwgo_prefill['experiment_key'];
@@ -107,6 +112,21 @@ if ( $lead_slug && ! $assign_only ) {
 			break;
 		}
 	}
+}
+
+$rwgo_fidelity_status = 'neutral';
+$rwgo_fidelity_label  = '—';
+if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src_id > 0 && $var_b_id > 0 ) {
+	$rwgo_fidelity_status = RWGO_Page_Duplicator::get_variant_fidelity_status( $src_id, $var_b_id );
+	$fidelity_labels      = array(
+		'ready'            => __( 'Ready', 'reactwoo-geo-optimise' ),
+		'missing'          => __( 'Missing builder data', 'reactwoo-geo-optimise' ),
+		'missing_builder'  => __( 'Missing builder data', 'reactwoo-geo-optimise' ),
+		'builder_mismatch' => __( 'Builder mismatch', 'reactwoo-geo-optimise' ),
+		'duplicate_failed' => __( 'Duplicate validation failed', 'reactwoo-geo-optimise' ),
+		'neutral'          => '—',
+	);
+	$rwgo_fidelity_label = isset( $fidelity_labels[ $rwgo_fidelity_status ] ) ? $fidelity_labels[ $rwgo_fidelity_status ] : $rwgo_fidelity_status;
 }
 
 $rwgo_form_mode = 'edit';
@@ -158,6 +178,10 @@ $rwgo_form_mode = 'edit';
 					esc_html_e( 'Variant B is missing — pick a replacement in the Variants section.', 'reactwoo-geo-optimise' );
 				} elseif ( 'dup' === $err ) {
 					esc_html_e( 'Could not duplicate the source for a new Variant B.', 'reactwoo-geo-optimise' );
+				} elseif ( 'dup_invalid' === $err ) {
+					esc_html_e( 'Variant B could not be created as a valid Elementor duplicate. The page was not attached to the test. Try again, use an existing page, or create a blank variant.', 'reactwoo-geo-optimise' );
+				} elseif ( 'regen_invalid' === $err ) {
+					esc_html_e( 'Variant B could not be regenerated as a valid duplicate. The previous variant was left unchanged.', 'reactwoo-geo-optimise' );
 				} elseif ( 'promote' === $err ) {
 					esc_html_e( 'Could not promote Variant B to Control. Check permissions and that both pages exist.', 'reactwoo-geo-optimise' );
 				} elseif ( 'detach' === $err ) {
@@ -170,6 +194,20 @@ $rwgo_form_mode = 'edit';
 					esc_html_e( 'Could not save changes. Try again.', 'reactwoo-geo-optimise' );
 				}
 				?>
+			</p></div>
+		<?php endif; ?>
+
+		<?php
+		$rwgo_goal_warnings = class_exists( 'RWGO_Defined_Goal_Service', false )
+			? RWGO_Defined_Goal_Service::validate_experiment_config( $rwgo_cfg )
+			: array();
+		if ( ! empty( $rwgo_goal_warnings ) ) :
+			?>
+			<div class="notice notice-warning rwgo-notice"><p>
+				<strong><?php esc_html_e( 'Goal readiness', 'reactwoo-geo-optimise' ); ?></strong>
+				<?php foreach ( $rwgo_goal_warnings as $rwgo_gw ) : ?>
+					<br /><?php echo esc_html( isset( $rwgo_gw['message'] ) ? (string) $rwgo_gw['message'] : '' ); ?>
+				<?php endforeach; ?>
 			</p></div>
 		<?php endif; ?>
 
@@ -207,7 +245,19 @@ $rwgo_form_mode = 'edit';
 					<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Health', 'reactwoo-geo-optimise' ); ?></span>
 					<?php echo $rwgo_variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?>
 				</span>
+				<?php if ( $var_b_id > 0 && 'neutral' !== $rwgo_fidelity_status ) : ?>
+					<span class="rwgo-meta-pill rwgo-meta-pill--fidelity rwgo-meta-pill--fidelity-<?php echo esc_attr( $rwgo_fidelity_status ); ?>" role="listitem">
+						<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variant fidelity', 'reactwoo-geo-optimise' ); ?></span>
+						<?php echo esc_html( $rwgo_fidelity_label ); ?>
+					</span>
+				<?php endif; ?>
 			</div>
+			<?php if ( $var_b_id > 0 && in_array( $rwgo_fidelity_status, array( 'missing_builder', 'builder_mismatch', 'duplicate_failed' ), true ) ) : ?>
+				<div class="notice notice-warning rwgo-notice rwgo-notice--fidelity">
+					<p><strong><?php esc_html_e( 'Variant B is missing or invalid', 'reactwoo-geo-optimise' ); ?></strong></p>
+					<p><?php esc_html_e( 'Use Regenerate from Control, pick an existing page, or create a blank variant in the Variants section below.', 'reactwoo-geo-optimise' ); ?></p>
+				</div>
+			<?php endif; ?>
 			<p class="rwgo-hint rwgo-hint--tight"><?php esc_html_e( 'Internal experiment key (for developers & integrations):', 'reactwoo-geo-optimise' ); ?> <code><?php echo esc_html( $key_for_stats ); ?></code></p>
 			<ul class="rwgo-checklist rwgo-checklist--compact">
 				<li><?php esc_html_e( 'Visitors assigned (total):', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( (string) $vsum ); ?></li>

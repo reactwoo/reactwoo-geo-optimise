@@ -493,6 +493,45 @@ class RWGO_Admin {
 			$deps,
 			RWGO_VERSION
 		);
+		if ( false !== strpos( $hook, 'rwgo-create-test' ) || false !== strpos( $hook, 'rwgo-edit-test' ) ) {
+			wp_enqueue_script(
+				'rwgo-test-form-goals',
+				RWGO_URL . 'admin/js/rwgo-test-form-goals.js',
+				array(),
+				RWGO_VERSION,
+				true
+			);
+			wp_localize_script(
+				'rwgo-test-form-goals',
+				'rwgoTestFormGoalsI18n',
+				array(
+					'pickSource' => __( 'Select a source page first (and Variant B if needed).', 'reactwoo-geo-optimise' ),
+					'pickGoal'   => __( '— Choose a goal —', 'reactwoo-geo-optimise' ),
+					'noneFound'  => __( 'No defined goals found. Mark CTAs in Elementor or Gutenberg, or set a destination page, then refresh.', 'reactwoo-geo-optimise' ),
+					'loadFailed' => __( 'Could not load defined goals.', 'reactwoo-geo-optimise' ),
+				)
+			);
+		}
+		if ( false !== strpos( $hook, 'rwgo-tracking-tools' ) || false !== strpos( $hook, 'rwgo-tests' ) ) {
+			wp_enqueue_style( 'dashicons' );
+			wp_enqueue_script(
+				'rwgo-admin-gtm',
+				RWGO_URL . 'admin/js/rwgo-admin-gtm.js',
+				array(),
+				RWGO_VERSION,
+				true
+			);
+			wp_localize_script(
+				'rwgo-admin-gtm',
+				'rwgoAdminGtm',
+				array(
+					'copied'     => __( 'Copied', 'reactwoo-geo-optimise' ),
+					'copyFailed' => __( 'Could not copy', 'reactwoo-geo-optimise' ),
+					'copyLabel'  => __( 'Copy', 'reactwoo-geo-optimise' ),
+					'copyAll'    => __( 'Copy all', 'reactwoo-geo-optimise' ),
+				)
+			);
+		}
 	}
 
 	/**
@@ -992,7 +1031,8 @@ class RWGO_Admin {
 		}
 		$new_dup = RWGO_Page_Duplicator::duplicate_page( $source );
 		if ( is_wp_error( $new_dup ) ) {
-			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=dup' ) );
+			$e = RWGO_Page_Duplicator::duplicate_redirect_error_arg( $new_dup );
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=' . rawurlencode( $e ) ) );
 			exit;
 		}
 		$new_key = RWGO_Experiment_Service::generate_experiment_key( $source );
@@ -1158,7 +1198,11 @@ class RWGO_Admin {
 		$r   = RWGO_Variant_Lifecycle::regenerate_variant_b( $exp_id );
 		$url = self::safe_admin_redirect_target( self::edit_test_url( $exp_id ) );
 		if ( is_wp_error( $r ) ) {
-			wp_safe_redirect( add_query_arg( 'rwgo_error', 'regen', $url ) );
+			$regen_err = 'regen';
+			if ( class_exists( 'RWGO_Page_Duplicator', false ) && 'dup_invalid' === RWGO_Page_Duplicator::duplicate_redirect_error_arg( $r ) ) {
+				$regen_err = 'regen_invalid';
+			}
+			wp_safe_redirect( add_query_arg( 'rwgo_error', $regen_err, $url ) );
 			exit;
 		}
 		wp_safe_redirect( add_query_arg( 'rwgo_regenerated', '1', $url ) );
