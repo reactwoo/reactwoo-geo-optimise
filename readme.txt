@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.8
+Stable tag: 0.3.9
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.9 =
+* **Tracking:** Defined Elementor/Gutenberg goals on Control and Variant B used different `goal_id`/`handler_id` hashes per page, so `rwgo-tracking.js` only stamped the experiment on the page that matched the saved test config — usually Control. Clicks on Variant B did not record. The front-end config now expands matching defined goals across all experiment page IDs (same goal label + UI goal type), so both pages stamp `data-rwgo-experiment-key` and REST validation accepts either pair.
 
 = 0.3.8 =
 * **Fix:** `add_meta_boxes` callback `RWGO_Page_Goal_Meta::add_meta_box` now accepts an optional second parameter. WordPress (block editor / `register_and_do_post_meta_boxes`) sometimes passes only the post type name, which caused a fatal `ArgumentCountError` when exiting Elementor to the post edit screen.
