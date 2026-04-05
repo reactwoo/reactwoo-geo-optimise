@@ -155,11 +155,17 @@ class RWGO_Page_Goal_Meta {
 	}
 
 	/**
-	 * @param string $post_type Post type.
-	 * @param \WP_Post $post Post.
+	 * Register the classic meta box for supported public post types.
+	 *
+	 * WordPress passes one argument (`$post_type`) on some code paths (e.g. block editor
+	 * `register_and_do_post_meta_boxes`) and two on others (`$post_type`, `$post`). The second
+	 * argument is not required to register the box.
+	 *
+	 * @param string        $post_type Post type.
+	 * @param \WP_Post|null $post      Post object when provided.
 	 * @return void
 	 */
-	public static function add_meta_box( $post_type, $post ) {
+	public static function add_meta_box( $post_type, $post = null ) {
 		unset( $post );
 		if ( ! current_user_can( 'edit_posts' ) ) {
 			return;

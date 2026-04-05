@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.7
+Stable tag: 0.3.8
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.8 =
+* **Fix:** `add_meta_boxes` callback `RWGO_Page_Goal_Meta::add_meta_box` now accepts an optional second parameter. WordPress (block editor / `register_and_do_post_meta_boxes`) sometimes passes only the post type name, which caused a fatal `ArgumentCountError` when exiting Elementor to the post edit screen.
 
 = 0.3.7 =
 * **Elementor:** Register goal controls on `elementor/init` so hooks run before control stacks initialize; keep `common` / `common-optimized` `_section_style` pattern; narrower default widget list; merged goal-type dropdown; section title **Geo Optimise**; optional `RWGO_ELEMENTOR_GOALS_DEBUG` logging.
