@@ -1,5 +1,8 @@
 /**
  * Geo Optimise admin — shared shell, cards, tabs, tables (extends Geo Core .rwgc-*).
+ *
+ * Visual tokens align with Geo Core / Geo Elementor: primary blue #2271b1, secondary
+ * text #646970, neutral surfaces #f0f0f1 / #fff, danger #d63638, green for success/ready.
  */
 
 /* -------------------------------------------------------------------------
@@ -12,12 +15,20 @@
   --rwgo-radius: var(--rwgo-radius-lg);
   --rwgo-card-pad: 24px;
   --rwgo-gap: 24px;
-  --rwgo-border: 1px solid #e2e8f0;
+  --rwgo-border: 1px solid #e5e7eb;
   --rwgo-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
   --rwgo-btn-h: 42px;
   --rwgo-btn-pad-x: 18px;
-  --rwgo-color-accent: #5b21b6;
-  --rwgo-color-accent-hover: #4c1d95;
+  --rwgo-color-accent: #2271b1;
+  --rwgo-color-accent-hover: #135e96;
+  --rwgo-color-accent-soft: #eff6ff;
+  --rwgo-color-accent-border: #bfdbfe;
+  --rwgo-color-link-on-light: #0a4f8a;
+  --rwgo-color-secondary: #646970;
+  --rwgo-color-danger: #d63638;
+  --rwgo-color-success-bg: #ecfdf5;
+  --rwgo-color-success-border: #a7f3d0;
+  --rwgo-color-success-text: #047857;
   max-width: 1140px;
 }
 
@@ -276,8 +287,8 @@ select.rwgo-input {
 }
 
 .rwgo-radio-card:hover {
-  border-color: #c4b5fd;
-  background: #faf5ff;
+  border-color: var(--rwgo-color-accent-border);
+  background: var(--rwgo-color-accent-soft);
 }
 
 .rwgo-radio-card input {
@@ -405,7 +416,7 @@ select.rwgo-input {
 .rwgo-wrap .rwgo-btn--primary:focus,
 .rwgo-wrap .rwgo-btn-primary:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #c4b5fd;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #93c5fd;
 }
 
 .rwgo-wrap .button:not(.button-primary):not(.button-link):not(.rwgo-btn--tertiary):not(.rwgo-btn--danger),
@@ -519,34 +530,38 @@ select.rwgo-input {
 .rwgo-inner-nav.rwgc-inner-nav {
   margin-top: 0;
   margin-bottom: 20px;
-  padding: 6px;
-  background: #f1f5f9;
+  padding: 8px;
+  background: #f8fafc;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  gap: 4px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .rwgo-inner-nav.rwgc-inner-nav .rwgc-inner-nav__link {
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-weight: 500;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 12.5px;
 }
 
 .rwgo-inner-nav.rwgc-inner-nav .rwgc-inner-nav__link.is-active {
-  background: #fff;
-  box-shadow: var(--rwgo-shadow);
-  color: #5b21b6;
+  background: #2271b1;
+  border-color: #1f6398;
+  color: #fff;
+  box-shadow: none;
 }
 
 /* -------------------------------------------------------------------------
    Developer sub-tabs (align with product tabs)
    ------------------------------------------------------------------------- */
 .rwgo-wrap .rwgo-tools-nav.nav-tab-wrapper {
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e5e7eb;
   border-radius: 12px;
-  padding: 6px;
+  padding: 8px;
   background: #f8fafc;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
   margin: 0 0 20px;
   display: flex;
   flex-wrap: wrap;
@@ -564,13 +579,14 @@ select.rwgo-input {
 }
 
 .rwgo-wrap .rwgo-tools-nav .nav-tab:hover {
-  color: #5b21b6;
-  background: #fff;
+  color: var(--rwgo-color-link-on-light);
+  background: var(--rwgo-color-accent-soft);
 }
 
 .rwgo-wrap .rwgo-tools-nav .nav-tab.nav-tab-active {
-  background: #fff;
-  color: #5b21b6;
+  background: #2271b1;
+  border-color: #1f6398;
+  color: #fff;
   box-shadow: var(--rwgo-shadow);
 }
 
@@ -653,8 +669,9 @@ select.rwgo-input {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: #ede9fe;
-  color: #5b21b6;
+  background: var(--rwgo-color-success-bg);
+  border: 1px solid var(--rwgo-color-success-border);
+  color: var(--rwgo-color-success-text);
   font-weight: 700;
   font-size: 13px;
   display: flex;
@@ -663,11 +680,12 @@ select.rwgo-input {
 }
 
 .rwgo-hero {
-  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 45%, #f8fafc 100%);
-  border: 1px solid #e9d5ff;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 55%, #f0f0f1 100%);
+  border: 1px solid #bfdbfe;
   border-radius: var(--rwgo-radius);
   padding: var(--rwgo-card-pad);
   margin-bottom: var(--rwgo-gap);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
 }
 
 .rwgo-hero h2 {
@@ -788,8 +806,8 @@ select.rwgo-input {
 .rwgo-orient {
   padding: var(--rwgo-card-pad);
   border-radius: var(--rwgo-radius);
-  border: 1px solid #e0e7ff;
-  background: #eef2ff;
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
   margin-bottom: var(--rwgo-gap);
 }
 
@@ -855,9 +873,9 @@ select.rwgo-input {
 .rwgo-panel--hero {
   border-radius: 16px;
   padding: 24px;
-  border: 1px solid #e0e7ff;
-  background: linear-gradient(135deg, #eef2ff 0%, #f8fafc 100%);
-  box-shadow: var(--rwgo-shadow);
+  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 100%);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.05);
 }
 
 .rwgo-panel--split {
@@ -940,7 +958,7 @@ select.rwgo-input {
   cursor: pointer;
   font-weight: 600;
   font-size: 13px;
-  color: #5b21b6;
+  color: var(--rwgo-color-accent);
   list-style: none;
   padding: 4px 0;
 }
@@ -1156,7 +1174,7 @@ select.rwgo-input {
 .rwgo-version-row__label {
   font-size: 12px;
   font-weight: 700;
-  color: #5b21b6;
+  color: var(--rwgo-color-link-on-light);
   min-width: 100px;
 }
 
@@ -1301,16 +1319,16 @@ select.rwgo-input {
 }
 
 .rwgo-inner-nav.rwgc-inner-nav .rwgc-inner-nav__link:hover {
-  background: #fff;
-  color: #5b21b6;
-  border-color: #e2e8f0;
+  background: #eff6ff;
+  color: #0a4f8a;
+  border-color: transparent;
 }
 
 .rwgo-inner-nav.rwgc-inner-nav .rwgc-inner-nav__link.is-active {
-  border-color: #e9d5ff;
-  background: #faf5ff;
+  border-color: #1f6398;
+  background: #2271b1;
   font-weight: 600;
-  color: #5b21b6;
+  color: #fff;
 }
 
 .rwgo-wrap .rwgo-tools-nav .nav-tab {
@@ -1319,16 +1337,16 @@ select.rwgo-input {
 }
 
 .rwgo-wrap .rwgo-tools-nav .nav-tab.nav-tab-active {
-  border-color: #e9d5ff;
-  background: #faf5ff;
+  border-color: #1f6398;
+  background: #2271b1;
   font-weight: 600;
-  color: #5b21b6;
+  color: #fff;
 }
 
 .rwgo-wrap .rwgo-tools-nav .nav-tab:hover {
-  background: #fff;
-  color: #5b21b6;
-  border-color: #e2e8f0;
+  background: #eff6ff;
+  color: #0a4f8a;
+  border-color: transparent;
 }
 
 /* Dashboard: stats + stack alignment */
