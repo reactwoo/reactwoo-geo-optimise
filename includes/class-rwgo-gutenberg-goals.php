@@ -23,6 +23,19 @@ class RWGO_Gutenberg_Goals {
 		$names = array(
 			'core/button',
 			'core/read-more',
+			'core/heading',
+			'core/paragraph',
+			'core/list',
+			'core/list-item',
+			'core/details',
+			'core/table',
+			'core/columns',
+			'core/column',
+			'core/group',
+			'core/separator',
+			'core/spacer',
+			'core/html',
+			'core/shortcode',
 			'core/navigation-link',
 			'core/image',
 			'core/media-text',
@@ -31,6 +44,8 @@ class RWGO_Gutenberg_Goals {
 			'core/social-link',
 			'core/site-logo',
 			'core/query-pagination-next',
+			'core/post-excerpt',
+			'core/site-title',
 		);
 		if ( class_exists( 'WooCommerce', false ) ) {
 			$names[] = 'woocommerce/product-button';
@@ -239,11 +254,15 @@ class RWGO_Gutenberg_Goals {
 			true
 		);
 		wp_set_script_translations( 'rwgo-block-goals', 'reactwoo-geo-optimise' );
+		$help    = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::help_url( 'rwgo-help-builder-goals' ) : admin_url( 'admin.php?page=rwgo-help' );
+		$support = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::developer_url( 'support' ) : admin_url( 'admin.php?page=rwgo-developer&rwgo_tab=support' );
 		wp_localize_script(
 			'rwgo-block-goals',
 			'rwgoBlockGoals',
 			array(
 				'blockNames' => self::goal_block_names(),
+				'helpUrl'    => $help,
+				'supportUrl' => $support,
 			)
 		);
 	}

@@ -42,7 +42,7 @@ if ( $rwgo_exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) || $
 			</form>
 		</div>
 		<p class="rwgo-hint rwgo-hint--spaced"><?php esc_html_e( 'Remove Variant B from this test:', 'reactwoo-geo-optimise' ); ?></p>
-		<p class="description"><?php esc_html_e( 'If you move the variant page to Trash, WordPress keeps its URL slug reserved until the page is permanently deleted or the trash is emptied — future duplicates may use a numbered slug instead.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="description"><?php esc_html_e( 'Trash keeps the page’s URL slug reserved until it is permanently deleted or the trash is emptied. Permanent deletion frees the slug for a future variant.', 'reactwoo-geo-optimise' ); ?></p>
 		<div class="rwgo-btn-row rwgo-btn-row--wrap">
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
 				<?php wp_nonce_field( 'rwgo_detach_variant' ); ?>
@@ -59,9 +59,19 @@ if ( $rwgo_exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) || $
 				<input type="hidden" name="action" value="rwgo_detach_variant" />
 				<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
 				<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
+				<input type="hidden" name="rwgo_detach_mode" value="trash" />
+				<button type="submit" class="button rwgo-btn rwgo-btn--secondary" onclick="return confirm('<?php echo esc_js( __( 'Remove Variant B from this test and move the Variant B page to Trash? The slug will stay reserved until the page is deleted from Trash.', 'reactwoo-geo-optimise' ) ); ?>');">
+					<?php esc_html_e( 'Remove and move to Trash', 'reactwoo-geo-optimise' ); ?>
+				</button>
+			</form>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+				<?php wp_nonce_field( 'rwgo_detach_variant' ); ?>
+				<input type="hidden" name="action" value="rwgo_detach_variant" />
+				<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
+				<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
 				<input type="hidden" name="rwgo_detach_mode" value="delete" />
-				<button type="submit" class="button rwgo-btn rwgo-btn--danger-outline" onclick="return confirm('<?php echo esc_js( __( 'Remove Variant B from this test and move the Variant B page to trash?', 'reactwoo-geo-optimise' ) ); ?>');">
-					<?php esc_html_e( 'Remove and delete page', 'reactwoo-geo-optimise' ); ?>
+				<button type="submit" class="button rwgo-btn rwgo-btn--danger-outline" onclick="return confirm('<?php echo esc_js( __( 'Remove Variant B from this test and permanently delete the Variant B page? This cannot be undone and frees the URL slug.', 'reactwoo-geo-optimise' ) ); ?>');">
+					<?php esc_html_e( 'Remove and permanently delete page', 'reactwoo-geo-optimise' ); ?>
 				</button>
 			</form>
 		</div>

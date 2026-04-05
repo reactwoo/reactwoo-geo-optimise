@@ -15,6 +15,23 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RWGO_Page_Naming_Service {
 
 	/**
+	 * Case 4: user renamed variant to match Control — used for admin warning only (does not change titles).
+	 *
+	 * @param int $control_post_id Control (source) post ID.
+	 * @param int $variant_post_id Variant B post ID.
+	 * @return bool
+	 */
+	public static function variant_title_matches_control_title( $control_post_id, $variant_post_id ) {
+		$c = get_post( (int) $control_post_id );
+		$v = get_post( (int) $variant_post_id );
+		if ( ! $c instanceof \WP_Post || ! $v instanceof \WP_Post ) {
+			return false;
+		}
+
+		return trim( (string) $c->post_title ) === trim( (string) $v->post_title );
+	}
+
+	/**
 	 * Base title: "{Original Title} — Variant {key}".
 	 *
 	 * @param string $source_title Original post title.

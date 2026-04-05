@@ -75,6 +75,15 @@ class RWGO_Elementor_Page_Goal {
 		);
 
 		$document->add_control(
+			'rwgo_dest_goal_section_help',
+			array(
+				'type'            => \Elementor\Controls_Manager::RAW_HTML,
+				'raw'             => '<p class="elementor-descriptor" style="margin-top:0;">' . esc_html__( 'Conversion goals: count a visit to this page as a test goal. This is not GeoElementor country routing or variant routing.', 'reactwoo-geo-optimise' ) . '</p>',
+				'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
+			)
+		);
+
+		$document->add_control(
 			'rwgo_dest_goal_enabled',
 			array(
 				'label'        => __( 'Use this page as a Geo Optimise goal destination', 'reactwoo-geo-optimise' ),

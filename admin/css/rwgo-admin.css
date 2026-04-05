@@ -1248,6 +1248,26 @@ select.rwgo-input {
   text-transform: none;
 }
 
+.rwgo-test-card__reason-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.rwgo-tag.rwgo-tag--reason {
+  display: inline-block;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  text-transform: none;
+  font-weight: 500;
+}
+
 /* Tracking: snippet sections */
 .rwgo-snippet-stack {
   display: flex;

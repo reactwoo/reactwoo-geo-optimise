@@ -47,24 +47,36 @@ class RWGO_Variant_Lifecycle {
 	}
 
 	/**
-	 * Remove Variant B from the test (optional trash of the page).
+	 * Remove Variant B from the test; optionally trash or permanently delete the page.
 	 *
-	 * @param int  $experiment_post_id Experiment CPT ID.
-	 * @param bool $delete_page        If true, move Variant B post to trash.
+	 * @param int    $experiment_post_id Experiment CPT ID.
+	 * @param string $variant_page_mode    none (keep page) | trash | delete (permanent; frees slug).
 	 * @return true|\WP_Error
 	 */
-	public static function detach_variant_b( $experiment_post_id, $delete_page = false ) {
+	public static function detach_variant_b( $experiment_post_id, $variant_page_mode = 'none' ) {
 		$experiment_post_id = (int) $experiment_post_id;
 		if ( $experiment_post_id <= 0 || ! current_user_can( 'edit_post', $experiment_post_id ) ) {
 			return new \WP_Error( 'rwgo_detach_perm', __( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
 		}
+		if ( is_bool( $variant_page_mode ) ) {
+			$variant_page_mode = $variant_page_mode ? 'trash' : 'none';
+		}
+		$variant_page_mode = is_string( $variant_page_mode ) ? sanitize_key( $variant_page_mode ) : 'none';
+		if ( ! in_array( $variant_page_mode, array( 'none', 'trash', 'delete' ), true ) ) {
+			$variant_page_mode = 'none';
+		}
+
 		$cfg = RWGO_Experiment_Repository::get_config( $experiment_post_id );
 		$b   = self::variant_b_page_id( $cfg );
 		$variants = isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array();
 		$variants = RWGO_Admin_Wizard::patch_variants_var_b( $variants, 0 );
 
-		if ( $delete_page && $b > 0 && current_user_can( 'delete_post', $b ) ) {
-			wp_trash_post( $b );
+		if ( $b > 0 && current_user_can( 'delete_post', $b ) ) {
+			if ( 'trash' === $variant_page_mode ) {
+				wp_trash_post( $b );
+			} elseif ( 'delete' === $variant_page_mode ) {
+				wp_delete_post( $b, true );
+			}
 		}
 
 		RWGO_Experiment_Repository::save_config(

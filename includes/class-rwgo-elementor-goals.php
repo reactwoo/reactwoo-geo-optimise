@@ -23,11 +23,32 @@ class RWGO_Elementor_Goals {
 	public static function get_supported_widgets() {
 		$widgets = array(
 			'button',
+			'heading',
+			'text-editor',
+			'html',
+			'shortcode',
 			'call-to-action',
 			'icon-box',
 			'image-box',
 			'icon-list',
 			'image-carousel',
+			'image-gallery',
+			'basic-gallery',
+			'video',
+			'divider',
+			'spacer',
+			'google_maps',
+			'icon',
+			'accordion',
+			'toggle',
+			'tabs',
+			'alert',
+			'counter',
+			'progress',
+			'testimonial',
+			'rating',
+			'social-icons',
+			'blockquote',
 		);
 		if ( defined( 'ELEMENTOR_PRO_VERSION' ) ) {
 			$widgets = array_merge(
@@ -102,6 +123,7 @@ class RWGO_Elementor_Goals {
 				'checkbox_optin'     => __( 'Checkbox / opt-in interaction', 'reactwoo-geo-optimise' ),
 				'add_to_cart'        => __( 'Add to cart', 'reactwoo-geo-optimise' ),
 				'begin_checkout'     => __( 'Begin checkout', 'reactwoo-geo-optimise' ),
+				'purchase'           => __( 'Purchase', 'reactwoo-geo-optimise' ),
 				'page_visit'         => __( 'Page visit', 'reactwoo-geo-optimise' ),
 				'thank_you'          => __( 'Thank-you / confirmation visit', 'reactwoo-geo-optimise' ),
 				'custom'             => __( 'Custom', 'reactwoo-geo-optimise' ),
@@ -159,8 +181,16 @@ class RWGO_Elementor_Goals {
 		$el->start_controls_section(
 			'section_rwgo_geo_goal',
 			array(
-				'label' => __( 'Geo Optimise', 'reactwoo-geo-optimise' ),
+				'label' => __( 'Geo Optimise — goal', 'reactwoo-geo-optimise' ),
 				'tab'   => \Elementor\Controls_Manager::TAB_ADVANCED,
+			)
+		);
+		$el->add_control(
+			'rwgo_goal_section_help',
+			array(
+				'type'            => \Elementor\Controls_Manager::RAW_HTML,
+				'raw'             => '<p class="elementor-descriptor" style="margin-top:0;">' . esc_html__( 'Mark measurable CTAs and actions for A/B tests. Geo targeting and routing use GeoElementor separately.', 'reactwoo-geo-optimise' ) . '</p>',
+				'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
 			)
 		);
 		$el->add_control(
@@ -172,7 +202,7 @@ class RWGO_Elementor_Goals {
 				'label_off'    => __( 'No', 'reactwoo-geo-optimise' ),
 				'return_value' => 'yes',
 				'default'      => '',
-				'description'  => __( 'Turn this on if this element should be available as a measurable goal in Geo Optimise tests.', 'reactwoo-geo-optimise' ),
+				'description'  => __( 'Turn this on if this widget should be available as a measurable goal in Geo Optimise tests.', 'reactwoo-geo-optimise' ),
 			)
 		);
 		$el->add_control(

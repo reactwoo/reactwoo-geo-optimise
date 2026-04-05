@@ -17,7 +17,44 @@
 	var TextControl = wp.components.TextControl;
 	var TextareaControl = wp.components.TextareaControl;
 	var SelectControl = wp.components.SelectControl;
+	var ExternalLink = wp.components.ExternalLink;
 	var __ = wp.i18n.__;
+
+	function builderGoalsHelpFooter() {
+		var cfg = typeof rwgoBlockGoals !== 'undefined' ? rwgoBlockGoals : {};
+		if (!cfg.helpUrl && !cfg.supportUrl) {
+			return null;
+		}
+		var Link = ExternalLink || function (props) {
+			return createElement('a', { href: props.href, target: '_blank', rel: 'noopener noreferrer' }, props.children);
+		};
+		return createElement(
+			'div',
+			{ className: 'rwgo-block-goals-doclinks', style: { marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' } },
+			cfg.helpUrl
+				? createElement(
+						'p',
+						{ className: 'description', style: { marginBottom: '8px' } },
+						createElement(
+							Link,
+							{ href: cfg.helpUrl },
+							__('Documentation: builder goals in Gutenberg', 'reactwoo-geo-optimise')
+						)
+				  )
+				: null,
+			cfg.supportUrl
+				? createElement(
+						'p',
+						{ className: 'description', style: { margin: 0 } },
+						createElement(
+							Link,
+							{ href: cfg.supportUrl },
+							__('Support and troubleshooting', 'reactwoo-geo-optimise')
+						)
+				  )
+				: null
+		);
+	}
 
 	function supportedBlocks() {
 		if (typeof rwgoBlockGoals !== 'undefined' && rwgoBlockGoals.blockNames && rwgoBlockGoals.blockNames.length) {
@@ -36,6 +73,7 @@
 			return [
 				{ label: __('Add to cart', 'reactwoo-geo-optimise'), value: 'add_to_cart' },
 				{ label: __('Begin checkout', 'reactwoo-geo-optimise'), value: 'begin_checkout' },
+				{ label: __('Purchase', 'reactwoo-geo-optimise'), value: 'purchase' },
 				{ label: __('CTA click', 'reactwoo-geo-optimise'), value: 'cta_click' },
 				{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
 			];
@@ -52,6 +90,8 @@
 			{ label: __('Form submit', 'reactwoo-geo-optimise'), value: 'form_submit' },
 			{ label: __('Checkbox / opt-in interaction', 'reactwoo-geo-optimise'), value: 'checkbox_optin' },
 			{ label: __('Add to cart', 'reactwoo-geo-optimise'), value: 'add_to_cart' },
+			{ label: __('Begin checkout', 'reactwoo-geo-optimise'), value: 'begin_checkout' },
+			{ label: __('Purchase', 'reactwoo-geo-optimise'), value: 'purchase' },
 			{ label: __('Custom', 'reactwoo-geo-optimise'), value: 'custom' }
 		];
 	}
@@ -104,7 +144,7 @@
 								setAttributes(next);
 							},
 							help: __(
-								'Turn this on if this block should be available as a measurable goal in Geo Optimise tests (CTAs, links, forms, and store actions).',
+								'Turn this on if this block should be available as a measurable goal in Geo Optimise tests.',
 								'reactwoo-geo-optimise'
 							)
 						}),
@@ -139,9 +179,7 @@
 									rows: 2
 							  })
 							: null,
-						attrs.rwgoGoalEnabled
-							? createElement('p', { className: 'rwgo-goal-status', style: { color: '#00a32a', fontSize: '12px', marginTop: '8px' } }, __('Goal enabled', 'reactwoo-geo-optimise'))
-							: null
+						builderGoalsHelpFooter()
 					)
 				)
 			);

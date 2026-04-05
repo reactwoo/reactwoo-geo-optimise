@@ -198,7 +198,7 @@ class RWGO_Admin_Wizard {
 		RWGO_Experiment_Repository::save_config( (int) $exp_post, $config );
 
 		$redirect_url = admin_url(
-			'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . (int) $exp_post . '&rwgo_created=1'
+			'admin.php?page=rwgo-tests&rwgo_test_created=1&rwgo_experiment_id=' . (int) $exp_post
 		);
 		if ( $defined_goal_pending ) {
 			$redirect_url = add_query_arg( 'rwgo_needs_defined_goal', '1', $redirect_url );

@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.4
+Stable tag: 0.3.5
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,12 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.5 =
+* **Builder goals UX:** Wider Elementor widget and Gutenberg block coverage; clearer Advanced/Settings copy vs GeoElementor routing; Help screen section `#rwgo-help-builder-goals`; Developer Support/Developer docs for defined goals; `RWGO_Admin::help_url()`.
+* **Gutenberg:** Inspector and document (destination goal) panels link to Help and Support; localized `helpUrl` / `supportUrl`.
+* **Tests:** Create Test redirects to Tests list with success + defined-goal next steps; Incomplete pill with reason tags (Missing goal / Missing variant / Invalid builder data).
+* **Variants:** Detach offers keep page, Trash, or permanent delete; naming service and slug fixes from 0.3.4 retained.
 
 = 0.3.4 =
 * **Variant B naming:** Central `RWGO_Page_Naming_Service` for predictable titles and slugs; explicit uniqueness against published, draft, private, and trashed posts; optional trash slug reuse filter; post-insert slug verification after duplicate and Elementor normalize.

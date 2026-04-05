@@ -56,6 +56,21 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * Product Help screen (optional URL fragment for in-page anchors).
+	 *
+	 * @param string $fragment Hash target without leading #, e.g. rwgo-help-builder-goals.
+	 * @return string
+	 */
+	public static function help_url( $fragment = '' ) {
+		$url = admin_url( 'admin.php?page=rwgo-help' );
+		$fragment = is_string( $fragment ) ? trim( $fragment ) : '';
+		if ( '' !== $fragment ) {
+			$url .= '#' . ltrim( $fragment, '#' );
+		}
+		return $url;
+	}
+
+	/**
 	 * Edit Test screen (managed experiment post).
 	 *
 	 * @param int    $experiment_id  Experiment CPT post ID.
@@ -1154,7 +1169,7 @@ class RWGO_Admin {
 	}
 
 	/**
-	 * Remove Variant B from the test; optionally trash the page.
+	 * Remove Variant B from the test; optionally move the page to Trash or permanently delete it.
 	 *
 	 * @return void
 	 */
@@ -1164,13 +1179,18 @@ class RWGO_Admin {
 		}
 		check_admin_referer( 'rwgo_detach_variant' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$mode   = isset( $_POST['rwgo_detach_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_detach_mode'] ) ) : 'keep'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$mode = isset( $_POST['rwgo_detach_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_detach_mode'] ) ) : 'keep'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if ( $exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) ) {
 			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=detach' ) );
 			exit;
 		}
-		$delete_page = ( 'delete' === $mode );
-		$r           = RWGO_Variant_Lifecycle::detach_variant_b( $exp_id, $delete_page );
+		$page_mode = 'none';
+		if ( 'trash' === $mode ) {
+			$page_mode = 'trash';
+		} elseif ( 'delete' === $mode ) {
+			$page_mode = 'delete';
+		}
+		$r = RWGO_Variant_Lifecycle::detach_variant_b( $exp_id, $page_mode );
 		$url         = self::safe_admin_redirect_target( self::edit_test_url( $exp_id ) );
 		if ( is_wp_error( $r ) ) {
 			wp_safe_redirect( add_query_arg( 'rwgo_error', 'detach', $url ) );

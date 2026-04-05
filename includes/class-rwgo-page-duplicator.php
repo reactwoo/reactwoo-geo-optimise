@@ -94,6 +94,16 @@ class RWGO_Page_Duplicator {
 	}
 
 	/**
+	 * Alias for {@see duplicate_page()} (spec / external integrations).
+	 *
+	 * @param int $source_post_id Source post ID.
+	 * @return int|\WP_Error
+	 */
+	public static function duplicate( $source_post_id ) {
+		return self::duplicate_page( $source_post_id );
+	}
+
+	/**
 	 * Whether to run Elementor-specific normalization after a standard duplicate.
 	 *
 	 * @param int $source_post_id Source post ID.
@@ -198,11 +208,16 @@ class RWGO_Page_Duplicator {
 					array(
 						'event'          => 'variant_duplicate_post_insert',
 						'source_post_id' => $post_id,
+						'source_title'   => $post->post_title,
+						'source_slug'    => $source_slug,
 						'new_post_id'    => $new_id,
 						'intended_slug'  => $final_slug,
+						'final_slug'     => $pchk->post_name,
 						'actual_slug'    => $pchk->post_name,
 						'intended_title' => $final_title,
 						'actual_title'   => $pchk->post_title,
+						'conflict_detected' => ! empty( $slug_info['conflict_detected'] ),
+						'conflict_count'    => isset( $slug_info['conflict_count'] ) ? (int) $slug_info['conflict_count'] : 0,
 					)
 				);
 			}
@@ -241,6 +256,18 @@ class RWGO_Page_Duplicator {
 				(int) $source_post_id,
 				'elementor_after_normalize'
 			);
+			$after_el = get_post( $new_id );
+			if ( $after_el instanceof \WP_Post ) {
+				RWGO_Page_Naming_Service::log_naming(
+					array(
+						'event'         => 'variant_duplicate_after_elementor',
+						'new_post_id'   => $new_id,
+						'source_post_id'=> (int) $source_post_id,
+						'intended_slug' => self::$last_variant_intended_slug,
+						'final_slug'    => $after_el->post_name,
+					)
+				);
+			}
 		}
 		self::elementor_regenerate_post_assets( $new_id );
 		return $new_id;
@@ -688,6 +715,21 @@ class RWGO_Page_Duplicator {
 
 		if ( class_exists( 'RWGO_Page_Naming_Service', false ) ) {
 			RWGO_Page_Naming_Service::verify_variant_identity_after_save( $new_id, $final_slug, $final_title, $post_id, 'blank_after_insert' );
+			$pchk = get_post( $new_id );
+			if ( $pchk instanceof \WP_Post ) {
+				RWGO_Page_Naming_Service::log_naming(
+					array(
+						'event'               => 'blank_variant_post_insert',
+						'source_post_id'      => $post_id,
+						'source_title'        => $post->post_title,
+						'source_slug'         => $slug_source,
+						'intended_slug'       => $final_slug,
+						'final_slug'          => $pchk->post_name,
+						'conflict_detected'   => ! empty( $slug_info['conflict_detected'] ),
+						'conflict_count'      => isset( $slug_info['conflict_count'] ) ? (int) $slug_info['conflict_count'] : 0,
+					)
+				);
+			}
 		}
 		/**
 		 * After a blank variant placeholder is created.

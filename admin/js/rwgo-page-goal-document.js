@@ -15,7 +15,44 @@
 	var ToggleControl = wp.components.ToggleControl;
 	var TextControl = wp.components.TextControl;
 	var SelectControl = wp.components.SelectControl;
+	var ExternalLink = wp.components.ExternalLink;
 	var __ = wp.i18n.__;
+
+	function destinationGoalDocLinks(cfg) {
+		cfg = cfg || {};
+		if (!cfg.helpUrl && !cfg.supportUrl) {
+			return null;
+		}
+		var Link = ExternalLink || function (props) {
+			return createElement('a', { href: props.href, target: '_blank', rel: 'noopener noreferrer' }, props.children);
+		};
+		return createElement(
+			'div',
+			{ className: 'rwgo-destination-goal-doclinks', style: { marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e0e0e0' } },
+			cfg.helpUrl
+				? createElement(
+						'p',
+						{ className: 'description', style: { marginBottom: '8px' } },
+						createElement(
+							Link,
+							{ href: cfg.helpUrl },
+							__('Documentation: builder goals and destination pages', 'reactwoo-geo-optimise')
+						)
+				  )
+				: null,
+			cfg.supportUrl
+				? createElement(
+						'p',
+						{ className: 'description', style: { margin: 0 } },
+						createElement(
+							Link,
+							{ href: cfg.supportUrl },
+							__('Support and troubleshooting', 'reactwoo-geo-optimise')
+						)
+				  )
+				: null
+		);
+	}
 
 	var META_E = '_rwgo_dest_goal_enabled';
 	var META_L = '_rwgo_dest_goal_label';
@@ -67,6 +104,14 @@
 				title: __('Geo Optimise — destination goal', 'reactwoo-geo-optimise'),
 				className: 'rwgo-document-panel-destination-goal',
 			},
+			createElement(
+				'p',
+				{ className: 'description', style: { marginTop: 0 } },
+				__(
+					'Conversion goals: count a visit to this page as a test goal. This is separate from GeoElementor geo routing.',
+					'reactwoo-geo-optimise'
+				)
+			),
 			createElement(ToggleControl, {
 				label: __('Use this page as a Geo Optimise goal destination', 'reactwoo-geo-optimise'),
 				help: __('Turn on if visiting this page should count as a conversion in Geo Optimise tests.', 'reactwoo-geo-optimise'),
@@ -107,16 +152,7 @@
 						},
 				  })
 				: null,
-			enabled
-				? createElement(
-						'p',
-						{
-							className: 'rwgo-goal-status',
-							style: { color: '#00a32a', fontSize: '12px', marginTop: '8px' },
-						},
-						__('Destination goal set', 'reactwoo-geo-optimise')
-				  )
-				: null
+			destinationGoalDocLinks(cfg)
 		);
 	}
 

@@ -174,6 +174,58 @@ $rwgo_status_pill_class = static function ( $st ) {
 		</div>
 	<?php endif; ?>
 
+	<?php if ( ! empty( $_GET['rwgo_test_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<?php
+		$rwgo_tc_exp = isset( $_GET['rwgo_experiment_id'] ) ? absint( wp_unslash( $_GET['rwgo_experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_tc_need_goal = ! empty( $_GET['rwgo_needs_defined_goal'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_tc_cfg        = ( $rwgo_tc_exp > 0 && class_exists( 'RWGO_Experiment_Repository', false ) )
+			? RWGO_Experiment_Repository::get_config( $rwgo_tc_exp )
+			: array();
+		$rwgo_tc_src        = (int) ( $rwgo_tc_cfg['source_page_id'] ?? 0 );
+		$rwgo_tc_vb         = 0;
+		if ( ! empty( $rwgo_tc_cfg['variants'] ) && is_array( $rwgo_tc_cfg['variants'] ) ) {
+			foreach ( $rwgo_tc_cfg['variants'] as $row ) {
+				if ( is_array( $row ) && isset( $row['variant_id'] ) && 'var_b' === sanitize_key( (string) $row['variant_id'] ) ) {
+					$rwgo_tc_vb = (int) ( $row['page_id'] ?? 0 );
+					break;
+				}
+			}
+		}
+		$rwgo_tc_tt = isset( $rwgo_tc_cfg['test_type'] ) ? (string) $rwgo_tc_cfg['test_type'] : 'page_ab';
+		$rwgo_tc_edit = ( $rwgo_tc_exp > 0 && class_exists( 'RWGO_Admin', false ) ) ? RWGO_Admin::edit_test_url( $rwgo_tc_exp, 'tests' ) : '';
+		$rwgo_tc_ce   = ( $rwgo_tc_src > 0 && class_exists( 'RWGO_Admin', false ) ) ? RWGO_Admin::post_builder_edit_url( $rwgo_tc_src, $rwgo_tc_tt ) : '';
+		$rwgo_tc_ve   = ( $rwgo_tc_vb > 0 && class_exists( 'RWGO_Admin', false ) ) ? RWGO_Admin::post_builder_edit_url( $rwgo_tc_vb, $rwgo_tc_tt ) : '';
+		?>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success">
+				<p class="rwgo-alert__text"><strong><?php esc_html_e( 'Test created.', 'reactwoo-geo-optimise' ); ?></strong>
+				<?php esc_html_e( 'It appears in the list below. Open Edit Test to review goals and targeting.', 'reactwoo-geo-optimise' ); ?></p>
+				<?php if ( $rwgo_tc_need_goal ) : ?>
+					<div class="notice notice-warning inline" style="margin:10px 0 0;padding:8px 12px;">
+						<p class="rwgo-alert__text" style="margin:0;">
+							<?php esc_html_e( 'This test still needs a defined goal. Edit Control or Variant B in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page — then return to Edit Test and pick it under Goal & tracking.', 'reactwoo-geo-optimise' ); ?>
+						</p>
+					</div>
+				<?php endif; ?>
+				<div class="rwgo-alert__actions rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile" style="margin-top:12px;">
+					<?php if ( $rwgo_tc_edit ) : ?>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $rwgo_tc_edit ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( is_string( $rwgo_tc_ce ) && $rwgo_tc_ce ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_tc_ce ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+					<?php elseif ( $rwgo_tc_src > 0 ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( get_edit_post_link( $rwgo_tc_src, 'raw' ) ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( is_string( $rwgo_tc_ve ) && $rwgo_tc_ve ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_tc_ve ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+					<?php elseif ( $rwgo_tc_vb > 0 ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( get_edit_post_link( $rwgo_tc_vb, 'raw' ) ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</div>
+			</div>
+		</div>
+	<?php endif; ?>
+
 	<div class="rwgo-stack">
 	<?php if ( ! empty( $_GET['rwgo_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="rwgo-page-notices">
@@ -294,6 +346,8 @@ $rwgo_status_pill_class = static function ( $st ) {
 				);
 				$fidelity_label = isset( $fidelity_map[ $fidelity_status ] ) ? $fidelity_map[ $fidelity_status ] : '';
 			}
+			$fidelity_bad = $var_b_id > 0 && $fidelity_status && ! in_array( $fidelity_status, array( 'ready', 'neutral' ), true );
+			$any_incomplete = $variant_incomplete || $goal_pending || $fidelity_bad;
 			$can_edit_exp       = current_user_can( 'edit_post', $exp_post->ID );
 			$can_delete_exp     = current_user_can( 'delete_post', $exp_post->ID );
 			$tests_list_url     = admin_url( 'admin.php?page=rwgo-tests' );
@@ -316,10 +370,23 @@ $rwgo_status_pill_class = static function ( $st ) {
 				</div>
 				<div class="rwgo-test-card__pills">
 					<span class="rwgo-pill <?php echo esc_attr( $rwgo_status_pill_class( $st ) ); ?>"><?php echo esc_html( $st ); ?></span>
-					<?php if ( $variant_incomplete || $goal_pending ) : ?>
-						<span class="rwgo-pill rwgo-pill--incomplete"><?php echo esc_html( $goal_pending && ! $variant_incomplete ? __( 'Goal pending', 'reactwoo-geo-optimise' ) : __( 'Incomplete', 'reactwoo-geo-optimise' ) ); ?></span>
+					<?php if ( $any_incomplete ) : ?>
+						<span class="rwgo-pill rwgo-pill--incomplete"><?php esc_html_e( 'Incomplete', 'reactwoo-geo-optimise' ); ?></span>
 					<?php endif; ?>
 				</div>
+				<?php if ( $any_incomplete ) : ?>
+					<div class="rwgo-test-card__reason-tags" role="list" aria-label="<?php esc_attr_e( 'Incomplete reasons', 'reactwoo-geo-optimise' ); ?>">
+						<?php if ( $goal_pending ) : ?>
+							<span class="rwgo-tag rwgo-tag--reason" role="listitem"><?php esc_html_e( 'Missing goal', 'reactwoo-geo-optimise' ); ?></span>
+						<?php endif; ?>
+						<?php if ( $variant_incomplete ) : ?>
+							<span class="rwgo-tag rwgo-tag--reason" role="listitem"><?php esc_html_e( 'Missing variant', 'reactwoo-geo-optimise' ); ?></span>
+						<?php endif; ?>
+						<?php if ( $fidelity_bad ) : ?>
+							<span class="rwgo-tag rwgo-tag--reason" role="listitem"><?php esc_html_e( 'Invalid builder data', 'reactwoo-geo-optimise' ); ?></span>
+						<?php endif; ?>
+					</div>
+				<?php endif; ?>
 			</header>
 
 			<div class="rwgo-status-strip" role="status">
@@ -335,7 +402,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 				if ( $variant_incomplete ) {
 					esc_html_e( 'Missing variant', 'reactwoo-geo-optimise' );
 				} elseif ( $goal_pending ) {
-					esc_html_e( 'Defined goal pending', 'reactwoo-geo-optimise' );
+					esc_html_e( 'Missing goal', 'reactwoo-geo-optimise' );
 				} else {
 					esc_html_e( 'Ready', 'reactwoo-geo-optimise' );
 				}

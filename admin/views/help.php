@@ -48,6 +48,15 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 			<p><?php esc_html_e( 'Reports focus on your primary goal and which variant is leading. Revenue and ecommerce detail may still live in your analytics or store.', 'reactwoo-geo-optimise' ); ?></p>
 			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'Open Reports', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
+		<div id="rwgo-help-builder-goals" class="rwgc-card rwgc-card--highlight">
+			<h2><?php esc_html_e( 'Builder goals (Gutenberg & Elementor)', 'reactwoo-geo-optimise' ); ?></h2>
+			<p><?php esc_html_e( 'For “defined” goals in a test, mark measurable CTAs in the editor: in Gutenberg, open a supported block and use the Geo Optimise panel in the block sidebar; for whole-page conversion destinations, use the Geo Optimise — destination goal panel in the document sidebar. In Elementor, use Advanced → Geo Optimise — goal on widgets, or the page Settings → Geo Optimise — destination goal section.', 'reactwoo-geo-optimise' ); ?></p>
+			<p><?php esc_html_e( 'Geo Optimise goals are separate from GeoElementor geo routing — both can be active on the same site.', 'reactwoo-geo-optimise' ); ?></p>
+			<p>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Open Tests', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( RWGO_Admin::developer_url( 'support' ) ); ?>"><?php esc_html_e( 'Support & troubleshooting', 'reactwoo-geo-optimise' ); ?></a>
+			</p>
+		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Developers & custom integrations', 'reactwoo-geo-optimise' ); ?></h2>
 			<p><?php esc_html_e( 'PHP helpers, diagnostics, and hook reference live under Developer — they are not required for normal tests.', 'reactwoo-geo-optimise' ); ?></p>

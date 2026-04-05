@@ -131,6 +131,17 @@ if ( 'var_b' === $variant ) {
 </div>
 
 <div class="rwgc-card">
+	<h2><?php esc_html_e( 'Builder-defined goals (meta & filters)', 'reactwoo-geo-optimise' ); ?></h2>
+	<p><?php esc_html_e( 'Editors save goals into content; RWGO_Defined_Goal_Service reads Elementor JSON, Gutenberg block attributes, and destination post meta. Useful filters:', 'reactwoo-geo-optimise' ); ?></p>
+	<ul>
+		<li><code>rwgo_gutenberg_goal_block_names</code> — <?php esc_html_e( 'add block names that should show the Geo Optimise inspector panel.', 'reactwoo-geo-optimise' ); ?></li>
+		<li><code>rwgo_elementor_goal_widgets</code> — <?php esc_html_e( 'add Elementor widget types that receive Advanced → Geo Optimise — goal.', 'reactwoo-geo-optimise' ); ?></li>
+		<li><code>rwgo_defined_goals_for_post</code> — <?php esc_html_e( 'adjust the list of goals collected from a post before test setup uses it.', 'reactwoo-geo-optimise' ); ?></li>
+	</ul>
+	<p><a class="button button-link" href="<?php echo esc_url( RWGO_Admin::help_url( 'rwgo-help-builder-goals' ) ); ?>"><?php esc_html_e( 'Open Help: builder goals', 'reactwoo-geo-optimise' ); ?></a></p>
+</div>
+
+<div class="rwgc-card">
 	<h2><?php esc_html_e( 'CSV export snapshot', 'reactwoo-geo-optimise' ); ?></h2>
 	<p><?php esc_html_e( 'The export from Diagnostics & export includes plugin version, counters, site URL, UTC timestamp, and flattened assignment keys. Use it for support tickets, not for day-to-day reporting.', 'reactwoo-geo-optimise' ); ?></p>
 	<p class="description"><?php esc_html_e( 'Filters: rwgo_export_csv_filename, rwgo_stats_snapshot.', 'reactwoo-geo-optimise' ); ?></p>

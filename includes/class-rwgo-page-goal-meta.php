@@ -96,11 +96,15 @@ class RWGO_Page_Goal_Meta {
 			true
 		);
 		wp_set_script_translations( 'rwgo-page-goal-document', 'reactwoo-geo-optimise' );
+		$help    = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::help_url( 'rwgo-help-builder-goals' ) : admin_url( 'admin.php?page=rwgo-help' );
+		$support = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::developer_url( 'support' ) : admin_url( 'admin.php?page=rwgo-developer&rwgo_tab=support' );
 		wp_localize_script(
 			'rwgo-page-goal-document',
 			'rwgoPageGoalDocument',
 			array(
 				'supportedPostTypes' => self::get_supported_post_types(),
+				'helpUrl'            => $help,
+				'supportUrl'         => $support,
 			)
 		);
 	}

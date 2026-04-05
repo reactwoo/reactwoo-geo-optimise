@@ -131,6 +131,11 @@ if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src_id > 0 && $var_b_id >
 
 $rwgo_defined_goal_pending = ! empty( $rwgo_cfg['defined_goal_pending'] );
 
+$rwgo_variant_title_matches_control = false;
+if ( $src_id > 0 && $var_b_id > 0 && class_exists( 'RWGO_Page_Naming_Service', false ) ) {
+	$rwgo_variant_title_matches_control = RWGO_Page_Naming_Service::variant_title_matches_control_title( $src_id, $var_b_id );
+}
+
 $rwgo_form_mode = 'edit';
 ?>
 <div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--edit-test">
@@ -154,6 +159,10 @@ $rwgo_form_mode = 'edit';
 			<p><a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 	<?php else : ?>
+
+		<?php if ( $rwgo_variant_title_matches_control ) : ?>
+			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Variant B uses the same title as Control. Rename the variant in the editor so visitors and reports can tell them apart.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php endif; ?>
 
 		<?php if ( ! empty( $_GET['rwgo_saved'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Test settings saved.', 'reactwoo-geo-optimise' ); ?></p></div>
