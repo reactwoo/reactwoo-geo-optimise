@@ -45,41 +45,48 @@ class RWGO_Elementor_Page_Goal {
 		if ( ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) || ! method_exists( $document, 'get_settings' ) || ! method_exists( $document, 'set_settings' ) ) {
 			return;
 		}
-		$post_id = (int) $document->get_main_id();
-		if ( $post_id <= 0 ) {
-			return;
-		}
-		$meta_en = get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_ENABLED, true );
-		$meta_on = ( '1' === (string) $meta_en || 'yes' === (string) $meta_en );
+		try {
+			$post_id = (int) $document->get_main_id();
+			if ( $post_id <= 0 ) {
+				return;
+			}
+			$meta_en = get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_ENABLED, true );
+			$meta_on = ( '1' === (string) $meta_en || 'yes' === (string) $meta_en );
 
-		$settings = $document->get_settings();
-		if ( ! is_array( $settings ) ) {
-			$settings = array();
-		}
-		$el_en = isset( $settings['rwgo_dest_goal_enabled'] ) ? (string) $settings['rwgo_dest_goal_enabled'] : '';
+			$settings = $document->get_settings();
+			if ( ! is_array( $settings ) ) {
+				$settings = array();
+			}
+			$el_en = isset( $settings['rwgo_dest_goal_enabled'] ) ? (string) $settings['rwgo_dest_goal_enabled'] : '';
 
-		$needs_merge = false;
-		if ( $meta_on && ( '' === $el_en || 'yes' !== $el_en ) ) {
-			$needs_merge = true;
-		}
+			$needs_merge = false;
+			if ( $meta_on && ( '' === $el_en || 'yes' !== $el_en ) ) {
+				$needs_merge = true;
+			}
 
-		if ( ! $needs_merge ) {
-			return;
-		}
+			if ( ! $needs_merge ) {
+				return;
+			}
 
-		$label = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_LABEL, true );
-		$type  = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_TYPE, true );
-		if ( '' === $type ) {
-			$type = 'page_visit';
-		}
-		$ok = array( 'page_visit', 'thank_you', 'lead_confirmation', 'checkout_success', 'custom_destination' );
-		if ( ! in_array( $type, $ok, true ) ) {
-			$type = 'page_visit';
-		}
+			$label = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_LABEL, true );
+			$type  = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_TYPE, true );
+			if ( '' === $type ) {
+				$type = 'page_visit';
+			}
+			$ok = array( 'page_visit', 'thank_you', 'lead_confirmation', 'checkout_success', 'custom_destination' );
+			if ( ! in_array( $type, $ok, true ) ) {
+				$type = 'page_visit';
+			}
 
-		$document->set_settings( 'rwgo_dest_goal_enabled', 'yes' );
-		$document->set_settings( 'rwgo_dest_goal_label', $label );
-		$document->set_settings( 'rwgo_dest_goal_type', $type );
+			$document->set_settings( 'rwgo_dest_goal_enabled', 'yes' );
+			$document->set_settings( 'rwgo_dest_goal_label', $label );
+			$document->set_settings( 'rwgo_dest_goal_type', $type );
+		} catch ( \Throwable $e ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'WP_DEBUG_LOG' ) && WP_DEBUG_LOG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[RWGO] sync_settings_from_post_meta: ' . $e->getMessage() );
+			}
+		}
 	}
 
 	/**

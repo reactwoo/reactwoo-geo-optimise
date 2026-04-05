@@ -33,7 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 <div class="rwgc-card">
 	<h2><?php esc_html_e( 'Elementor, Gutenberg, and defined goals', 'reactwoo-geo-optimise' ); ?></h2>
 	<p><?php esc_html_e( 'Duplicated pages should carry builder data. If a variant looks blank, open it in the same editor as the source and confirm the duplicate completed successfully.', 'reactwoo-geo-optimise' ); ?></p>
-	<p><?php esc_html_e( 'Defined goals must be enabled in the builder: Gutenberg blocks expose a Geo Optimise panel in the inspector for supported blocks; the document sidebar has Geo Optimise — destination goal for full-page conversions. Elementor uses Advanced → Geo Optimise — goal on widgets and Settings → destination goal on the document.', 'reactwoo-geo-optimise' ); ?></p>
+	<p><?php esc_html_e( 'Defined goals must be enabled in the builder: Gutenberg blocks expose a Geo Optimise panel in the inspector for supported blocks; the document sidebar has Geo Optimise — destination goal for full-page conversions. In Elementor, select a supported widget, open the Advanced tab, and use the Geo Optimise section; document-level destination goals are under Settings.', 'reactwoo-geo-optimise' ); ?></p>
 	<p><?php esc_html_e( 'If a test says the defined goal is missing, edit Control or Variant B in the builder and turn on a goal, then pick it again under Edit Test.', 'reactwoo-geo-optimise' ); ?></p>
 	<p>
 		<a class="button" href="<?php echo esc_url( RWGO_Admin::help_url( 'rwgo-help-builder-goals' ) ); ?>"><?php esc_html_e( 'Help: builder goals', 'reactwoo-geo-optimise' ); ?></a>

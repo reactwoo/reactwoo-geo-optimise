@@ -292,7 +292,7 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 					<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
 				</select>
 				<p class="rwgo-hint"><?php esc_html_e( 'Prefer a defined goal for reliable tracking and clear winner labels in reports.', 'reactwoo-geo-optimise' ); ?></p>
-				<p class="rwgo-hint"><?php esc_html_e( 'If none appear yet, publish your pages and add Geo Optimise goals in the builder (CTAs, forms, opt-ins) or enable a destination goal on a thank-you page.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-hint"><?php esc_html_e( 'If none appear yet, edit the relevant page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page you want to measure.', 'reactwoo-geo-optimise' ); ?></p>
 			</div>
 			<div id="rwgo-automatic-goal-panel" class="rwgo-field" <?php echo 'automatic' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
 				<label class="rwgo-field__label" for="rwgo_goal_type"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></label>

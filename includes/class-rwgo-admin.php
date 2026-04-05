@@ -522,7 +522,7 @@ class RWGO_Admin {
 				array(
 					'pickSource' => __( 'Select a source page first (and Variant B if needed).', 'reactwoo-geo-optimise' ),
 					'pickGoal'   => __( '— Choose a goal —', 'reactwoo-geo-optimise' ),
-					'noneFound'  => __( 'No defined goals found. Mark CTAs in Elementor or Gutenberg, or set a destination page, then refresh.', 'reactwoo-geo-optimise' ),
+					'noneFound'  => __( 'No defined goals were found yet. Edit the relevant page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page you want to measure.', 'reactwoo-geo-optimise' ),
 					'loadFailed' => __( 'Could not load defined goals.', 'reactwoo-geo-optimise' ),
 				)
 			);
