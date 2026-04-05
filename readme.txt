@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.5
+Stable tag: 0.3.6
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.6 =
+* **Elementor:** Register widget goal controls on the merged `common` / `common-optimized` Layout section (`_section_style`), matching current Elementor and GeoElementor; fixes missing Advanced → Geo Optimise — goal panel.
+* **Elementor:** Sync destination-goal document settings from RWGO post meta when opening the editor (`before_get_config`), so the page Settings toggle matches meta (e.g. after duplication or REST-only meta).
 
 = 0.3.5 =
 * **Builder goals UX:** Wider Elementor widget and Gutenberg block coverage; clearer Advanced/Settings copy vs GeoElementor routing; Help screen section `#rwgo-help-builder-goals`; Developer Support/Developer docs for defined goals; `RWGO_Admin::help_url()`.

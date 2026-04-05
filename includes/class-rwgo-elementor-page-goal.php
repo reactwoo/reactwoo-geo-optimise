@@ -31,6 +31,55 @@ class RWGO_Elementor_Page_Goal {
 	public static function register_hooks() {
 		add_action( 'elementor/documents/register_controls', array( __CLASS__, 'register_controls' ), 25 );
 		add_action( 'elementor/document/after_save', array( __CLASS__, 'after_document_save' ), 20, 2 );
+		add_action( 'elementor/document/before_get_config', array( __CLASS__, 'sync_settings_from_post_meta' ), 5, 1 );
+	}
+
+	/**
+	 * Align in-memory document settings with RWGO post meta when Elementor JSON never stored our keys
+	 * (e.g. goal enabled only in meta / classic UI, or duplicated variant pages).
+	 *
+	 * @param \Elementor\Core\Base\Document $document Document.
+	 * @return void
+	 */
+	public static function sync_settings_from_post_meta( $document ) {
+		if ( ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) || ! method_exists( $document, 'get_settings' ) || ! method_exists( $document, 'set_settings' ) ) {
+			return;
+		}
+		$post_id = (int) $document->get_main_id();
+		if ( $post_id <= 0 ) {
+			return;
+		}
+		$meta_en = get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_ENABLED, true );
+		$meta_on = ( '1' === (string) $meta_en || 'yes' === (string) $meta_en );
+
+		$settings = $document->get_settings();
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+		$el_en = isset( $settings['rwgo_dest_goal_enabled'] ) ? (string) $settings['rwgo_dest_goal_enabled'] : '';
+
+		$needs_merge = false;
+		if ( $meta_on && ( '' === $el_en || 'yes' !== $el_en ) ) {
+			$needs_merge = true;
+		}
+
+		if ( ! $needs_merge ) {
+			return;
+		}
+
+		$label = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_LABEL, true );
+		$type  = (string) get_post_meta( $post_id, RWGO_Defined_Goal_Service::META_DEST_TYPE, true );
+		if ( '' === $type ) {
+			$type = 'page_visit';
+		}
+		$ok = array( 'page_visit', 'thank_you', 'lead_confirmation', 'checkout_success', 'custom_destination' );
+		if ( ! in_array( $type, $ok, true ) ) {
+			$type = 'page_visit';
+		}
+
+		$document->set_settings( 'rwgo_dest_goal_enabled', 'yes' );
+		$document->set_settings( 'rwgo_dest_goal_label', $label );
+		$document->set_settings( 'rwgo_dest_goal_type', $type );
 	}
 
 	/**

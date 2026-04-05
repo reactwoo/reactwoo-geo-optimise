@@ -151,31 +151,39 @@ class RWGO_Elementor_Goals {
 	 * @return void
 	 */
 	public static function register_hooks() {
-		add_action( 'elementor/element/after_section_end', array( __CLASS__, 'register_section' ), 25, 3 );
+		/*
+		 * Widget Advanced-tab controls live on the merged Widget_Common / Widget_Common_Optimized stack.
+		 * Modern Elementor uses _section_style for the first Advanced section (Layout), not section_advanced.
+		 * Same pattern as GeoElementor: hook after Layout so Geo (10) and City (20) run first.
+		 */
+		add_action( 'elementor/element/common/_section_style/after_section_end', array( __CLASS__, 'register_goal_section_on_common' ), 30, 2 );
+		add_action( 'elementor/element/common-optimized/_section_style/after_section_end', array( __CLASS__, 'register_goal_section_on_common' ), 30, 2 );
 		add_action( 'elementor/frontend/widget/before_render', array( __CLASS__, 'before_render_widget' ), 10, 1 );
 	}
 
 	/**
-	 * @param \Elementor\Controls_Stack $element Element.
-	 * @param string                    $section_id Section ID.
-	 * @param array<string, mixed>      $args Args.
+	 * Register goal controls on the common widget stack (merged into all core widgets).
+	 *
+	 * @param \Elementor\Controls_Stack $element Common or common-optimized widget instance.
+	 * @param array<string, mixed>      $args Section args (unused).
 	 * @return void
 	 */
-	public static function register_section( $element, $section_id, $args ) {
+	public static function register_goal_section_on_common( $element, $args = null ) {
 		unset( $args );
 		if ( ! is_object( $element ) || ! method_exists( $element, 'get_name' ) ) {
 			return;
 		}
-		if ( 'section_advanced' !== $section_id ) {
-			return;
-		}
-		if ( ! in_array( $element->get_name(), self::get_supported_widgets(), true ) ) {
+		if ( ! $element instanceof \Elementor\Widget_Common_Base ) {
 			return;
 		}
 		if ( ! class_exists( '\Elementor\Plugin', false ) ) {
 			return;
 		}
-		$el         = $element;
+		$controls = $element->get_controls();
+		if ( isset( $controls['section_rwgo_geo_goal'] ) ) {
+			return;
+		}
+		$el          = $element;
 		$widget_name = $element->get_name();
 		$type_opts   = self::get_goal_type_options_for_widget( $widget_name );
 		$el->start_controls_section(
