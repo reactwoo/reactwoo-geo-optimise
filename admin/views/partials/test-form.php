@@ -6,7 +6,7 @@
  * - $rwgo_form_mode 'create'|'edit'
  * - $rwgo_catalog (array) for create JS; edit uses same shape
  * - $rwgo_require_confirm (bool) create only
- * - $rwgo_prefill (array) edit: name, test_type, source_id, variant_b_id, targeting_mode, countries_csv, winner_mode, goal_type, status, experiment_key
+ * - $rwgo_prefill (array) edit: name, test_type, source_id, variant_b_id, targeting_mode, countries_csv, winner_mode, goal_type, status, experiment_key, return_context (tests|reports)
  *
  * @package ReactWooGeoOptimise
  */
@@ -48,6 +48,13 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 	<input type="hidden" name="action" value="rwgo_update_test" />
 	<?php wp_nonce_field( 'rwgo_update_test' ); ?>
 	<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ); ?>" />
+	<?php
+	$rwgo_rc = isset( $rwgo_prefill['return_context'] ) ? sanitize_key( (string) $rwgo_prefill['return_context'] ) : '';
+	if ( ! in_array( $rwgo_rc, array( 'tests', 'reports' ), true ) ) {
+		$rwgo_rc = '';
+	}
+	?>
+	<input type="hidden" name="rwgo_return_context" value="<?php echo esc_attr( $rwgo_rc ); ?>" />
 <?php else : ?>
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>">
 	<input type="hidden" name="action" value="rwgo_create_test" />

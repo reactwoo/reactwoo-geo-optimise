@@ -62,7 +62,20 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-woocommerce-goals.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-db-schema.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-redirect-store.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-promotion-log.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-promotion-slug-scaffold.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-promotion-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-duplicator.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-variant-lifecycle.php';
+		if ( class_exists( 'RWGO_DB_Schema', false ) ) {
+			$v = get_option( RWGO_DB_Schema::VERSION_OPTION, '' );
+			if ( version_compare( (string) $v, RWGO_DB_Schema::VERSION, '<' ) ) {
+				RWGO_DB_Schema::activate();
+			}
+		}
+		RWGO_Redirect_Store::init();
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-content-catalog.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';

@@ -91,6 +91,40 @@ $rwgo_status_pill_class = static function ( $st ) {
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Variant B was copied into Control and this test was marked completed.', 'reactwoo-geo-optimise' ); ?></p></div>
+		</div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_detached'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-warning rwgo-alert"><p class="rwgo-alert__text"><?php esc_html_e( 'Variant B was removed from this test. The test is paused until you link a new variant.', 'reactwoo-geo-optimise' ); ?></p></div>
+		</div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_regenerated'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Variant B was recreated from Control.', 'reactwoo-geo-optimise' ); ?></p></div>
+		</div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="rwgo-page-notices">
+			<div class="notice notice-error rwgo-alert rwgo-alert--error"><p class="rwgo-alert__text">
+				<?php
+				$err = sanitize_key( (string) wp_unslash( $_GET['rwgo_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				if ( 'promote' === $err ) {
+					esc_html_e( 'Could not promote Variant B to Control. Check permissions and that both pages exist.', 'reactwoo-geo-optimise' );
+				} elseif ( 'detach' === $err ) {
+					esc_html_e( 'Could not remove Variant B from this test.', 'reactwoo-geo-optimise' );
+				} elseif ( 'regen' === $err ) {
+					esc_html_e( 'Could not regenerate Variant B from Control.', 'reactwoo-geo-optimise' );
+				} else {
+					esc_html_e( 'Something went wrong. Try again.', 'reactwoo-geo-optimise' );
+				}
+				?>
+			</p></div>
+		</div>
+	<?php endif; ?>
+
 	<div class="rwgo-stack">
 	<?php if ( ! empty( $_GET['rwgo_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="rwgo-page-notices">
@@ -102,7 +136,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 				$c_edit = $rwgo_control_id > 0 ? get_edit_post_link( $rwgo_control_id ) : false;
 				$v_edit = $rwgo_var_b_id > 0 ? get_edit_post_link( $rwgo_var_b_id ) : false;
 				$exp_h  = $rwgo_created_id > 0 ? admin_url( 'admin.php?page=rwgo-reports#exp-' . $rwgo_created_id ) : admin_url( 'admin.php?page=rwgo-reports' );
-				$edit_t = $rwgo_created_id > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::edit_test_url( $rwgo_created_id ) : '';
+				$edit_t = $rwgo_created_id > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::edit_test_url( $rwgo_created_id, 'tests' ) : '';
 				?>
 				<?php if ( $edit_t ) : ?>
 					<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $edit_t ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a>
@@ -187,10 +221,14 @@ $rwgo_status_pill_class = static function ( $st ) {
 			}
 			$c_edit   = $src > 0 ? get_edit_post_link( $src ) : false;
 			$v_edit   = $var_b_id > 0 ? get_edit_post_link( $var_b_id ) : false;
-			$edit_url = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::edit_test_url( (int) $exp_post->ID ) : '';
+			$edit_url = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::edit_test_url( (int) $exp_post->ID, 'tests' ) : '';
 			$report_u = admin_url( 'admin.php?page=rwgo-reports#exp-' . (int) $exp_post->ID );
 			$src_title = $src > 0 ? get_the_title( $src ) : '';
 			$vb_title  = $var_b_id > 0 ? get_the_title( $var_b_id ) : '';
+			$st_key    = sanitize_key( (string) $st );
+			$variant_incomplete = ( 'completed' !== $st_key ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+			$can_edit_exp       = current_user_can( 'edit_post', $exp_post->ID );
+			$tests_list_url     = admin_url( 'admin.php?page=rwgo-tests' );
 			?>
 		<article class="rwgo-test-card rwgo-panel" id="<?php echo esc_attr( 'exp-row-' . (int) $exp_post->ID ); ?>">
 			<header class="rwgo-test-card__header">
@@ -198,7 +236,12 @@ $rwgo_status_pill_class = static function ( $st ) {
 					<h2 class="rwgo-test-card__title"><?php echo esc_html( get_the_title( $exp_post ) ); ?></h2>
 					<code class="rwgo-muted-key"><?php echo esc_html( $key ); ?></code>
 				</div>
-				<span class="rwgo-pill <?php echo esc_attr( $rwgo_status_pill_class( $st ) ); ?>"><?php echo esc_html( $st ); ?></span>
+				<div class="rwgo-test-card__pills">
+					<span class="rwgo-pill <?php echo esc_attr( $rwgo_status_pill_class( $st ) ); ?>"><?php echo esc_html( $st ); ?></span>
+					<?php if ( $variant_incomplete ) : ?>
+						<span class="rwgo-pill rwgo-pill--incomplete"><?php esc_html_e( 'Incomplete', 'reactwoo-geo-optimise' ); ?></span>
+					<?php endif; ?>
+				</div>
 			</header>
 
 			<div class="rwgo-test-card__meta rwgo-meta-chips" role="list">
@@ -281,6 +324,13 @@ $rwgo_status_pill_class = static function ( $st ) {
 						<?php wp_nonce_field( 'rwgo_duplicate_test' ); ?>
 						<button type="submit" class="button rwgo-btn rwgo-btn--secondary rwgo-btn--sm"><?php esc_html_e( 'Duplicate Test', 'reactwoo-geo-optimise' ); ?></button>
 					</form>
+					<?php
+					if ( $can_edit_exp && 'completed' !== $st_key && $var_b_id > 0 && get_post( $var_b_id ) && class_exists( 'RWGO_Admin', false ) ) :
+						?>
+					<a class="button rwgo-btn rwgo-btn--primary rwgo-btn--sm" href="<?php echo esc_url( RWGO_Admin::promote_winner_url( (int) $exp_post->ID, 'tests' ) ); ?>"><?php esc_html_e( 'Promote Winner', 'reactwoo-geo-optimise' ); ?></a>
+						<?php
+					endif;
+					?>
 					</div>
 				</div>
 			</details>

@@ -1192,6 +1192,14 @@ select.rwgo-input {
   margin-top: 4px;
 }
 
+.rwgo-test-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .rwgo-pill {
   display: inline-flex;
   align-items: center;
@@ -1226,6 +1234,18 @@ select.rwgo-input {
   background: #eff6ff;
   border-color: #bfdbfe;
   color: #1d4ed8;
+}
+
+.rwgo-promote-success__h {
+  margin: 1.25em 0 0.35em;
+  font-size: 14px;
+}
+
+.rwgo-pill--incomplete {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #c2410c;
+  text-transform: none;
 }
 
 /* Tracking: snippet sections */

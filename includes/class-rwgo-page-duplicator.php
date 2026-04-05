@@ -18,6 +18,109 @@ class RWGO_Page_Duplicator {
 	 * @param int $post_id Source post.
 	 * @return int|\WP_Error New post ID.
 	 */
+	/**
+	 * Single entry point: duplicate a page/post for tests and validate Elementor payload when applicable.
+	 *
+	 * @param int $source_post_id Source post ID.
+	 * @return int|\WP_Error New post ID or error (e.g. Elementor data missing after copy).
+	 */
+	public static function duplicate_page( $source_post_id ) {
+		$res = self::duplicate( (int) $source_post_id );
+		if ( is_wp_error( $res ) ) {
+			return $res;
+		}
+		$new_id = (int) $res;
+		if ( self::source_expects_elementor_layout( (int) $source_post_id ) ) {
+			$data = get_post_meta( $new_id, '_elementor_data', true );
+			if ( '' === $data || false === $data ) {
+				return new \WP_Error(
+					'rwgo_dup_elementor_missing',
+					__( 'Duplication did not produce Elementor document data. Try again or check file permissions.', 'reactwoo-geo-optimise' )
+				);
+			}
+		}
+		return $new_id;
+	}
+
+	/**
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	public static function source_expects_elementor_layout( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return false;
+		}
+		$mode = get_post_meta( $post_id, '_elementor_edit_mode', true );
+		if ( 'builder' === $mode ) {
+			return true;
+		}
+		$d = get_post_meta( $post_id, '_elementor_data', true );
+		return is_string( $d ) && '' !== $d;
+	}
+
+	/**
+	 * Copy page/post content and builder meta from one post into another (e.g. promote Variant B → Control).
+	 *
+	 * @param int                  $from_id Source document ID.
+	 * @param int                  $to_id   Target document ID (updated in place).
+	 * @param array<string, mixed> $args    Optional: copy_post_title (bool, default true).
+	 * @return true|\WP_Error
+	 */
+	public static function copy_document_into_post( $from_id, $to_id, array $args = array() ) {
+		$from_id        = (int) $from_id;
+		$to_id          = (int) $to_id;
+		$copy_post_title = array_key_exists( 'copy_post_title', $args ) ? (bool) $args['copy_post_title'] : true;
+		$from           = get_post( $from_id );
+		$to             = get_post( $to_id );
+		if ( ! $from instanceof \WP_Post || ! $to instanceof \WP_Post ) {
+			return new \WP_Error( 'rwgo_copy_missing', __( 'Source or target page not found.', 'reactwoo-geo-optimise' ) );
+		}
+		if ( $from->post_type !== $to->post_type ) {
+			return new \WP_Error( 'rwgo_copy_type', __( 'Source and target must be the same post type.', 'reactwoo-geo-optimise' ) );
+		}
+		$fields = array(
+			'ID'             => $to_id,
+			'post_content'   => $from->post_content,
+			'post_excerpt'   => $from->post_excerpt,
+			'comment_status' => $from->comment_status,
+			'ping_status'    => $from->ping_status,
+			'menu_order'     => (int) $from->menu_order,
+		);
+		if ( $copy_post_title ) {
+			$fields['post_title'] = $from->post_title;
+		}
+		$upd = wp_update_post( wp_slash( $fields ), true );
+		if ( is_wp_error( $upd ) ) {
+			return $upd;
+		}
+		$elementor_keys = array(
+			'_elementor_data',
+			'_elementor_edit_mode',
+			'_elementor_page_settings',
+			'_elementor_template_type',
+			'_elementor_version',
+			'_wp_page_template',
+		);
+		foreach ( $elementor_keys as $ek ) {
+			$v = get_post_meta( $from_id, $ek, true );
+			if ( '' === $v || false === $v ) {
+				delete_post_meta( $to_id, $ek );
+			} else {
+				update_post_meta( $to_id, $ek, $v );
+			}
+		}
+		delete_post_meta( $to_id, '_elementor_css' );
+		delete_post_meta( $to_id, '_elementor_screenshot' );
+		$thumb = get_post_thumbnail_id( $from_id );
+		if ( $thumb ) {
+			set_post_thumbnail( $to_id, (int) $thumb );
+		} else {
+			delete_post_meta( $to_id, '_thumbnail_id' );
+		}
+		return true;
+	}
+
 	public static function duplicate( $post_id ) {
 		$post_id = (int) $post_id;
 		$post    = get_post( $post_id );

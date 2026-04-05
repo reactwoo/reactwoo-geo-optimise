@@ -113,6 +113,20 @@ class RWGO_Experiment_Service {
 	}
 
 	/**
+	 * Whether Variant B exists and can be used for assignment / redirects (incomplete tests stay on Control only).
+	 *
+	 * @param array<string, mixed> $config Repository config.
+	 * @return bool
+	 */
+	public static function variant_b_is_routable( array $config ) {
+		$id = self::page_id_for_variant( $config, 'var_b' );
+		if ( $id <= 0 ) {
+			return false;
+		}
+		return (bool) is_post_publicly_viewable( $id );
+	}
+
+	/**
 	 * Resolve variant slug for the current singular request (cookie on control URL; explicit match on variant URLs).
 	 *
 	 * @param array<string, mixed> $config          Experiment config.
@@ -127,6 +141,9 @@ class RWGO_Experiment_Service {
 		}
 		$source = (int) ( $config['source_page_id'] ?? 0 );
 		if ( $queried_post_id === $source ) {
+			if ( ! self::variant_b_is_routable( $config ) ) {
+				return 'control';
+			}
 			$slugs   = self::assignment_variant_slugs( $config );
 			$weights = self::assignment_weights( $config );
 			return (string) RWGO_Assignment::get_variant( $key, $slugs, $weights );

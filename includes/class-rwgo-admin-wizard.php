@@ -103,7 +103,7 @@ class RWGO_Admin_Wizard {
 			}
 			$dup = (int) $blank;
 		} else {
-			$dup_res = RWGO_Page_Duplicator::duplicate( $source );
+			$dup_res = RWGO_Page_Duplicator::duplicate_page( $source );
 			if ( is_wp_error( $dup_res ) ) {
 				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=dup' ) );
 				exit;
@@ -210,20 +210,20 @@ class RWGO_Admin_Wizard {
 
 		$prev = RWGO_Experiment_Repository::get_config( $exp_id );
 		if ( empty( $prev['experiment_key'] ) ) {
-			wp_safe_redirect( add_query_arg( 'rwgo_error', 'config', RWGO_Admin::edit_test_url( $exp_id ) ) );
+			wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'config' ) ) );
 			exit;
 		}
 
 		$title = isset( $_POST['rwgo_test_name'] ) ? sanitize_text_field( wp_unslash( $_POST['rwgo_test_name'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		if ( '' === $title ) {
-			wp_safe_redirect( add_query_arg( 'rwgo_error', 'missing', RWGO_Admin::edit_test_url( $exp_id ) ) );
+			wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'missing' ) ) );
 			exit;
 		}
 
 		$test_type = isset( $prev['test_type'] ) ? sanitize_key( (string) $prev['test_type'] ) : 'page_ab';
 		$source    = (int) ( $prev['source_page_id'] ?? 0 );
 		if ( $source <= 0 ) {
-			wp_safe_redirect( add_query_arg( 'rwgo_error', 'config', RWGO_Admin::edit_test_url( $exp_id ) ) );
+			wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'config' ) ) );
 			exit;
 		}
 
@@ -281,20 +281,20 @@ class RWGO_Admin_Wizard {
 		if ( 'replace_existing' === $var_action ) {
 			$new_id = isset( $_POST['rwgo_variant_b_page'] ) ? (int) $_POST['rwgo_variant_b_page'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 			if ( $new_id <= 0 || $new_id === $source ) {
-				wp_safe_redirect( RWGO_Admin::edit_test_url( $exp_id ) . '&rwgo_error=variant_b' );
+				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'variant_b' ) ) );
 				exit;
 			}
 			if ( ! class_exists( 'RWGO_Admin_Content_Catalog', false ) || ! RWGO_Admin_Content_Catalog::is_valid_for_test_type( $new_id, $test_type ) ) {
-				wp_safe_redirect( RWGO_Admin::edit_test_url( $exp_id ) . '&rwgo_error=variant_b' );
+				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'variant_b' ) ) );
 				exit;
 			}
 			$variants         = self::patch_variants_var_b( $variants, $new_id );
 			$var_b_new        = $new_id;
 			$variant_creation = 'existing';
 		} elseif ( 'duplicate_source' === $var_action ) {
-			$dup_res = RWGO_Page_Duplicator::duplicate( $source );
+			$dup_res = RWGO_Page_Duplicator::duplicate_page( $source );
 			if ( is_wp_error( $dup_res ) ) {
-				wp_safe_redirect( add_query_arg( 'rwgo_error', 'dup', RWGO_Admin::edit_test_url( $exp_id ) ) );
+				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'dup' ) ) );
 				exit;
 			}
 			$variants         = self::patch_variants_var_b( $variants, (int) $dup_res );
@@ -302,7 +302,7 @@ class RWGO_Admin_Wizard {
 			$variant_creation = 'duplicate';
 		} else {
 			if ( $var_b_new <= 0 || ! get_post( $var_b_new ) ) {
-				wp_safe_redirect( add_query_arg( 'rwgo_error', 'variant_missing', RWGO_Admin::edit_test_url( $exp_id ) ) );
+				wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => 'variant_missing' ) ) );
 				exit;
 			}
 		}
@@ -326,7 +326,7 @@ class RWGO_Admin_Wizard {
 
 		RWGO_Experiment_Repository::save_config( $exp_id, $config );
 
-		wp_safe_redirect( add_query_arg( 'rwgo_saved', '1', RWGO_Admin::edit_test_url( $exp_id ) ) );
+		wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_saved' => '1' ) ) );
 		exit;
 	}
 
@@ -355,7 +355,7 @@ class RWGO_Admin_Wizard {
 	 * @param int                              $page_id  New Variant B post ID.
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function patch_variants_var_b( array $variants, $page_id ) {
+	public static function patch_variants_var_b( array $variants, $page_id ) {
 		$page_id = (int) $page_id;
 		foreach ( $variants as $i => $row ) {
 			if ( ! is_array( $row ) ) {

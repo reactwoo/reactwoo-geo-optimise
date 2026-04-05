@@ -55,6 +55,13 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Variant B was copied into Control and this test was marked completed.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_error'] ) && 'promote' === sanitize_key( (string) wp_unslash( $_GET['rwgo_error'] ) ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Could not promote Variant B to Control. Check permissions and that both pages exist.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+
 	<?php if ( empty( $rwgo_experiments ) ) : ?>
 		<div class="rwgc-card">
 			<p><?php esc_html_e( 'No tests yet — create a test to see how variants perform on your primary goal.', 'reactwoo-geo-optimise' ); ?></p>
@@ -121,6 +128,9 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 				<ul class="rwgo-report-meta">
 					<li><?php esc_html_e( 'Status:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $st ); ?></li>
 					<li><?php esc_html_e( 'Visitors assigned (total):', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( (string) $total_assign ); ?></li>
+					<?php if ( current_user_can( 'edit_post', $exp_post->ID ) && class_exists( 'RWGO_Admin', false ) ) : ?>
+						<li><a href="<?php echo esc_url( RWGO_Admin::edit_test_url( (int) $exp_post->ID, 'reports' ) ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a></li>
+					<?php endif; ?>
 				</ul>
 				<?php if ( ! $assignment_only && ! empty( $variants_rows ) ) : ?>
 					<table class="widefat striped rwgo-table-comfortable">
@@ -163,6 +173,18 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 				<?php else : ?>
 					<p class="rwgo-empty-hint"><?php esc_html_e( 'No data yet — share the original page URL so visitors can enter the test.', 'reactwoo-geo-optimise' ); ?></p>
 				<?php endif; ?>
+				<?php
+				if ( 'completed' !== $st && current_user_can( 'edit_post', $exp_post->ID ) && class_exists( 'RWGO_Variant_Lifecycle', false ) ) :
+					$vb_rep = RWGO_Variant_Lifecycle::variant_b_page_id( $cfg );
+					if ( $vb_rep > 0 && class_exists( 'RWGO_Admin', false ) ) :
+						?>
+				<p class="rwgo-cta-row" style="margin-top:12px;">
+					<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( RWGO_Admin::promote_winner_url( (int) $exp_post->ID, 'reports' ) ); ?>"><?php esc_html_e( 'Promote Winner', 'reactwoo-geo-optimise' ); ?></a>
+				</p>
+						<?php
+					endif;
+				endif;
+				?>
 				<details class="rwgo-dev-details rwgo-report-technical">
 					<summary><?php esc_html_e( 'Technical details (support & integrations)', 'reactwoo-geo-optimise' ); ?></summary>
 					<p class="description"><?php esc_html_e( 'Internal test key:', 'reactwoo-geo-optimise' ); ?> <code><?php echo esc_html( $key ); ?></code></p>

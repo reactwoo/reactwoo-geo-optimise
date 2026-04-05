@@ -59,6 +59,9 @@ class RWGO_Page_Swapper {
 			if ( ! RWGO_Targeting::passes( isset( $cfg['targeting'] ) ? $cfg['targeting'] : array() ) ) {
 				continue;
 			}
+			if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg ) ) {
+				continue;
+			}
 			$key     = sanitize_key( (string) $cfg['experiment_key'] );
 			$slugs   = RWGO_Experiment_Service::assignment_variant_slugs( $cfg );
 			$weights = RWGO_Experiment_Service::assignment_weights( $cfg );

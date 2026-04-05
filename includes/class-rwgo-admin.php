@@ -58,11 +58,98 @@ class RWGO_Admin {
 	/**
 	 * Edit Test screen (managed experiment post).
 	 *
+	 * @param int    $experiment_id  Experiment CPT post ID.
+	 * @param string $return_context Optional: tests|reports — preserved as ?rwgo_return= for action redirects.
+	 * @return string
+	 */
+	public static function edit_test_url( $experiment_id, $return_context = '' ) {
+		$url             = admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . absint( $experiment_id ) );
+		$return_context  = sanitize_key( (string) $return_context );
+		$allowed_returns = array( 'tests', 'reports' );
+		if ( in_array( $return_context, $allowed_returns, true ) ) {
+			$url = add_query_arg( 'rwgo_return', $return_context, $url );
+		}
+		return $url;
+	}
+
+	/**
+	 * Default redirect URL for variant admin-post actions (promote/detach/regen) when rendering Edit Test.
+	 * Uses ?rwgo_return= from the current request so POST handlers can bounce back to Tests or Reports.
+	 *
 	 * @param int $experiment_id Experiment CPT post ID.
 	 * @return string
 	 */
-	public static function edit_test_url( $experiment_id ) {
-		return admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . absint( $experiment_id ) );
+	/**
+	 * Promote Winner wizard (Mode A + post-promotion guidance).
+	 *
+	 * @param int    $experiment_id  Experiment CPT ID.
+	 * @param string $return_context Optional tests|reports.
+	 * @return string
+	 */
+	public static function promote_winner_url( $experiment_id, $return_context = '' ) {
+		$url            = admin_url( 'admin.php?page=rwgo-promote-winner&rwgo_experiment_id=' . absint( $experiment_id ) );
+		$return_context = sanitize_key( (string) $return_context );
+		if ( in_array( $return_context, array( 'tests', 'reports' ), true ) ) {
+			$url = add_query_arg( 'rwgo_return', $return_context, $url );
+		}
+		return $url;
+	}
+
+	/**
+	 * @param int $experiment_id Experiment CPT post ID.
+	 * @return string
+	 */
+	public static function edit_test_action_fallback_url( $experiment_id ) {
+		$experiment_id = absint( $experiment_id );
+		if ( $experiment_id <= 0 ) {
+			return admin_url( 'admin.php?page=rwgo-tests' );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only UI context.
+		$ret = isset( $_GET['rwgo_return'] ) ? sanitize_key( wp_unslash( $_GET['rwgo_return'] ) ) : '';
+		if ( 'tests' === $ret ) {
+			return admin_url( 'admin.php?page=rwgo-tests' );
+		}
+		if ( 'reports' === $ret ) {
+			return admin_url( 'admin.php?page=rwgo-reports' );
+		}
+		return self::edit_test_url( $experiment_id, $ret );
+	}
+
+	/**
+	 * Redirect target after saving Edit Test form (preserves rwgo_return_context from POST).
+	 *
+	 * @param int   $experiment_id Experiment CPT post ID.
+	 * @param array $extra_query   Extra query args (e.g. rwgo_saved, rwgo_error).
+	 * @return string
+	 */
+	public static function edit_test_redirect_after_save( $experiment_id, array $extra_query = array() ) {
+		$experiment_id = absint( $experiment_id );
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- paired with rwgo_update_test nonce.
+		$ret = isset( $_POST['rwgo_return_context'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_return_context'] ) ) : '';
+		if ( ! in_array( $ret, array( 'tests', 'reports' ), true ) ) {
+			$ret = '';
+		}
+		$url = self::edit_test_url( $experiment_id, $ret );
+		if ( ! empty( $extra_query ) ) {
+			$url = add_query_arg( $extra_query, $url );
+		}
+		return $url;
+	}
+
+	/**
+	 * Optional POST redirect target for admin-post handlers (validated with wp_validate_redirect).
+	 *
+	 * @param string $fallback_url Default URL if POST is absent or unsafe.
+	 * @return string
+	 */
+	public static function safe_admin_redirect_target( $fallback_url ) {
+		$fallback = (string) $fallback_url;
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- admin-post handler verifies nonce separately.
+		if ( empty( $_POST['rwgo_redirect_to'] ) || ! is_string( $_POST['rwgo_redirect_to'] ) ) {
+			return $fallback;
+		}
+		$redirect = esc_url_raw( wp_unslash( $_POST['rwgo_redirect_to'] ) );
+		return wp_validate_redirect( $redirect, $fallback );
 	}
 
 	/**
@@ -131,6 +218,7 @@ class RWGO_Admin {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_legacy_tools' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 26 );
 		add_action( 'admin_head', array( __CLASS__, 'hide_edit_test_submenu_css' ) );
+		add_action( 'admin_head', array( __CLASS__, 'hide_promote_winner_submenu_css' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
 		add_action( 'admin_init', array( __CLASS__, 'handle_license_actions' ) );
 		add_action( 'admin_post_rwgo_test_license', array( __CLASS__, 'handle_test_license' ) );
@@ -140,6 +228,11 @@ class RWGO_Admin {
 		add_action( 'admin_post_rwgo_resume_test', array( __CLASS__, 'handle_resume_test' ) );
 		add_action( 'admin_post_rwgo_end_test', array( __CLASS__, 'handle_end_test' ) );
 		add_action( 'admin_post_rwgo_duplicate_test', array( __CLASS__, 'handle_duplicate_test' ) );
+		add_action( 'admin_post_rwgo_promote_variant', array( __CLASS__, 'handle_promote_variant' ) );
+		add_action( 'admin_post_rwgo_redirect_rule_toggle', array( __CLASS__, 'handle_redirect_rule_toggle' ) );
+		add_action( 'admin_post_rwgo_redirect_rule_delete', array( __CLASS__, 'handle_redirect_rule_delete' ) );
+		add_action( 'admin_post_rwgo_detach_variant', array( __CLASS__, 'handle_detach_variant' ) );
+		add_action( 'admin_post_rwgo_regenerate_variant', array( __CLASS__, 'handle_regenerate_variant' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -506,6 +599,36 @@ class RWGO_Admin {
 			'rwgo-edit-test',
 			array( __CLASS__, 'render_edit_test' )
 		);
+
+		add_submenu_page(
+			self::MENU_PARENT,
+			__( 'Promote Winner', 'reactwoo-geo-optimise' ),
+			' ',
+			$cap,
+			'rwgo-promote-winner',
+			array( __CLASS__, 'render_promote_winner' )
+		);
+	}
+
+	/**
+	 * Hide Promote Winner from the left admin submenu (screen is linked from Reports / Tests only).
+	 *
+	 * @return void
+	 */
+	public static function hide_promote_winner_submenu_css() {
+		if ( ! self::can_manage() ) {
+			return;
+		}
+		?>
+		<style id="rwgo-hide-promote-winner-submenu">
+		#toplevel_page_rwgo-dashboard .wp-submenu li:has(> a[href*="page=rwgo-promote-winner"]) {
+			display: none !important;
+		}
+		#toplevel_page_rwgo-dashboard .wp-submenu a[href*="page=rwgo-promote-winner"] {
+			display: none !important;
+		}
+		</style>
+		<?php
 	}
 
 	/**
@@ -649,6 +772,23 @@ class RWGO_Admin {
 		}
 		$rwgc_nav_current = 'rwgo-tests';
 		include RWGO_PATH . 'admin/views/edit-test.php';
+	}
+
+	/**
+	 * Promote Winner wizard (Mode A + success checklist).
+	 *
+	 * @return void
+	 */
+	public static function render_promote_winner() {
+		if ( ! self::can_manage() ) {
+			return;
+		}
+		$data = self::get_view_data();
+		foreach ( $data as $k => $v ) {
+			${$k} = $v;
+		}
+		$rwgc_nav_current = 'rwgo-tests';
+		include RWGO_PATH . 'admin/views/promote-winner.php';
 	}
 
 	/**
@@ -849,7 +989,7 @@ class RWGO_Admin {
 			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=1' ) );
 			exit;
 		}
-		$new_dup = RWGO_Page_Duplicator::duplicate( $source );
+		$new_dup = RWGO_Page_Duplicator::duplicate_page( $source );
 		if ( is_wp_error( $new_dup ) ) {
 			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=dup' ) );
 			exit;
@@ -876,6 +1016,151 @@ class RWGO_Admin {
 		}
 		RWGO_Experiment_Repository::save_config( (int) $new_id, $new_cfg );
 		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_duplicated=1' ) );
+		exit;
+	}
+
+	/**
+	 * Copy Variant B document into Control and complete the test.
+	 *
+	 * @return void
+	 */
+	public static function handle_promote_variant() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_promote_variant' );
+		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $exp_id <= 0 || ! class_exists( 'RWGO_Promotion_Service', false ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-reports&rwgo_error=promote' ) );
+			exit;
+		}
+		$va = isset( $_POST['rwgo_variant_disposal'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_variant_disposal'] ) ) : RWGO_Promotion_Service::VARIANT_ARCHIVE_REDIRECT; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$allowed_va = array(
+			RWGO_Promotion_Service::VARIANT_ARCHIVE_REDIRECT,
+			RWGO_Promotion_Service::VARIANT_ARCHIVE_NO_REDIRECT,
+			RWGO_Promotion_Service::VARIANT_TRASH_REDIRECT,
+			RWGO_Promotion_Service::VARIANT_LEAVE,
+		);
+		if ( ! in_array( $va, $allowed_va, true ) ) {
+			$va = RWGO_Promotion_Service::VARIANT_ARCHIVE_REDIRECT;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$copy_title = ! isset( $_POST['rwgo_copy_post_title'] ) || (int) $_POST['rwgo_copy_post_title'] === 1;
+		$fallback   = self::promote_winner_url( $exp_id );
+		$target     = self::safe_admin_redirect_target( $fallback );
+		$r          = RWGO_Promotion_Service::run(
+			$exp_id,
+			array(
+				'mode'            => RWGO_Promotion_Service::MODE_REPLACE_CONTENT,
+				'variant_action'  => $va,
+				'copy_post_title' => $copy_title,
+			)
+		);
+		if ( is_wp_error( $r ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'promote', $target ) );
+			exit;
+		}
+		$done = isset( $r['promotion_log_id'] ) ? (int) $r['promotion_log_id'] : 0;
+		$target = add_query_arg( 'rwgo_promotion_done', $done, $target );
+		wp_safe_redirect( $target );
+		exit;
+	}
+
+	/**
+	 * Enable/disable a managed redirect rule.
+	 *
+	 * @return void
+	 */
+	public static function handle_redirect_rule_toggle() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_redirect_rule_toggle' );
+		$id = isset( $_POST['rwgo_redirect_id'] ) ? (int) $_POST['rwgo_redirect_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $id <= 0 || ! class_exists( 'RWGO_Redirect_Store', false ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests' ) );
+			exit;
+		}
+		$row = RWGO_Redirect_Store::get_rule( $id );
+		if ( ! $row ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests' ) );
+			exit;
+		}
+		$new_active = empty( $row->active ) ? 1 : 0;
+		RWGO_Redirect_Store::set_active( $id, $new_active );
+		wp_safe_redirect( self::safe_admin_redirect_target( admin_url( 'admin.php?page=rwgo-tests' ) ) );
+		exit;
+	}
+
+	/**
+	 * Delete a managed redirect rule.
+	 *
+	 * @return void
+	 */
+	public static function handle_redirect_rule_delete() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_redirect_rule_delete' );
+		$id = isset( $_POST['rwgo_redirect_id'] ) ? (int) $_POST['rwgo_redirect_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $id <= 0 || ! class_exists( 'RWGO_Redirect_Store', false ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests' ) );
+			exit;
+		}
+		RWGO_Redirect_Store::delete_rule( $id );
+		wp_safe_redirect( self::safe_admin_redirect_target( admin_url( 'admin.php?page=rwgo-tests' ) ) );
+		exit;
+	}
+
+	/**
+	 * Remove Variant B from the test; optionally trash the page.
+	 *
+	 * @return void
+	 */
+	public static function handle_detach_variant() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_detach_variant' );
+		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$mode   = isset( $_POST['rwgo_detach_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_detach_mode'] ) ) : 'keep'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=detach' ) );
+			exit;
+		}
+		$delete_page = ( 'delete' === $mode );
+		$r           = RWGO_Variant_Lifecycle::detach_variant_b( $exp_id, $delete_page );
+		$url         = self::safe_admin_redirect_target( self::edit_test_url( $exp_id ) );
+		if ( is_wp_error( $r ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'detach', $url ) );
+			exit;
+		}
+		wp_safe_redirect( add_query_arg( 'rwgo_detached', '1', $url ) );
+		exit;
+	}
+
+	/**
+	 * Replace Variant B with a fresh duplicate of Control.
+	 *
+	 * @return void
+	 */
+	public static function handle_regenerate_variant() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_regenerate_variant' );
+		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( $exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-tests&rwgo_error=regen' ) );
+			exit;
+		}
+		$r   = RWGO_Variant_Lifecycle::regenerate_variant_b( $exp_id );
+		$url = self::safe_admin_redirect_target( self::edit_test_url( $exp_id ) );
+		if ( is_wp_error( $r ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'regen', $url ) );
+			exit;
+		}
+		wp_safe_redirect( add_query_arg( 'rwgo_regenerated', '1', $url ) );
 		exit;
 	}
 

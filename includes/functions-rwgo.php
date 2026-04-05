@@ -36,3 +36,16 @@ function rwgo_get_assignment_map() {
 	}
 	return RWGO_Assignment::get_map();
 }
+
+/**
+ * Duplicate a page/post for a test variant (validates Elementor payload when needed).
+ *
+ * @param int $source_post_id Source post ID.
+ * @return int|\WP_Error New post ID or error.
+ */
+function rwgo_duplicate_page( $source_post_id ) {
+	if ( ! class_exists( 'RWGO_Page_Duplicator', false ) ) {
+		return new WP_Error( 'rwgo_dup_no_class', __( 'Duplicator unavailable.', 'reactwoo-geo-optimise' ) );
+	}
+	return RWGO_Page_Duplicator::duplicate_page( (int) $source_post_id );
+}
