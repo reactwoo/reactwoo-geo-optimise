@@ -233,6 +233,7 @@ class RWGO_Admin {
 		add_action( 'admin_post_rwgo_redirect_rule_delete', array( __CLASS__, 'handle_redirect_rule_delete' ) );
 		add_action( 'admin_post_rwgo_detach_variant', array( __CLASS__, 'handle_detach_variant' ) );
 		add_action( 'admin_post_rwgo_regenerate_variant', array( __CLASS__, 'handle_regenerate_variant' ) );
+		add_action( 'admin_post_rwgo_delete_test', array( __CLASS__, 'handle_delete_test' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -1161,6 +1162,74 @@ class RWGO_Admin {
 			exit;
 		}
 		wp_safe_redirect( add_query_arg( 'rwgo_regenerated', '1', $url ) );
+		exit;
+	}
+
+	/**
+	 * Permanently delete an experiment and optional Variant B page; clears redirects and promotion log rows.
+	 *
+	 * @return void
+	 */
+	public static function handle_delete_test() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_delete_test' );
+		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$delete_variant_page = ! empty( $_POST['rwgo_delete_variant_pages'] );
+		$fallback            = admin_url( 'admin.php?page=rwgo-tests' );
+		if ( $exp_id <= 0 || ! class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'delete', $fallback ) );
+			exit;
+		}
+		$post = get_post( $exp_id );
+		if ( ! $post instanceof \WP_Post || RWGO_Experiment_CPT::POST_TYPE !== $post->post_type ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'delete', $fallback ) );
+			exit;
+		}
+		if ( ! current_user_can( 'delete_post', $exp_id ) ) {
+			wp_die( esc_html__( 'You do not have permission to delete this test.', 'reactwoo-geo-optimise' ) );
+		}
+		$cfg      = RWGO_Experiment_Repository::get_config( $exp_id );
+		$src_id   = (int) ( $cfg['source_page_id'] ?? 0 );
+		$var_b_id = 0;
+		if ( ! empty( $cfg['variants'] ) && is_array( $cfg['variants'] ) ) {
+			foreach ( $cfg['variants'] as $row ) {
+				if ( is_array( $row ) && isset( $row['variant_id'] ) && 'var_b' === sanitize_key( (string) $row['variant_id'] ) ) {
+					$var_b_id = (int) ( $row['page_id'] ?? 0 );
+					break;
+				}
+			}
+		}
+		if ( class_exists( 'RWGO_Redirect_Store', false ) ) {
+			RWGO_Redirect_Store::delete_rules_for_experiment( $exp_id );
+		}
+		if ( class_exists( 'RWGO_Promotion_Log', false ) ) {
+			RWGO_Promotion_Log::delete_by_experiment( $exp_id );
+		}
+		$deleted_v_page = false;
+		if ( $delete_variant_page && $var_b_id > 0 && $var_b_id !== $src_id && current_user_can( 'delete_post', $var_b_id ) ) {
+			$deleted_v_page = (bool) wp_delete_post( $var_b_id, true );
+		}
+		/**
+		 * Fires after redirect/promotion cleanup and before the experiment post is deleted.
+		 *
+		 * @param int   $experiment_post_id Experiment CPT ID.
+		 * @param array $context {
+		 *     @type bool $deleted_variant_b_page Whether Variant B page was force-deleted.
+		 * }
+		 */
+		do_action(
+			'rwgo_test_deleted',
+			$exp_id,
+			array(
+				'deleted_variant_b_page' => $deleted_v_page,
+				'variant_b_post_id'      => $var_b_id,
+			)
+		);
+		wp_delete_post( $exp_id, true );
+		wp_safe_redirect( add_query_arg( 'rwgo_deleted', '1', $fallback ) );
 		exit;
 	}
 

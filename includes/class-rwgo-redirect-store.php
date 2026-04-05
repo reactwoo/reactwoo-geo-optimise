@@ -163,6 +163,23 @@ class RWGO_Redirect_Store {
 	}
 
 	/**
+	 * Remove all redirect rules tied to an experiment (e.g. after test deletion).
+	 *
+	 * @param int $experiment_post_id Experiment CPT ID.
+	 * @return int Rows deleted.
+	 */
+	public static function delete_rules_for_experiment( $experiment_post_id ) {
+		global $wpdb;
+		$table = self::table_name();
+		$eid   = (int) $experiment_post_id;
+		if ( $eid <= 0 || ! self::table_exists() ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->delete( $table, array( 'experiment_post_id' => $eid ), array( '%d' ) );
+	}
+
+	/**
 	 * @param int $id Rule ID.
 	 * @return object|null
 	 */

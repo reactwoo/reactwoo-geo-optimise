@@ -1445,3 +1445,380 @@ select.rwgo-input {
     align-items: center;
   }
 }
+
+/* -------------------------------------------------------------------------
+   Tests list — detail layout, variant cards, button rows, delete dialog
+   ------------------------------------------------------------------------- */
+.rwgo-wrap--tests {
+  max-width: 1200px;
+}
+
+.rwgo-wrap--tests .rwgo-stack {
+  gap: 32px;
+}
+
+.rwgo-wrap--edit-test {
+  max-width: 1200px;
+}
+
+.rwgo-wrap--edit-test .rwgo-edit-summary + .rwgo-section--variant-mgmt,
+.rwgo-wrap--edit-test .rwgo-section--variant-mgmt + .rwgo-create-form {
+  margin-top: 32px;
+}
+
+.rwgo-create-form--edit-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-1 {
+  order: 1;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-2 {
+  order: 2;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-3 {
+  order: 3;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-4 {
+  order: 4;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-5 {
+  order: 5;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-6 {
+  order: 6;
+}
+
+.rwgo-create-form--edit-reorder .rwgo-section--eo-7 {
+  order: 7;
+}
+
+.rwgo-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rwgo-btn-row--wrap {
+  row-gap: 10px;
+}
+
+.rwgo-btn-row .rwgo-inline-form {
+  display: inline;
+  margin: 0;
+}
+
+.rwgo-btn-row__spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.rwgo-btn--compact {
+  min-height: 36px;
+  padding: 0 14px;
+  line-height: 34px;
+  font-size: 13px;
+}
+
+.rwgo-btn--danger-outline {
+  border-color: #d63638 !important;
+  color: #d63638 !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.rwgo-btn--danger-outline:hover {
+  border-color: #b32d2e !important;
+  color: #b32d2e !important;
+  background: #fcf0f1 !important;
+}
+
+.rwgo-btn--danger {
+  border-color: #d63638 !important;
+  background: #d63638 !important;
+  color: #fff !important;
+}
+
+.rwgo-btn--danger:hover {
+  background: #b32d2e !important;
+  border-color: #b32d2e !important;
+  color: #fff !important;
+}
+
+.rwgo-test-card--detail .rwgo-test-card__header--detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e4e7;
+}
+
+.rwgo-test-card__title-block {
+  min-width: 0;
+  flex: 1 1 220px;
+}
+
+.rwgo-test-card__title {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.rwgo-status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #f6f7f7;
+  border: 1px solid #e2e4e7;
+  font-size: 13px;
+  color: #646970;
+}
+
+.rwgo-status-strip__item strong {
+  color: #1d2327;
+  font-weight: 600;
+}
+
+.rwgo-status-strip__health--ok {
+  color: #2da44e;
+  font-weight: 600;
+}
+
+.rwgo-status-strip__health--bad {
+  color: #d63638;
+  font-weight: 600;
+}
+
+.rwgo-meta-strip--tests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rwgo-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background: #f0f0f1;
+  color: #50575e;
+  border: 1px solid #e2e4e7;
+}
+
+.rwgo-meta-pill__k {
+  color: #787c82;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.rwgo-meta-pill--ok {
+  border-color: #c3e6cb;
+  background: #edfaef;
+  color: #1e4620;
+}
+
+.rwgo-meta-pill--bad {
+  border-color: #f5c6cb;
+  background: #fcf0f1;
+  color: #721c24;
+}
+
+.rwgo-test-card__toolbar {
+  margin-top: 16px;
+}
+
+.rwgo-variants-section {
+  margin-top: 24px;
+  padding-top: 8px;
+  border-top: 1px solid #e2e4e7;
+}
+
+.rwgo-variants-section__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.rwgo-variant-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 900px) {
+  .rwgo-variant-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+}
+
+.rwgo-variant-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 20px 22px;
+  border-radius: 10px;
+  border: 1px solid #e2e4e7;
+  background: #fafbfc;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.rwgo-variant-card--empty {
+  background: #fff;
+  border-style: dashed;
+}
+
+.rwgo-variant-card__label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #2271b1;
+}
+
+.rwgo-variant-card__title {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d2327;
+  line-height: 1.3;
+}
+
+.rwgo-variant-card__meta {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #646970;
+}
+
+.rwgo-variant-card__status {
+  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rwgo-variant-card__status--ok {
+  color: #2da44e;
+}
+
+.rwgo-variant-card__status--bad {
+  color: #d63638;
+}
+
+.rwgo-variant-card__empty-title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.rwgo-variant-card__empty-body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #646970;
+}
+
+.rwgo-edit-summary__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.rwgo-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.rwgo-checklist--compact {
+  margin: 8px 0 0;
+}
+
+.rwgo-hint--tight {
+  margin-top: 4px;
+}
+
+.rwgo-hint--spaced {
+  margin-top: 16px;
+}
+
+.rwgo-section--variant-mgmt {
+  margin-top: 0;
+}
+
+.rwgo-dialog {
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  max-width: 480px;
+  width: calc(100vw - 48px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.rwgo-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.rwgo-dialog__inner {
+  padding: 24px;
+}
+
+.rwgo-dialog__title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.rwgo-dialog__body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #50575e;
+}
+
+.rwgo-dialog__checkbox {
+  margin: 0 0 20px;
+}
+
+.rwgo-dialog__actions {
+  justify-content: flex-end;
+}
+
+.rwgo-more-actions__row {
+  margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .rwgo-btn-row__spacer {
+    display: none;
+  }
+
+  .rwgo-test-card__toolbar .rwgo-btn--danger-outline {
+    width: 100%;
+    text-align: center;
+  }
+}

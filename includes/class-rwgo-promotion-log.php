@@ -73,4 +73,21 @@ class RWGO_Promotion_Log {
 		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", (int) $id ) );
 		return $row ? $row : null;
 	}
+
+	/**
+	 * Delete audit rows for an experiment (e.g. after test deletion).
+	 *
+	 * @param int $experiment_post_id Experiment CPT ID.
+	 * @return int Rows deleted.
+	 */
+	public static function delete_by_experiment( $experiment_post_id ) {
+		global $wpdb;
+		$table = self::table_name();
+		$eid   = (int) $experiment_post_id;
+		if ( $eid <= 0 ) {
+			return 0;
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+		return (int) $wpdb->delete( $table, array( 'experiment_post_id' => $eid ), array( '%d' ) );
+	}
 }

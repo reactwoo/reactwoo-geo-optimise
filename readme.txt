@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.2.0.2
+Stable tag: 0.3.1
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,11 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.3.1 =
+* **Tests / Edit Test UX:** Card-based Variants on the Tests screen; action toolbar (View Report, Edit, Pause/Resume, Delete); status strip and health; horizontal button groups; spacing aligned with Geo Core tokens.
+* **Delete test:** Admin action removes the experiment; clears redirect rules and promotion log rows; optional permanent deletion of Variant B page; `rwgo_test_deleted` hook.
+* **Edit Test:** Variant management moved above goal/targeting; form section order Goal → Audience → identity → Variant B advanced → Save.
 
 = 0.2.0.2 =
 * **Admin:** License and Settings forms post to `options.php` with capability aligned to Geo Optimise menu (`option_page_capability_rwgo_license_group` + `register_setting` capability) so WooCommerce shop managers can save without `manage_options`.

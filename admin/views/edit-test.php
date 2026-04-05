@@ -173,17 +173,48 @@ $rwgo_form_mode = 'edit';
 			</p></div>
 		<?php endif; ?>
 
+		<?php
+		$rwgo_mgmt_status    = isset( $rwgo_cfg['status'] ) ? sanitize_key( (string) $rwgo_cfg['status'] ) : '';
+		$rwgo_mgmt_completed = ( 'completed' === $rwgo_mgmt_status );
+		$rwgo_edit_redirect  = class_exists( 'RWGO_Admin', false )
+			? RWGO_Admin::edit_test_action_fallback_url( $rwgo_exp_id )
+			: admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . (int) $rwgo_exp_id );
+		$rwgo_builder_lab      = '';
+		if ( ! empty( $rwgo_cfg['builder_detection']['user_builder_label'] ) ) {
+			$rwgo_builder_lab = (string) $rwgo_cfg['builder_detection']['user_builder_label'];
+		} else {
+			$bt = isset( $rwgo_cfg['builder_type'] ) ? sanitize_key( (string) $rwgo_cfg['builder_type'] ) : '';
+			$bmap = array(
+				'elementor'   => __( 'Elementor', 'reactwoo-geo-optimise' ),
+				'gutenberg'   => __( 'Gutenberg', 'reactwoo-geo-optimise' ),
+				'classic'     => __( 'Classic', 'reactwoo-geo-optimise' ),
+				'woocommerce' => __( 'WooCommerce', 'reactwoo-geo-optimise' ),
+			);
+			$rwgo_builder_lab = isset( $bmap[ $bt ] ) ? $bmap[ $bt ] : ( $bt ? $bt : '—' );
+		}
+		$rwgo_variant_incomplete = ( 'completed' !== $rwgo_mgmt_status ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+		?>
 		<div class="rwgo-card rwgo-edit-summary">
-			<h2 class="rwgo-section__title"><?php esc_html_e( 'Test summary', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="rwgo-hint"><?php esc_html_e( 'Internal experiment key (for developers & integrations):', 'reactwoo-geo-optimise' ); ?> <code><?php echo esc_html( $key_for_stats ); ?></code></p>
-			<ul class="rwgo-checklist">
-				<li><?php esc_html_e( 'Status:', 'reactwoo-geo-optimise' ); ?> <strong><?php echo esc_html( $rwgo_prefill['status'] ); ?></strong></li>
-				<li><?php esc_html_e( 'Primary goal:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></li>
+			<div class="rwgo-edit-summary__head">
+				<h2 class="rwgo-section__title"><?php esc_html_e( 'Test summary', 'reactwoo-geo-optimise' ); ?></h2>
+				<span class="rwgo-status-strip__status"><?php esc_html_e( 'Status:', 'reactwoo-geo-optimise' ); ?> <strong><?php echo esc_html( $rwgo_prefill['status'] ); ?></strong></span>
+			</div>
+			<div class="rwgo-meta-strip" role="list">
+				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Builder', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $rwgo_builder_lab ); ?></span>
+				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Goal', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></span>
+				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variants', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
+				<span class="rwgo-meta-pill rwgo-meta-pill--health <?php echo $rwgo_variant_incomplete ? 'rwgo-meta-pill--bad' : 'rwgo-meta-pill--ok'; ?>" role="listitem">
+					<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Health', 'reactwoo-geo-optimise' ); ?></span>
+					<?php echo $rwgo_variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?>
+				</span>
+			</div>
+			<p class="rwgo-hint rwgo-hint--tight"><?php esc_html_e( 'Internal experiment key (for developers & integrations):', 'reactwoo-geo-optimise' ); ?> <code><?php echo esc_html( $key_for_stats ); ?></code></p>
+			<ul class="rwgo-checklist rwgo-checklist--compact">
 				<li><?php esc_html_e( 'Visitors assigned (total):', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( (string) $vsum ); ?></li>
 				<li><?php esc_html_e( 'Leading variant:', 'reactwoo-geo-optimise' ); ?> <?php echo $assign_only ? esc_html__( '— (traffic split only)', 'reactwoo-geo-optimise' ) : ( $lead_label ? esc_html( $lead_label ) : esc_html__( '—', 'reactwoo-geo-optimise' ) ); ?></li>
 			</ul>
 			<?php if ( $src_id > 0 && get_post( $src_id ) && $var_b_id > 0 && get_post( $var_b_id ) ) : ?>
-				<p class="rwgo-cta-row">
+				<div class="rwgo-btn-row rwgo-btn-row--wrap">
 					<?php
 					$rwgo_tt = isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab';
 					$ce      = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $src_id, $rwgo_tt ) : get_edit_post_link( $src_id );
@@ -193,79 +224,17 @@ $rwgo_form_mode = 'edit';
 						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ce ); ?>"><?php esc_html_e( 'Edit Control', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
 					<?php if ( is_string( $ve ) && $ve ) : ?>
-						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ve ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $ve ); ?>"><?php esc_html_e( 'Edit Variant B', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
-				</p>
+				</div>
 			<?php endif; ?>
 		</div>
 
-		<?php require RWGO_PATH . 'admin/views/partials/test-form.php'; ?>
+		<?php if ( class_exists( 'RWGO_Variant_Lifecycle', false ) && ! $rwgo_load_error ) : ?>
+			<?php require RWGO_PATH . 'admin/views/partials/test-variant-management-edit.php'; ?>
+		<?php endif; ?>
 
-		<?php
-		$rwgo_mgmt_status = isset( $rwgo_cfg['status'] ) ? sanitize_key( (string) $rwgo_cfg['status'] ) : '';
-		$rwgo_mgmt_completed = ( 'completed' === $rwgo_mgmt_status );
-		if ( class_exists( 'RWGO_Variant_Lifecycle', false ) && ! $rwgo_load_error && ! $rwgo_mgmt_completed ) :
-			$rwgo_edit_redirect = class_exists( 'RWGO_Admin', false )
-				? RWGO_Admin::edit_test_action_fallback_url( $rwgo_exp_id )
-				: admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . (int) $rwgo_exp_id );
-			?>
-		<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-variant-mgmt">
-			<h2 class="rwgo-section__title" id="rwgo-variant-mgmt"><?php esc_html_e( 'Variant management', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="rwgo-section__lead"><?php esc_html_e( 'Promote a winning variant to Control, recreate Variant B from Control, or remove Variant B from this test.', 'reactwoo-geo-optimise' ); ?></p>
-			<?php if ( $var_b_id > 0 && get_post( $var_b_id ) ) : ?>
-				<div class="rwgo-actions-stack">
-					<?php if ( class_exists( 'RWGO_Admin', false ) ) : ?>
-						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( RWGO_Admin::promote_winner_url( $rwgo_exp_id, $rwgo_return_ctx ) ); ?>"><?php esc_html_e( 'Promote Winner', 'reactwoo-geo-optimise' ); ?></a>
-					<?php endif; ?>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-						<?php wp_nonce_field( 'rwgo_regenerate_variant' ); ?>
-						<input type="hidden" name="action" value="rwgo_regenerate_variant" />
-						<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
-						<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
-						<button type="submit" class="button rwgo-btn rwgo-btn--secondary" onclick="return confirm('<?php echo esc_js( __( 'Create a fresh Variant B from Control? The current Variant B page will be moved to trash if your role allows it.', 'reactwoo-geo-optimise' ) ); ?>');">
-							<?php esc_html_e( 'Regenerate Variant B', 'reactwoo-geo-optimise' ); ?>
-						</button>
-					</form>
-				</div>
-				<p class="rwgo-hint"><?php esc_html_e( 'Remove Variant B from this test:', 'reactwoo-geo-optimise' ); ?></p>
-				<div class="rwgo-actions-stack">
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-						<?php wp_nonce_field( 'rwgo_detach_variant' ); ?>
-						<input type="hidden" name="action" value="rwgo_detach_variant" />
-						<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
-						<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
-						<input type="hidden" name="rwgo_detach_mode" value="keep" />
-						<button type="submit" class="button" onclick="return confirm('<?php echo esc_js( __( 'Remove Variant B from this test only? The page will stay in the site.', 'reactwoo-geo-optimise' ) ); ?>');">
-							<?php esc_html_e( 'Remove from test (keep page)', 'reactwoo-geo-optimise' ); ?>
-						</button>
-					</form>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
-						<?php wp_nonce_field( 'rwgo_detach_variant' ); ?>
-						<input type="hidden" name="action" value="rwgo_detach_variant" />
-						<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
-						<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
-						<input type="hidden" name="rwgo_detach_mode" value="delete" />
-						<button type="submit" class="button button-link-delete" onclick="return confirm('<?php echo esc_js( __( 'Remove Variant B from this test and move the Variant B page to trash?', 'reactwoo-geo-optimise' ) ); ?>');">
-							<?php esc_html_e( 'Remove and delete page', 'reactwoo-geo-optimise' ); ?>
-						</button>
-					</form>
-				</div>
-			<?php elseif ( $src_id > 0 && get_post( $src_id ) ) : ?>
-				<div class="notice notice-warning inline"><p><?php esc_html_e( 'This test has no linked Variant B. Create one by duplicating Control.', 'reactwoo-geo-optimise' ); ?></p></div>
-				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-cta-row">
-					<?php wp_nonce_field( 'rwgo_regenerate_variant' ); ?>
-					<input type="hidden" name="action" value="rwgo_regenerate_variant" />
-					<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $rwgo_exp_id; ?>" />
-					<input type="hidden" name="rwgo_redirect_to" value="<?php echo esc_url( $rwgo_edit_redirect ); ?>" />
-					<button type="submit" class="button button-primary rwgo-btn rwgo-btn--primary" onclick="return confirm('<?php echo esc_js( __( 'Create Variant B as a new duplicate of Control?', 'reactwoo-geo-optimise' ) ); ?>');">
-						<?php esc_html_e( 'Add Variant B (duplicate Control)', 'reactwoo-geo-optimise' ); ?>
-					</button>
-				</form>
-			<?php endif; ?>
-		</section>
-			<?php
-		endif;
-		?>
+		<?php require RWGO_PATH . 'admin/views/partials/test-form.php'; ?>
 
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-duplicate-after-form">
 			<input type="hidden" name="action" value="rwgo_duplicate_test" />

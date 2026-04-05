@@ -44,7 +44,7 @@ $type_labels = array(
 $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 ?>
 <?php if ( $rwgo_is_edit ) : ?>
-<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>">
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form rwgo-create-form--edit-reorder" id="<?php echo esc_attr( $form_id ); ?>">
 	<input type="hidden" name="action" value="rwgo_update_test" />
 	<?php wp_nonce_field( 'rwgo_update_test' ); ?>
 	<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ); ?>" />
@@ -61,8 +61,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 	<?php wp_nonce_field( 'rwgo_create_test' ); ?>
 <?php endif; ?>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-name">
-		<h2 class="rwgo-section__title" id="rwgo-sec-name"><?php esc_html_e( '1. Test name', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-3" aria-labelledby="rwgo-sec-name">
+		<h2 class="rwgo-section__title" id="rwgo-sec-name"><?php echo $rwgo_is_edit ? esc_html__( 'Test name', 'reactwoo-geo-optimise' ) : esc_html__( '1. Test name', 'reactwoo-geo-optimise' ); ?></h2>
 		<p class="rwgo-section__lead"><?php esc_html_e( 'Give this test a short internal name so it is easy to recognise later.', 'reactwoo-geo-optimise' ); ?></p>
 		<div class="rwgo-field">
 			<label class="rwgo-field__label" for="rwgo_test_name"><?php esc_html_e( 'Name', 'reactwoo-geo-optimise' ); ?></label>
@@ -70,8 +70,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		</div>
 	</section>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-type">
-		<h2 class="rwgo-section__title" id="rwgo-sec-type"><?php esc_html_e( '2. Test type', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-4" aria-labelledby="rwgo-sec-type">
+		<h2 class="rwgo-section__title" id="rwgo-sec-type"><?php echo $rwgo_is_edit ? esc_html__( 'Test type', 'reactwoo-geo-optimise' ) : esc_html__( '2. Test type', 'reactwoo-geo-optimise' ); ?></h2>
 		<?php if ( $rwgo_is_edit ) : ?>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Test type is fixed after creation to preserve reporting consistency. Duplicate the test if you need a different structure.', 'reactwoo-geo-optimise' ); ?></p>
 			<p class="rwgo-hint rwgo-hint--accent"><strong><?php echo esc_html( isset( $type_labels[ $pf_test_type ] ) ? $type_labels[ $pf_test_type ] : $pf_test_type ); ?></strong></p>
@@ -91,8 +91,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		<?php endif; ?>
 	</section>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-source">
-		<h2 class="rwgo-section__title" id="rwgo-sec-source"><?php esc_html_e( '3. Source content', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-5" aria-labelledby="rwgo-sec-source">
+		<h2 class="rwgo-section__title" id="rwgo-sec-source"><?php echo $rwgo_is_edit ? esc_html__( 'Source content (Control)', 'reactwoo-geo-optimise' ) : esc_html__( '3. Source content', 'reactwoo-geo-optimise' ); ?></h2>
 		<?php if ( $rwgo_is_edit ) : ?>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Source content is fixed after creation. Duplicate the test if you want to test a different page or product.', 'reactwoo-geo-optimise' ); ?></p>
 			<div class="rwgo-summary-bar">
@@ -126,8 +126,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		<?php endif; ?>
 	</section>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-variants">
-		<h2 class="rwgo-section__title" id="rwgo-sec-variants"><?php esc_html_e( '4. Variants', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-6" aria-labelledby="rwgo-sec-variants">
+		<h2 class="rwgo-section__title" id="rwgo-sec-variants"><?php echo $rwgo_is_edit ? esc_html__( 'Variant B — advanced setup', 'reactwoo-geo-optimise' ) : esc_html__( '4. Variants', 'reactwoo-geo-optimise' ); ?></h2>
 		<?php if ( $rwgo_is_edit ) : ?>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Control (A) is the original version. Variant B is the version compared against it.', 'reactwoo-geo-optimise' ); ?></p>
 			<div class="rwgo-callout rwgo-callout--info">
@@ -231,8 +231,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		<?php endif; ?>
 	</section>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-target">
-		<h2 class="rwgo-section__title" id="rwgo-sec-target"><?php esc_html_e( '5. Targeting', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-2" aria-labelledby="rwgo-sec-target">
+		<h2 class="rwgo-section__title" id="rwgo-sec-target"><?php echo $rwgo_is_edit ? esc_html__( 'Audience & assignment', 'reactwoo-geo-optimise' ) : esc_html__( '5. Targeting', 'reactwoo-geo-optimise' ); ?></h2>
 		<p class="rwgo-section__lead"><?php echo esc_html( $rwgo_is_edit ? __( 'Changes here affect which future visitors can enter the test.', 'reactwoo-geo-optimise' ) : __( 'Who should enter this test?', 'reactwoo-geo-optimise' ) ); ?></p>
 		<div class="rwgo-field">
 			<select name="rwgo_targeting_mode" id="rwgo_targeting_mode" class="rwgo-input">
@@ -247,8 +247,8 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		</div>
 	</section>
 
-	<section class="rwgo-card rwgo-section" aria-labelledby="rwgo-sec-goal">
-		<h2 class="rwgo-section__title" id="rwgo-sec-goal"><?php esc_html_e( '6. What counts as success?', 'reactwoo-geo-optimise' ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--eo-1" aria-labelledby="rwgo-sec-goal">
+		<h2 class="rwgo-section__title" id="rwgo-sec-goal"><?php echo $rwgo_is_edit ? esc_html__( 'Goal & tracking', 'reactwoo-geo-optimise' ) : esc_html__( '6. What counts as success?', 'reactwoo-geo-optimise' ); ?></h2>
 		<?php if ( $rwgo_is_edit ) : ?>
 			<div class="rwgo-callout rwgo-callout--info">
 				<p class="rwgo-callout__p"><?php esc_html_e( 'Changing the primary goal changes how this test is evaluated from now on. Historical data remains; winner interpretation may change. Consider duplicating the test if you need a clean comparison.', 'reactwoo-geo-optimise' ); ?></p>
@@ -279,14 +279,14 @@ $form_id = $rwgo_is_edit ? 'rwgo-edit-test-form' : 'rwgo-create-test-form';
 		</div>
 	</section>
 
-	<section class="rwgo-card rwgo-section rwgo-section--publish" aria-labelledby="rwgo-sec-publish">
-		<h2 class="rwgo-section__title" id="rwgo-sec-publish"><?php echo esc_html( $rwgo_is_edit ? __( '7. Save changes', 'reactwoo-geo-optimise' ) : __( '7. Publish', 'reactwoo-geo-optimise' ) ); ?></h2>
+	<section class="rwgo-card rwgo-section rwgo-section--publish rwgo-section--eo-7" aria-labelledby="rwgo-sec-publish">
+		<h2 class="rwgo-section__title" id="rwgo-sec-publish"><?php echo esc_html( $rwgo_is_edit ? __( 'Save', 'reactwoo-geo-optimise' ) : __( '7. Publish', 'reactwoo-geo-optimise' ) ); ?></h2>
 		<?php if ( $rwgo_is_edit ) : ?>
 			<p class="rwgo-hint"><?php esc_html_e( 'Changes apply to future visits. Existing visitor assignments stay sticky unless you relink Variant B.', 'reactwoo-geo-optimise' ); ?></p>
-			<div class="rwgo-cta-row">
+			<div class="rwgo-btn-row rwgo-btn-row--wrap">
 				<?php submit_button( __( 'Save changes', 'reactwoo-geo-optimise' ), 'primary', 'submit', false, array( 'class' => 'button button-primary rwgo-btn rwgo-btn--primary' ) ); ?>
 				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Back to Tests', 'reactwoo-geo-optimise' ); ?></a>
-				<a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports#exp-' . (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ) ); ?>"><?php esc_html_e( 'View report', 'reactwoo-geo-optimise' ); ?></a>
+				<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports#exp-' . (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ) ); ?>"><?php esc_html_e( 'View report', 'reactwoo-geo-optimise' ); ?></a>
 			</div>
 		<?php else : ?>
 			<div class="rwgo-callout rwgo-callout--muted">
