@@ -131,6 +131,11 @@ if ( class_exists( 'RWGO_Page_Duplicator', false ) && $src_id > 0 && $var_b_id >
 
 $rwgo_defined_goal_pending = ! empty( $rwgo_cfg['defined_goal_pending'] );
 
+$rwgo_goal_warnings = class_exists( 'RWGO_Defined_Goal_Service', false )
+	? RWGO_Defined_Goal_Service::validate_experiment_config( $rwgo_cfg )
+	: array();
+$rwgo_goal_mapping_broken = ! empty( $rwgo_goal_warnings );
+
 $rwgo_variant_title_matches_control = false;
 if ( $src_id > 0 && $var_b_id > 0 && class_exists( 'RWGO_Page_Naming_Service', false ) ) {
 	$rwgo_variant_title_matches_control = RWGO_Page_Naming_Service::variant_title_matches_control_title( $src_id, $var_b_id );
@@ -295,18 +300,38 @@ $rwgo_form_mode = 'edit';
 			</p></div>
 		<?php endif; ?>
 
-		<?php
-		$rwgo_goal_warnings = class_exists( 'RWGO_Defined_Goal_Service', false )
-			? RWGO_Defined_Goal_Service::validate_experiment_config( $rwgo_cfg )
-			: array();
-		if ( ! empty( $rwgo_goal_warnings ) ) :
-			?>
-			<div class="notice notice-warning rwgo-notice"><p>
-				<strong><?php esc_html_e( 'Goal readiness', 'reactwoo-geo-optimise' ); ?></strong>
-				<?php foreach ( $rwgo_goal_warnings as $rwgo_gw ) : ?>
-					<br /><?php echo esc_html( isset( $rwgo_gw['message'] ) ? (string) $rwgo_gw['message'] : '' ); ?>
-				<?php endforeach; ?>
-			</p></div>
+		<?php if ( $rwgo_goal_mapping_broken ) : ?>
+			<div class="notice notice-warning rwgo-notice rwgo-notice--goal-mapping" id="rwgo-goal-readiness">
+				<p class="rwgo-notice__title"><strong><?php esc_html_e( 'Mapped goal not found on page', 'reactwoo-geo-optimise' ); ?></strong></p>
+				<ul class="rwgo-notice__list">
+					<?php foreach ( $rwgo_goal_warnings as $rwgo_gw ) : ?>
+						<li><?php echo esc_html( isset( $rwgo_gw['message'] ) ? (string) $rwgo_gw['message'] : '' ); ?></li>
+					<?php endforeach; ?>
+				</ul>
+				<p class="rwgo-notice__actions">
+					<?php
+					$rwgo_tt_warn = isset( $rwgo_cfg['test_type'] ) ? (string) $rwgo_cfg['test_type'] : 'page_ab';
+					$rwgo_show_c  = $src_id > 0 && class_exists( 'RWGO_Admin', false );
+					$rwgo_show_v  = $var_b_id > 0 && class_exists( 'RWGO_Admin', false );
+					$rwgo_ce      = $rwgo_show_c ? RWGO_Admin::post_builder_edit_url( $src_id, $rwgo_tt_warn ) : '';
+					$rwgo_ve      = $rwgo_show_v ? RWGO_Admin::post_builder_edit_url( $var_b_id, $rwgo_tt_warn ) : '';
+					$rwgo_goal_h  = class_exists( 'RWGO_Admin', false )
+						? RWGO_Admin::edit_test_url( (int) $rwgo_exp_id, '' )
+						: admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . (int) $rwgo_exp_id );
+					$rwgo_goal_h  = is_string( $rwgo_goal_h ) && '' !== $rwgo_goal_h ? $rwgo_goal_h . '#rwgo-sec-goal' : '';
+					if ( is_string( $rwgo_ce ) && $rwgo_ce ) :
+						?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_ce ); ?>"><?php esc_html_e( 'Open Control in builder', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( is_string( $rwgo_ve ) && $rwgo_ve ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_ve ); ?>"><?php esc_html_e( 'Open Variant B in builder', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( is_string( $rwgo_goal_h ) && $rwgo_goal_h ) : ?>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $rwgo_goal_h ); ?>"><?php esc_html_e( 'Update goal mapping', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</p>
+				<p class="description"><?php esc_html_e( 'Conversions cannot fire for a goal that no longer exists in the content. Fix the page or pick a different detected goal.', 'reactwoo-geo-optimise' ); ?></p>
+			</div>
 		<?php endif; ?>
 
 		<?php
@@ -339,9 +364,17 @@ $rwgo_form_mode = 'edit';
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Builder', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $rwgo_builder_lab ); ?></span>
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Goal', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></span>
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variants', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
-				<span class="rwgo-meta-pill rwgo-meta-pill--health <?php echo $rwgo_variant_incomplete ? 'rwgo-meta-pill--bad' : 'rwgo-meta-pill--ok'; ?>" role="listitem">
+				<span class="rwgo-meta-pill rwgo-meta-pill--health <?php echo ( $rwgo_variant_incomplete || $rwgo_goal_mapping_broken ) ? 'rwgo-meta-pill--bad' : 'rwgo-meta-pill--ok'; ?>" role="listitem">
 					<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Health', 'reactwoo-geo-optimise' ); ?></span>
-					<?php echo $rwgo_variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?>
+					<?php
+					if ( $rwgo_variant_incomplete ) {
+						esc_html_e( 'Missing variant', 'reactwoo-geo-optimise' );
+					} elseif ( $rwgo_goal_mapping_broken ) {
+						esc_html_e( 'Goal missing on page', 'reactwoo-geo-optimise' );
+					} else {
+						esc_html_e( 'Ready', 'reactwoo-geo-optimise' );
+					}
+					?>
 				</span>
 				<?php if ( $var_b_id > 0 && 'neutral' !== $rwgo_fidelity_status ) : ?>
 					<span class="rwgo-meta-pill rwgo-meta-pill--fidelity rwgo-meta-pill--fidelity-<?php echo esc_attr( $rwgo_fidelity_status ); ?>" role="listitem">

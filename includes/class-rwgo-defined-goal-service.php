@@ -347,7 +347,7 @@ class RWGO_Defined_Goal_Service {
 	 * Non-fatal readiness checks for the Edit Test screen.
 	 *
 	 * @param array<string, mixed> $cfg Experiment config.
-	 * @return list<array{code: string, message: string}>
+	 * @return list<array{code: string, message: string, mapping_variant?: string, page_id?: int, goal_label?: string}>
 	 */
 	public static function validate_experiment_config( array $cfg ) {
 		$warnings = array();
@@ -386,13 +386,31 @@ class RWGO_Defined_Goal_Service {
 						break;
 					}
 				}
-				if ( ! $found ) {
-					$warnings[] = array(
-						'code'    => 'defined_goal_missing',
-						'message' => __( 'A mapped defined goal was not found on the expected page. Edit the Control or Variant page or update the test mapping.', 'reactwoo-geo-optimise' ),
-					);
-					return $warnings;
+				if ( $found ) {
+					continue;
 				}
+				$glab = isset( $g['label'] ) ? sanitize_text_field( (string) $g['label'] ) : '';
+				if ( '' === $glab ) {
+					$glab = __( '(unnamed goal)', 'reactwoo-geo-optimise' );
+				}
+				$side_name   = 'control' === $mv ? __( 'Control', 'reactwoo-geo-optimise' ) : __( 'Variant B', 'reactwoo-geo-optimise' );
+				$page_title  = get_the_title( $pid );
+				if ( '' === (string) $page_title ) {
+					$page_title = __( '(page)', 'reactwoo-geo-optimise' );
+				}
+				$warnings[] = array(
+					'code'            => 'defined_goal_missing',
+					'message'         => sprintf(
+						/* translators: 1: saved goal label, 2: Control or Variant B, 3: page title */
+						__( 'The mapped goal “%1$s” is no longer present on %2$s (%3$s). It may have been removed in the editor. Restore the marker or choose another goal under Goal & tracking.', 'reactwoo-geo-optimise' ),
+						$glab,
+						$side_name,
+						$page_title
+					),
+					'mapping_variant' => $mv,
+					'page_id'         => $pid,
+					'goal_label'      => $glab,
+				);
 			}
 			return $warnings;
 		}
@@ -466,9 +484,18 @@ class RWGO_Defined_Goal_Service {
 			}
 		}
 		if ( ! $found ) {
+			$glab = isset( $primary['label'] ) ? sanitize_text_field( (string) $primary['label'] ) : '';
+			if ( '' === $glab ) {
+				$glab = __( '(unnamed goal)', 'reactwoo-geo-optimise' );
+			}
 			$warnings[] = array(
 				'code'    => 'defined_goal_missing',
-				'message' => __( 'The selected defined goal was not found on Control or Variant B content. Edit the pages or pick another goal.', 'reactwoo-geo-optimise' ),
+				'message' => sprintf(
+					/* translators: %s: saved goal label */
+					__( 'The defined goal “%s” was not found on Control or Variant B. It may have been removed — edit those pages or pick another goal under Goal & tracking.', 'reactwoo-geo-optimise' ),
+					$glab
+				),
+				'goal_label' => $glab,
 			);
 		}
 		return $warnings;

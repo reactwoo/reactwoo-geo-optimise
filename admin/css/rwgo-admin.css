@@ -36,6 +36,33 @@
   border-radius: var(--rwgo-radius-lg);
 }
 
+.rwgo-wrap .rwgo-notice--goal-mapping .rwgo-notice__title {
+  margin: 0 0 8px;
+}
+
+.rwgo-wrap .rwgo-notice--goal-mapping .rwgo-notice__list {
+  margin: 0 0 12px 1.25em;
+  padding: 0;
+  list-style: disc;
+  max-width: 72ch;
+}
+
+.rwgo-wrap .rwgo-notice--goal-mapping .rwgo-notice__actions {
+  margin: 0 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.rwgo-wrap .rwgo-notice--goal-mapping .rwgo-notice__actions .button {
+  margin: 0;
+}
+
+.rwgo-wrap--edit-test #rwgo-sec-goal {
+  scroll-margin-top: 48px;
+}
+
 /* Wide technical / data-heavy screens */
 .rwgo-wrap--developer,
 .rwgo-wrap--tracking-tools,

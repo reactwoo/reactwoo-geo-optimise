@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.0
+Stable tag: 0.4.1
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.1 =
+* **UX:** When a mapped defined goal no longer exists in Control or Variant B content (e.g. CTA removed), Edit Test shows a prominent warning with the saved goal label, page name, and actions: open Control/Variant in the builder, jump to Goal & tracking to remap. Tests list shows **Incomplete** + **Goal not on page** for defined tests that fail validation. Legacy single-goal defined tests get a clearer message including the goal label.
 
 = 0.4.0 =
 * **Defined goals:** Builder-defined conversion tracking no longer relies on matching goal labels across Control and Variant B. New tests store an explicit per-variant mapping (`defined_goal_mapping`): logical primary goal id + physical `goal_id`/`handler_id` targets for Control and Variant B. Create/Edit Test shows two pickers (“Which marked goal counts as success on Control?” / “…on Variant B?”). REST persistence rewrites fired events to the logical `primary_goal_id` so winner reporting aggregates correctly; label-based cross-page expansion remains only for older tests without explicit mapping. `rwgo-tracking.js` pushes the logical `rwgo_goal_id` to the dataLayer when mapping is active.
