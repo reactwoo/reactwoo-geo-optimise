@@ -178,10 +178,10 @@ class RWGO_Event_Store {
 	}
 
 	/**
-	 * Goal completions per variant for winner reporting (primary goal conversion rate).
+	 * Goal completions per variant for a single stored goal_id (legacy helpers).
 	 *
 	 * @param string $experiment_key Experiment key.
-	 * @param string $goal_id        Primary goal id.
+	 * @param string $goal_id        Goal id.
 	 * @return array<string, int> variant_id => count.
 	 */
 	public static function count_goal_completions_by_variant( $experiment_key, $goal_id ) {
@@ -210,6 +210,121 @@ class RWGO_Event_Store {
 				continue;
 			}
 			$out[ sanitize_key( (string) $row['variant_id'] ) ] = (int) $row['c'];
+		}
+		return $out;
+	}
+
+	/**
+	 * Total conversions per variant: sum of events matching any configured (goal_id, handler_id) pair for that variant.
+	 *
+	 * @param string               $experiment_key Key.
+	 * @param array<string, mixed> $config         Experiment config.
+	 * @param list<string>|null    $variant_slugs  If set, count only these variant ids (e.g. union of config + stats); otherwise config variants only.
+	 * @return array<string, int> variant_id => count.
+	 */
+	public static function count_total_conversions_by_variant( $experiment_key, array $config, $variant_slugs = null ) {
+		global $wpdb;
+		$table = self::table_name();
+		$key   = sanitize_text_field( (string) $experiment_key );
+		if ( '' === $key ) {
+			return array();
+		}
+		$slugs_to_count = array();
+		if ( is_array( $variant_slugs ) && ! empty( $variant_slugs ) ) {
+			foreach ( $variant_slugs as $vs ) {
+				$sk = sanitize_key( (string) $vs );
+				if ( '' !== $sk ) {
+					$slugs_to_count[] = $sk;
+				}
+			}
+			$slugs_to_count = array_values( array_unique( $slugs_to_count ) );
+		} else {
+			$variants_cfg = isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array();
+			foreach ( $variants_cfg as $row ) {
+				if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
+					continue;
+				}
+				$slugs_to_count[] = sanitize_key( (string) $row['variant_id'] );
+			}
+		}
+		$out = array();
+		foreach ( $slugs_to_count as $slug ) {
+			$pairs = class_exists( 'RWGO_Experiment_Measurements', false )
+				? RWGO_Experiment_Measurements::stored_pairs_for_variant( $config, $slug )
+				: array();
+			if ( empty( $pairs ) && class_exists( 'RWGO_Experiment_Measurements', false ) ) {
+				$pairs = RWGO_Experiment_Measurements::stored_pairs_all_goals( $config );
+			}
+			if ( empty( $pairs ) ) {
+				$out[ $slug ] = 0;
+				continue;
+			}
+			$where = array( 'experiment_key = %s', 'variant_id = %s', 'event_type = %s' );
+			$args  = array( $key, $slug, 'goal_fired' );
+			$ors   = array();
+			foreach ( $pairs as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$g = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
+				$h = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
+				if ( '' === $g || '' === $h ) {
+					continue;
+				}
+				$ors[] = '(goal_id = %s AND handler_id = %s)';
+				$args[] = $g;
+				$args[] = $h;
+			}
+			if ( empty( $ors ) ) {
+				$out[ $slug ] = 0;
+				continue;
+			}
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name.
+			$sql = "SELECT COUNT(*) FROM {$table} WHERE " . implode( ' AND ', $where ) . ' AND (' . implode( ' OR ', $ors ) . ')';
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders match $args.
+			$prepared = $wpdb->prepare( $sql, $args );
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$cnt = (int) $wpdb->get_var( $prepared );
+			$out[ $slug ] = $cnt;
+		}
+		return $out;
+	}
+
+	/**
+	 * Raw counts per variant × goal_id × handler_id for breakdown (labels applied in PHP).
+	 *
+	 * @param string $experiment_key Key.
+	 * @return list<array{variant_id: string, goal_id: string, handler_id: string, c: int}>
+	 */
+	public static function count_breakdown_by_variant_goal_handler( $experiment_key ) {
+		global $wpdb;
+		$table = self::table_name();
+		$key   = sanitize_text_field( (string) $experiment_key );
+		if ( '' === $key ) {
+			return array();
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name.
+		$sql = $wpdb->prepare(
+			"SELECT variant_id, goal_id, handler_id, COUNT(*) AS c FROM {$table} WHERE experiment_key = %s AND event_type = %s GROUP BY variant_id, goal_id, handler_id",
+			$key,
+			'goal_fired'
+		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$results = $wpdb->get_results( $sql, ARRAY_A );
+		if ( ! is_array( $results ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $results as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$out[] = array(
+				'variant_id' => sanitize_key( (string) ( $row['variant_id'] ?? '' ) ),
+				'goal_id'    => sanitize_key( (string) ( $row['goal_id'] ?? '' ) ),
+				'handler_id' => sanitize_key( (string) ( $row['handler_id'] ?? '' ) ),
+				'c'          => (int) ( $row['c'] ?? 0 ),
+			);
 		}
 		return $out;
 	}

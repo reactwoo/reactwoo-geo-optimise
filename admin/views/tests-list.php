@@ -308,10 +308,11 @@ $rwgo_status_pill_class = static function ( $st ) {
 			}
 			$analysis = class_exists( 'RWGO_Winner_Service', false )
 				? RWGO_Winner_Service::analyze( $key, $cfg, $exp_dist )
-				: array( 'assignment_only' => true, 'leading_variant' => null );
+				: array( 'assignment_only' => true, 'conversion_mode' => false, 'leading_variant' => null );
 			$assign_only = ! empty( $analysis['assignment_only'] );
+			$conv_mode   = ! empty( $analysis['conversion_mode'] );
 			$lead_slug   = isset( $analysis['leading_variant'] ) ? $analysis['leading_variant'] : null;
-			$lead_disp   = ( ! $assign_only && $lead_slug ) ? $rwgo_variant_label( $cfg, (string) $lead_slug ) : '';
+			$lead_disp   = ( $conv_mode && $lead_slug ) ? $rwgo_variant_label( $cfg, (string) $lead_slug ) : '';
 			$primary_goal_lab = class_exists( 'RWGO_Goal_Service', false )
 				? RWGO_Goal_Service::get_primary_goal_label( $cfg )
 				: '—';
@@ -404,7 +405,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Builder:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $builder_lab ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
-				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Goal:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $primary_goal_lab ); ?></span>
+				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Success focus:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $primary_goal_lab ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Variants:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>

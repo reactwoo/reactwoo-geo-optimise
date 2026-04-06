@@ -98,11 +98,12 @@ if ( '' !== $key_for_stats && isset( $exp_dist[ $key_for_stats ] ) && is_array( 
 $primary_goal_lab = class_exists( 'RWGO_Goal_Service', false ) ? RWGO_Goal_Service::get_primary_goal_label( $rwgo_cfg ) : '—';
 $analysis         = class_exists( 'RWGO_Winner_Service', false ) && '' !== $key_for_stats
 	? RWGO_Winner_Service::analyze( $key_for_stats, $rwgo_cfg, $exp_dist )
-	: array( 'assignment_only' => true, 'leading_variant' => null );
+	: array( 'assignment_only' => true, 'conversion_mode' => false, 'leading_variant' => null );
 $assign_only = ! empty( $analysis['assignment_only'] );
+$conv_mode   = ! empty( $analysis['conversion_mode'] );
 $lead_slug   = isset( $analysis['leading_variant'] ) ? $analysis['leading_variant'] : null;
 $lead_label  = '';
-if ( $lead_slug && ! $assign_only ) {
+if ( $lead_slug && $conv_mode ) {
 	foreach ( $rwgo_cfg['variants'] ?? array() as $row ) {
 		if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
 			continue;
@@ -362,7 +363,7 @@ $rwgo_form_mode = 'edit';
 			</div>
 			<div class="rwgo-meta-strip" role="list">
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Builder', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $rwgo_builder_lab ); ?></span>
-				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Goal', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></span>
+				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Success focus', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></span>
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variants', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
 				<span class="rwgo-meta-pill rwgo-meta-pill--health <?php echo ( $rwgo_variant_incomplete || $rwgo_goal_mapping_broken ) ? 'rwgo-meta-pill--bad' : 'rwgo-meta-pill--ok'; ?>" role="listitem">
 					<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Health', 'reactwoo-geo-optimise' ); ?></span>

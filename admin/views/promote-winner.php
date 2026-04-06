@@ -38,9 +38,31 @@ $exp_dist = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : array();
 $key_stats   = isset( $rwgo_cfg['experiment_key'] ) ? (string) $rwgo_cfg['experiment_key'] : '';
 $analysis    = class_exists( 'RWGO_Winner_Service', false ) && '' !== $key_stats
 	? RWGO_Winner_Service::analyze( $key_stats, $rwgo_cfg, $exp_dist )
-	: array( 'assignment_only' => true, 'leading_variant' => null );
+	: array( 'assignment_only' => true, 'conversion_mode' => false, 'leading_variant' => null );
 $lead_slug   = isset( $analysis['leading_variant'] ) ? (string) $analysis['leading_variant'] : '';
 $assign_only = ! empty( $analysis['assignment_only'] );
+$conv_mode   = ! empty( $analysis['conversion_mode'] );
+$lead_promo_label = '';
+if ( $lead_slug && isset( $rwgo_cfg['variants'] ) && is_array( $rwgo_cfg['variants'] ) ) {
+	foreach ( $rwgo_cfg['variants'] as $row ) {
+		if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
+			continue;
+		}
+		if ( sanitize_key( (string) $row['variant_id'] ) === sanitize_key( $lead_slug ) ) {
+			$lead_promo_label = isset( $row['variant_label'] ) ? (string) $row['variant_label'] : $lead_slug;
+			break;
+		}
+	}
+}
+if ( '' === $lead_promo_label && $lead_slug ) {
+	if ( 'control' === sanitize_key( $lead_slug ) ) {
+		$lead_promo_label = __( 'Control', 'reactwoo-geo-optimise' );
+	} elseif ( 'var_b' === sanitize_key( $lead_slug ) ) {
+		$lead_promo_label = __( 'Variant B', 'reactwoo-geo-optimise' );
+	} else {
+		$lead_promo_label = $lead_slug;
+	}
+}
 
 $rwgo_promo_log = null;
 $rwgo_redirect  = null;
@@ -163,8 +185,8 @@ $rwgc_nav_current = 'rwgo-tests';
 			<h2 class="rwgo-section__title"><?php esc_html_e( 'Promote winning variant', 'reactwoo-geo-optimise' ); ?></h2>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Choose how you want to make the winning version live.', 'reactwoo-geo-optimise' ); ?></p>
 
-			<?php if ( ! $assign_only && $lead_slug ) : ?>
-				<p class="rwgo-hint"><?php echo esc_html( sprintf( /* translators: %s: variant slug */ __( 'Current leading variant on the primary goal: %s', 'reactwoo-geo-optimise' ), $lead_slug ) ); ?></p>
+			<?php if ( $conv_mode && $lead_slug ) : ?>
+				<p class="rwgo-hint"><?php echo esc_html( sprintf( /* translators: %s: variant label */ __( 'Current leading variant by total conversions: %s', 'reactwoo-geo-optimise' ), $lead_promo_label ) ); ?></p>
 			<?php endif; ?>
 
 			<fieldset class="rwgo-fieldset">

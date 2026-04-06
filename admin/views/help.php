@@ -45,7 +45,7 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Read reports', 'reactwoo-geo-optimise' ); ?></h2>
-			<p><?php esc_html_e( 'Reports focus on your primary goal and which variant is leading. Revenue and ecommerce detail may still live in your analytics or store.', 'reactwoo-geo-optimise' ); ?></p>
+			<p><?php esc_html_e( 'Reports show which variant leads on total conversions across your mapped success goals, plus a per-target breakdown. Revenue and ecommerce detail may still live in your analytics or store.', 'reactwoo-geo-optimise' ); ?></p>
 			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-reports' ) ); ?>"><?php esc_html_e( 'Open Reports', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div id="rwgo-help-builder-goals" class="rwgc-card rwgc-card--highlight">

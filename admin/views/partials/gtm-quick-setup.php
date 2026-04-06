@@ -160,7 +160,7 @@ $vars_plain   = RWGO_GTM_Handoff::variables_plain();
 					$js   = "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push(" . wp_json_encode( $obj, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) . ');';
 					?>
 					<ul class="rwgo-gtm-test-card__summary">
-						<li><strong><?php esc_html_e( 'Primary goal:', 'reactwoo-geo-optimise' ); ?></strong> <?php echo esc_html( $glab ); ?></li>
+						<li><strong><?php esc_html_e( 'Success focus (label):', 'reactwoo-geo-optimise' ); ?></strong> <?php echo esc_html( $glab ); ?></li>
 						<li><strong><?php esc_html_e( 'Builder:', 'reactwoo-geo-optimise' ); ?></strong> <?php echo esc_html( $bld ); ?></li>
 						<li><strong><?php esc_html_e( 'Experiment key:', 'reactwoo-geo-optimise' ); ?></strong> <code><?php echo esc_html( $key ); ?></code></li>
 						<li><strong><?php esc_html_e( 'Control:', 'reactwoo-geo-optimise' ); ?></strong> <?php echo esc_html( $ctitle ); ?></li>

@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.1
+Stable tag: 0.4.2
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.2 =
+* **Reports:** Leading variant is chosen by **total conversions** summed across all configured measurement targets per variant (`goal_id` + `handler_id` mapping), not a single “primary” goal. Added **By success target** breakdown table (label × variant × count). Optional insight line names the top contributing goal for the leader. Admin copy favors “total conversions”, “winning metric”, and “selected success goals” over “primary goal” where it was user-facing.
 
 = 0.4.1 =
 * **UX:** When a mapped defined goal no longer exists in Control or Variant B content (e.g. CTA removed), Edit Test shows a prominent warning with the saved goal label, page name, and actions: open Control/Variant in the builder, jump to Goal & tracking to remap. Tests list shows **Incomplete** + **Goal not on page** for defined tests that fail validation. Legacy single-goal defined tests get a clearer message including the goal label.
