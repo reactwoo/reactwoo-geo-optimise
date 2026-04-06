@@ -59,8 +59,28 @@ class RWGO_Winner_Service {
 				$allowed[ $slug ][ $g . '|' . $h ] = true;
 			}
 		}
-		$raw = RWGO_Event_Store::count_breakdown_by_variant_goal_handler( $key );
+		// Seed rows from configured pairs so the report lists measured CTAs even when counts are still zero.
 		$acc = array();
+		foreach ( $slugs as $slug ) {
+			if ( empty( $allowed[ $slug ] ) || ! is_array( $allowed[ $slug ] ) ) {
+				continue;
+			}
+			foreach ( array_keys( $allowed[ $slug ] ) as $pk ) {
+				if ( isset( $acc[ $pk ] ) ) {
+					continue;
+				}
+				$parts = explode( '|', $pk, 2 );
+				$g     = isset( $parts[0] ) ? $parts[0] : '';
+				$h     = isset( $parts[1] ) ? $parts[1] : '';
+				$acc[ $pk ] = array(
+					'pair_key' => $pk,
+					'label'    => RWGO_Experiment_Measurements::label_for_pair( $config, $g, $h ),
+					'counts'   => array_fill_keys( $slugs, 0 ),
+				);
+			}
+		}
+
+		$raw = RWGO_Event_Store::count_breakdown_by_variant_goal_handler( $key );
 		foreach ( $raw as $row ) {
 			$v = $row['variant_id'];
 			if ( ! isset( $allowed[ $v ] ) ) {

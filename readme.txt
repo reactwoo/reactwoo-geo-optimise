@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.2
+Stable tag: 0.4.3
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.3 =
+* **Fix (tracking):** Goal persistence used `sendBeacon` first; the browser reports success when the request is queued, not when WordPress returns 201, so REST errors (nonce, validation) were invisible and `fetch` never ran. Client goals now POST with `fetch` first so failures can succeed on retry paths and behaviour matches typical REST expectations.
+* **Reports:** “By success target” lists configured `(goal_id, handler_id)` targets with zero counts until events exist, so you always see which CTAs are measured.
 
 = 0.4.2 =
 * **Reports:** Leading variant is chosen by **total conversions** summed across all configured measurement targets per variant (`goal_id` + `handler_id` mapping), not a single “primary” goal. Added **By success target** breakdown table (label × variant × count). Optional insight line names the top contributing goal for the leader. Admin copy favors “total conversions”, “winning metric”, and “selected success goals” over “primary goal” where it was user-facing.

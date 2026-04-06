@@ -165,16 +165,7 @@
 			event_instance_id: detail.event_instance_id || ''
 		};
 		var json = JSON.stringify(body);
-		if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-			try {
-				var ok = navigator.sendBeacon(cfg.restUrl, new Blob([json], { type: 'application/json' }));
-				if (ok) {
-					return;
-				}
-			} catch (e1) {
-				/* fall through */
-			}
-		}
+		// Use fetch first: sendBeacon returns true when queued, not when the server returns 201, so failures were silent and fetch never ran.
 		if (typeof fetch !== 'undefined') {
 			fetch(cfg.restUrl, {
 				method: 'POST',
@@ -185,6 +176,14 @@
 			}).catch(function () {
 				/* ignore */
 			});
+			return;
+		}
+		if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+			try {
+				navigator.sendBeacon(cfg.restUrl, new Blob([json], { type: 'application/json' }));
+			} catch (e1) {
+				/* ignore */
+			}
 		}
 	}
 

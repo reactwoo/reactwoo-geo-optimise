@@ -171,7 +171,7 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 					</table>
 					<?php if ( ! empty( $goal_breakdown ) ) : ?>
 						<h3 class="rwgo-report-breakdown-title"><?php esc_html_e( 'By success target', 'reactwoo-geo-optimise' ); ?></h3>
-						<p class="description"><?php esc_html_e( 'Counts per mapped goal and handler (labels are for display only).', 'reactwoo-geo-optimise' ); ?></p>
+						<p class="description"><?php esc_html_e( 'Configured measurement targets for this test (goal + handler). Counts update when clicks are stored — labels are for display only.', 'reactwoo-geo-optimise' ); ?></p>
 						<table class="widefat striped rwgo-table-comfortable rwgo-report-breakdown">
 							<thead>
 								<tr>
