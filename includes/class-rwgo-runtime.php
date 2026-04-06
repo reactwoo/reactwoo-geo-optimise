@@ -114,9 +114,19 @@ class RWGO_Runtime {
 		 */
 		$config['trackClientDebug'] = (bool) apply_filters( 'rwgo_tracking_client_debug', defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG );
 
+		$tracking_src = plugins_url( 'assets/js/rwgo-tracking.js', RWGO_FILE );
+		$tracking_path = RWGO_PATH . 'assets/js/rwgo-tracking.js';
+		if ( ! is_readable( $tracking_path ) ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[RWGO] rwgo-tracking.js missing at ' . $tracking_path );
+			}
+			return;
+		}
+
 		wp_register_script(
 			'rwgo-tracking',
-			RWGO_URL . 'assets/js/rwgo-tracking.js',
+			$tracking_src,
 			array(),
 			RWGO_VERSION,
 			true

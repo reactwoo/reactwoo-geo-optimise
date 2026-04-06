@@ -46,6 +46,8 @@ class RWGO_Plugin {
 		}
 
 		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-staging-asset-fix.php';
+		RWGO_Staging_Asset_Fix::init();
 		RWGO_Settings::register_platform_filters();
 		RWGO_Settings::maybe_migrate_from_geo_core();
 		RWGO_Settings::init();

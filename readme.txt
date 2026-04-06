@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.8
+Stable tag: 0.4.9
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.9 =
+* **Staging / clones:** Optional rewrite of enqueued `style`/`script` URLs that point at another host but under `/wp-content/` to the current site (reduces cross-origin font/CSS issues on copied sites). Filters: `rwgo_fix_cross_origin_wp_content_urls`, `rwgo_rewritten_wp_content_asset_url`.
+* **Tracking script URL:** Enqueue resolves `rwgo-tracking.js` via `plugins_url()` and skips registration when the file is missing (avoids broken script tags; logs when `WP_DEBUG`).
 
 = 0.4.8 =
 * **Tracking (visibility):** `rwgo-tracking.js` now checks **`fetch` HTTP status**. WordPress REST errors (403 nonce, 400 validation) no longer fail silently — the browser **console shows `[RWGO] Goal REST rejected`** with code and message. Optional **`trackClientDebug`** (via **`RWGO_TRACKING_DEBUG`** or filter `rwgo_tracking_client_debug`) logs successful saves and nonce-fetch issues. Stamping treats non–`page_view` goal types without `handler_type` as **click** so `data-rwgo-experiment-key` applies in edge cases.
