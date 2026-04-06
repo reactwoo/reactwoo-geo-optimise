@@ -143,5 +143,11 @@ class RWGO_Runtime {
 			'rwgoTracking',
 			$config
 		);
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			$n = isset( $config['experiments'] ) && is_array( $config['experiments'] ) ? count( $config['experiments'] ) : 0;
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional when WP_DEBUG.
+			error_log( '[RWGO] enqueue_tracking: front page load post_id=' . (int) $pid . ' experiments_localized=' . (int) $n );
+		}
 	}
 }

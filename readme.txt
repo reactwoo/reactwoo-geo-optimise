@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.11
+Stable tag: 0.4.12
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.12 =
+* **Diagnostics:** When **`WP_DEBUG`** is on, a single **`error_log`** line is written on front-end loads that enqueue tracking: `post_id` and count of localized experiments (confirms the test page actually loads `rwgo-tracking.js` with config — admin/report screens do not).
 
 = 0.4.11 =
 * **CTA binding:** `rwgo-tracking.js` runs **`stampMissingExperimentKeysFromDom()`** after `stampExperimentBindings()` so any element with builder `data-rwgo-goal-id` + `data-rwgo-handler-id` gets `data-rwgo-experiment-key` when that pair exists in localized config (covers Variant B when the first stamp pass missed).
