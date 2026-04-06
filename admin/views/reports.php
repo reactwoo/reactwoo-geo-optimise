@@ -207,6 +207,7 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 					?>
 				<h3 class="rwgo-report-diagnostics-title"><?php esc_html_e( 'Split diagnostics', 'reactwoo-geo-optimise' ); ?></h3>
 				<p class="description"><?php esc_html_e( 'Assigned = first-time cookie assignments. Served = pages actually rendered per variant. Conversion = share of recorded conversions (when conversion tracking is active).', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="description"><?php esc_html_e( 'These three views measure different things. Do not treat differences between assigned and served split as proof the traffic randomizer is wrong — use this block for diagnostics only.', 'reactwoo-geo-optimise' ); ?></p>
 				<table class="widefat striped rwgo-table-comfortable rwgo-report-diagnostics">
 					<thead>
 						<tr>

@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.6
+Stable tag: 0.4.7
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,11 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.7 =
+* **Fix (tracking):** When `defined_goal_mapping` is active, localized experiment goals now merge every physical `(goal_id, handler_id)` from `targets.control` and `targets.var_b` into the config sent to `rwgo-tracking.js`, so `stampExperimentBindings()` can stamp `data-rwgo-experiment-key` on Variant B even if the saved `goals` meta row omits that pair. **`RWGO_TRACKING_DEBUG`** logs include `mappingActive`, `goalHandlerPairs`, and related fields.
+* **REST:** `POST /rwgo/v1/goal` no longer returns “no conversion goals” solely because `goals` meta is empty when mapping still defines target pairs.
+* **Reports:** Split diagnostics note clarifies assigned vs served measure different things (diagnostic only).
 
 = 0.4.6 =
 * **Split validation:** Traffic weights in assignment are read by `variant_id` (not array order). **Served** impressions per variant are counted on the front end (actual page rendered) and appear in Reports **Split diagnostics** alongside **Assigned** (first-time assignments) and **Conversion** (share of recorded conversions). Health notices when Variant B is not publicly viewable or configured weights do not sum to ~1. Optional **`RWGO_TRACKING_DEBUG`** (define in `wp-config.php`) logs REST goal reject reasons and a compact front-end tracking config summary.

@@ -37,6 +37,35 @@ class RWGO_Goal_Mapping {
 	}
 
 	/**
+	 * Whether `defined_goal_mapping.targets` contains at least one physical goal/handler pair.
+	 * Used when `goals` meta is empty or stale but mapping still defines conversion targets.
+	 *
+	 * @param array<string, mixed> $cfg Experiment config.
+	 * @return bool
+	 */
+	public static function has_target_pairs( array $cfg ) {
+		if ( ! self::is_active( $cfg ) ) {
+			return false;
+		}
+		$m       = isset( $cfg['defined_goal_mapping'] ) && is_array( $cfg['defined_goal_mapping'] ) ? $cfg['defined_goal_mapping'] : array();
+		$targets = isset( $m['targets'] ) && is_array( $m['targets'] ) ? $m['targets'] : array();
+		foreach ( array( 'control', 'var_b' ) as $slot ) {
+			$pairs = isset( $targets[ $slot ] ) && is_array( $targets[ $slot ] ) ? $targets[ $slot ] : array();
+			foreach ( $pairs as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$g = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
+				$h = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
+				if ( '' !== $g && '' !== $h ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * If the client fired a mapped physical pair for this variant, return the logical goal id; else the physical id.
 	 *
 	 * @param array<string, mixed> $cfg         Experiment config.

@@ -48,6 +48,9 @@ class RWGO_Goal_Registry {
 				continue;
 			}
 			$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
+			if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+				$goals = self::merge_mapping_physical_pairs_into_goals( $goals, $cfg );
+			}
 			$goals = self::expand_defined_elementor_goals_across_pages( $goals, $cfg );
 			$logical_primary = class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg )
 				? RWGO_Goal_Mapping::logical_goal_id( $cfg )
@@ -78,6 +81,8 @@ class RWGO_Goal_Registry {
 				? RWGO_GTM_Handoff::variant_labels_map( $cfg )
 				: array();
 
+			$mapping_active = class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg );
+
 			$experiments[] = array(
 				'experimentId'         => (int) $post->ID,
 				'experimentKey'        => (string) $cfg['experiment_key'],
@@ -90,6 +95,7 @@ class RWGO_Goal_Registry {
 				'goals'                => $goals,
 				'resolvedVariant'      => (string) $resolved_variant,
 				'logicalPrimaryGoalId' => (string) $logical_primary,
+				'mappingActive'        => $mapping_active,
 			);
 		}
 
@@ -102,11 +108,14 @@ class RWGO_Goal_Registry {
 					continue;
 				}
 				$goals = isset( $ex['goals'] ) && is_array( $ex['goals'] ) ? $ex['goals'] : array();
+				$pairs = self::list_goal_handler_pairs_for_debug( $goals );
 				$dbg[] = array(
 					'experimentKey'        => isset( $ex['experimentKey'] ) ? (string) $ex['experimentKey'] : '',
 					'resolvedVariant'      => isset( $ex['resolvedVariant'] ) ? (string) $ex['resolvedVariant'] : '',
 					'goalCount'            => count( $goals ),
 					'logicalPrimaryGoalId' => isset( $ex['logicalPrimaryGoalId'] ) ? (string) $ex['logicalPrimaryGoalId'] : '',
+					'mappingActive'        => ! empty( $ex['mappingActive'] ),
+					'goalHandlerPairs'     => $pairs,
 				);
 			}
 			error_log( '[RWGO frontend config] page=' . (string) $queried_post_id . ' ' . wp_json_encode( $dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
@@ -130,6 +139,189 @@ class RWGO_Goal_Registry {
 	 * @param array<string, mixed>       $cfg   Experiment config.
 	 * @return list<array<string, mixed>>
 	 */
+	/**
+	 * Ensure localized goals include every physical (goal_id, handler_id) from `defined_goal_mapping.targets`
+	 * so rwgo-tracking.js can stamp `data-rwgo-experiment-key` on Control and Variant B DOM.
+	 *
+	 * @param list<array<string, mixed>> $goals Goals from meta (may omit a variant row).
+	 * @param array<string, mixed>       $cfg   Experiment config.
+	 * @return list<array<string, mixed>>
+	 */
+	private static function merge_mapping_physical_pairs_into_goals( array $goals, array $cfg ) {
+		if ( ! class_exists( 'RWGO_Goal_Mapping', false ) || ! RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			return $goals;
+		}
+		$m       = isset( $cfg['defined_goal_mapping'] ) && is_array( $cfg['defined_goal_mapping'] ) ? $cfg['defined_goal_mapping'] : array();
+		$logical = RWGO_Goal_Mapping::logical_goal_id( $cfg );
+		$targets = isset( $m['targets'] ) && is_array( $m['targets'] ) ? $m['targets'] : array();
+
+		$have = array();
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
+				continue;
+			}
+			$gid = sanitize_key( (string) $g['goal_id'] );
+			$hs  = isset( $g['handlers'] ) && is_array( $g['handlers'] ) ? $g['handlers'] : array();
+			foreach ( $hs as $h ) {
+				if ( ! is_array( $h ) || empty( $h['handler_id'] ) ) {
+					continue;
+				}
+				$have[ $gid . '|' . sanitize_key( (string) $h['handler_id'] ) ] = true;
+			}
+		}
+
+		$out = $goals;
+		foreach ( array( 'control', 'var_b' ) as $vkey ) {
+			$pairs = isset( $targets[ $vkey ] ) && is_array( $targets[ $vkey ] ) ? $targets[ $vkey ] : array();
+			foreach ( $pairs as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$gid = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
+				$hid = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
+				if ( '' === $gid || '' === $hid ) {
+					continue;
+				}
+				$pk = $gid . '|' . $hid;
+				if ( isset( $have[ $pk ] ) ) {
+					continue;
+				}
+				$template = self::template_goal_for_mapping_slot( $out, $logical, $vkey );
+				if ( null === $template ) {
+					$template = array(
+						'goal_type'   => 'click',
+						'label'       => __( 'Conversion goal', 'reactwoo-geo-optimise' ),
+						'is_defined'  => true,
+						'builder'     => 'elementor',
+						'ui_goal_type'=> 'cta_click',
+						'handlers'    => array(
+							array(
+								'handler_id'   => $hid,
+								'handler_type' => 'click',
+								'label'        => __( 'Conversion goal', 'reactwoo-geo-optimise' ),
+								'selector'     => '',
+								'dedupe'       => 'allow_multiple',
+								'event_name'   => 'rwgo_goal_fired',
+							),
+						),
+					);
+				}
+				$out[]    = self::clone_goal_for_physical_pair( $template, $gid, $hid, $logical, $vkey );
+				$have[ $pk ] = true;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $goals  Current goals list.
+	 * @param string                     $logical Logical goal id from mapping.
+	 * @param string                     $vkey   control|var_b.
+	 * @return array<string, mixed>|null
+	 */
+	private static function template_goal_for_mapping_slot( array $goals, $logical, $vkey ) {
+		$logical = sanitize_key( (string) $logical );
+		$vkey    = sanitize_key( (string) $vkey );
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) ) {
+				continue;
+			}
+			if ( isset( $g['mapping_variant'] ) && sanitize_key( (string) $g['mapping_variant'] ) === $vkey ) {
+				return $g;
+			}
+		}
+		if ( '' !== $logical ) {
+			foreach ( $goals as $g ) {
+				if ( ! is_array( $g ) ) {
+					continue;
+				}
+				if ( isset( $g['logical_goal_id'] ) && sanitize_key( (string) $g['logical_goal_id'] ) === $logical ) {
+					return $g;
+				}
+			}
+		}
+		foreach ( $goals as $g ) {
+			if ( is_array( $g ) && ! empty( $g['is_defined'] ) && ! empty( $g['handlers'][0] ) ) {
+				return $g;
+			}
+		}
+		foreach ( $goals as $g ) {
+			if ( is_array( $g ) && ! empty( $g['handlers'][0] ) ) {
+				return $g;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * @param array<string, mixed> $template From an existing goal row.
+	 * @param string               $gid      Physical goal id.
+	 * @param string               $hid      Physical handler id.
+	 * @param string               $logical  Logical primary id.
+	 * @param string               $vkey     control|var_b.
+	 * @return array<string, mixed>
+	 */
+	private static function clone_goal_for_physical_pair( array $template, $gid, $hid, $logical, $vkey ) {
+		$clone                 = $template;
+		$clone['goal_id']      = sanitize_key( (string) $gid );
+		$clone['is_primary']   = false;
+		$clone['mapping_variant'] = sanitize_key( (string) $vkey );
+		if ( '' !== (string) $logical ) {
+			$clone['logical_goal_id'] = sanitize_key( (string) $logical );
+		}
+		$gt = isset( $clone['goal_type'] ) ? sanitize_key( (string) $clone['goal_type'] ) : 'click';
+		if ( 'page_view' === $gt ) {
+			$clone['goal_type'] = 'click';
+		}
+		if ( ! isset( $clone['handlers'] ) || ! is_array( $clone['handlers'] ) ) {
+			$clone['handlers'] = array();
+		}
+		if ( isset( $clone['handlers'][0] ) && is_array( $clone['handlers'][0] ) ) {
+			$clone['handlers'][0]['handler_id'] = sanitize_key( (string) $hid );
+			if ( empty( $clone['handlers'][0]['handler_type'] ) ) {
+				$clone['handlers'][0]['handler_type'] = ( 'form_submit' === $clone['goal_type'] ) ? 'form_submit' : 'click';
+			}
+		} else {
+			$clone['handlers'] = array(
+				array(
+					'handler_id'   => sanitize_key( (string) $hid ),
+					'handler_type' => ( 'form_submit' === $clone['goal_type'] ) ? 'form_submit' : 'click',
+					'label'        => isset( $clone['label'] ) ? (string) $clone['label'] : '',
+					'selector'     => '',
+					'dedupe'       => 'allow_multiple',
+					'event_name'   => 'rwgo_goal_fired',
+				),
+			);
+		}
+		return $clone;
+	}
+
+	/**
+	 * @param list<array<string, mixed>> $goals Goals for one experiment.
+	 * @return list<array{goal_id: string, handler_id: string}>
+	 */
+	private static function list_goal_handler_pairs_for_debug( array $goals ) {
+		$out = array();
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
+				continue;
+			}
+			$gid = sanitize_key( (string) $g['goal_id'] );
+			$hs  = isset( $g['handlers'] ) && is_array( $g['handlers'] ) ? $g['handlers'] : array();
+			foreach ( $hs as $h ) {
+				if ( ! is_array( $h ) || empty( $h['handler_id'] ) ) {
+					continue;
+				}
+				$out[] = array(
+					'goal_id'    => $gid,
+					'handler_id' => sanitize_key( (string) $h['handler_id'] ),
+				);
+			}
+		}
+		return $out;
+	}
+
 	private static function expand_defined_elementor_goals_across_pages( array $goals, array $cfg ) {
 		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
 			return $goals;

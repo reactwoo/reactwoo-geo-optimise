@@ -169,8 +169,11 @@ class RWGO_REST_Tracking {
 			);
 		}
 
-		if ( RWGO_Goal_Service::is_assignment_only( $cfg ) || empty( $cfg['goals'] ) || ! is_array( $cfg['goals'] ) ) {
-			self::debug_reject( 'rwgo_no_goals', 'assignment_only_or_empty_goals' );
+		if ( ! self::experiment_has_trackable_conversion_config( $cfg ) ) {
+			self::debug_reject(
+				'rwgo_no_goals',
+				RWGO_Goal_Service::is_assignment_only( $cfg ) ? 'assignment_only' : 'empty_goals_and_no_mapping_targets'
+			);
 			return new \WP_Error(
 				'rwgo_no_goals',
 				__( 'This test has no conversion goals.', 'reactwoo-geo-optimise' ),
@@ -243,6 +246,22 @@ class RWGO_REST_Tracking {
 			),
 			201
 		);
+	}
+
+	/**
+	 * True when the experiment can record conversion events (not traffic-only, and has goals meta and/or mapping targets).
+	 *
+	 * @param array<string, mixed> $cfg Experiment config.
+	 * @return bool
+	 */
+	private static function experiment_has_trackable_conversion_config( array $cfg ) {
+		if ( RWGO_Goal_Service::is_assignment_only( $cfg ) ) {
+			return false;
+		}
+		if ( ! empty( $cfg['goals'] ) && is_array( $cfg['goals'] ) ) {
+			return true;
+		}
+		return class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::has_target_pairs( $cfg );
 	}
 
 	/**
