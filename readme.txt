@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.7
+Stable tag: 0.4.8
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.8 =
+* **Tracking (visibility):** `rwgo-tracking.js` now checks **`fetch` HTTP status**. WordPress REST errors (403 nonce, 400 validation) no longer fail silently — the browser **console shows `[RWGO] Goal REST rejected`** with code and message. Optional **`trackClientDebug`** (via **`RWGO_TRACKING_DEBUG`** or filter `rwgo_tracking_client_debug`) logs successful saves and nonce-fetch issues. Stamping treats non–`page_view` goal types without `handler_type` as **click** so `data-rwgo-experiment-key` applies in edge cases.
 
 = 0.4.7 =
 * **Fix (tracking):** When `defined_goal_mapping` is active, localized experiment goals now merge every physical `(goal_id, handler_id)` from `targets.control` and `targets.var_b` into the config sent to `rwgo-tracking.js`, so `stampExperimentBindings()` can stamp `data-rwgo-experiment-key` on Variant B even if the saved `goals` meta row omits that pair. **`RWGO_TRACKING_DEBUG`** logs include `mappingActive`, `goalHandlerPairs`, and related fields.

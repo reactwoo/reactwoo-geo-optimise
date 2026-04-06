@@ -107,6 +107,12 @@ class RWGO_Runtime {
 		 * @param bool $persist Default true.
 		 */
 		$config['persistClientGoals'] = (bool) apply_filters( 'rwgo_persist_client_goals', true );
+		/**
+		 * Surface REST validation errors in the browser console (rwgo-tracking.js).
+		 *
+		 * @param bool $debug Default: RWGO_TRACKING_DEBUG or false.
+		 */
+		$config['trackClientDebug'] = (bool) apply_filters( 'rwgo_tracking_client_debug', defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG );
 
 		wp_register_script(
 			'rwgo-tracking',

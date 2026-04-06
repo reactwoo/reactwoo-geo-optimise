@@ -148,8 +148,38 @@
 		return goalId;
 	}
 
+	function rwgoLog() {
+		if (typeof window === 'undefined' || !window.console) {
+			return;
+		}
+		var fn = cfg.trackClientDebug ? window.console.log : function () {};
+		try {
+			fn.apply(window.console, arguments);
+		} catch (e1) {
+			/* ignore */
+		}
+	}
+
+	function rwgoWarn() {
+		if (typeof window === 'undefined' || !window.console || !window.console.warn) {
+			return;
+		}
+		try {
+			window.console.warn.apply(window.console, arguments);
+		} catch (e2) {
+			/* ignore */
+		}
+	}
+
 	function persistToRest(detail) {
 		if (!cfg.persistClientGoals || !cfg.restUrl || !cfg.nonce) {
+			if (cfg.trackClientDebug) {
+				rwgoWarn('[RWGO] Client goal not sent — check persistClientGoals, restUrl, nonce.', {
+					persistClientGoals: cfg.persistClientGoals,
+					hasRestUrl: !!cfg.restUrl,
+					hasNonce: !!cfg.nonce
+				});
+			}
 			return;
 		}
 		var body = {
@@ -166,7 +196,7 @@
 			event_instance_id: detail.event_instance_id || ''
 		};
 		var json = JSON.stringify(body);
-		// Use fetch first: sendBeacon returns true when queued, not when the server returns 201, so failures were silent and fetch never ran.
+		// Use fetch first: check response.ok — WordPress returns 4xx JSON bodies without throwing.
 		if (typeof fetch !== 'undefined') {
 			fetch(cfg.restUrl, {
 				method: 'POST',
@@ -174,9 +204,28 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: json,
 				keepalive: true
-			}).catch(function () {
-				/* ignore */
-			});
+			})
+				.then(function (response) {
+					if (response.ok) {
+						if (cfg.trackClientDebug) {
+							rwgoLog('[RWGO] Goal stored (HTTP ' + response.status + ')', detail.experiment_key, detail.goal_id);
+						}
+						return;
+					}
+					return response
+						.json()
+						.then(function (errBody) {
+							var code = errBody && errBody.code ? errBody.code : '';
+							var msg = errBody && errBody.message ? errBody.message : response.statusText || 'Error';
+							rwgoWarn('[RWGO] Goal REST rejected (' + response.status + ')', code || 'unknown_code', msg, errBody);
+						})
+						.catch(function () {
+							rwgoWarn('[RWGO] Goal REST rejected (' + response.status + ')', 'non_json_body');
+						});
+				})
+				.catch(function (err) {
+					rwgoWarn('[RWGO] Goal REST network/fetch error', err);
+				});
 			return;
 		}
 		if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
@@ -251,6 +300,10 @@
 					}
 					if (!ht && goal.goal_type === 'form_submit') {
 						ht = 'form_submit';
+					}
+					// Experiment meta uses goal_type "click"; some paths may still send UI keys (e.g. cta_click) on goals.
+					if (!ht && goal.goal_type && goal.goal_type !== 'page_view') {
+						ht = goal.goal_type === 'form_submit' ? 'form_submit' : 'click';
 					}
 					h = Object.assign({}, h, { handler_type: ht });
 					if (!h.handler_type || (h.handler_type !== 'click' && h.handler_type !== 'form_submit')) {
@@ -477,8 +530,10 @@
 						cfg.restUrl = data.restUrl;
 					}
 				})
-				.catch(function () {
-					/* keep embedded nonce */
+				.catch(function (err) {
+					if (cfg.trackClientDebug) {
+						rwgoWarn('[RWGO] Fresh nonce fetch failed; using embedded nonce (may 403 if cached HTML).', err);
+					}
 				})
 				.finally(go);
 		} else {
