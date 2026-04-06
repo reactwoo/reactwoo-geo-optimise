@@ -45,6 +45,10 @@ class RWGO_Plugin {
 			return;
 		}
 
+		if ( is_admin() ) {
+			add_action( 'admin_notices', array( $this, 'maybe_admin_notice_missing_tracking_js' ) );
+		}
+
 		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-staging-asset-fix.php';
 		RWGO_Staging_Asset_Fix::init();
@@ -168,6 +172,24 @@ class RWGO_Plugin {
 		}
 		echo '<div class="notice notice-error"><p>';
 		echo esc_html__( 'ReactWoo Geo Optimise requires ReactWoo Geo Core to be installed and active.', 'reactwoo-geo-optimise' );
+		echo '</p></div>';
+	}
+
+	/**
+	 * Deployments that omit `assets/js/` leave experiments inert; surface a clear admin error.
+	 *
+	 * @return void
+	 */
+	public function maybe_admin_notice_missing_tracking_js() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		$path = RWGO_PATH . 'assets/js/rwgo-tracking.js';
+		if ( is_readable( $path ) ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p>';
+		echo esc_html__( 'ReactWoo Geo Optimise: the front-end tracking script is missing from this install (assets/js/rwgo-tracking.js). Upload the complete plugin from the release package — goal clicks and experiments will not run until the file exists.', 'reactwoo-geo-optimise' );
 		echo '</p></div>';
 	}
 }

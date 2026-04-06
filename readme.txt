@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.13
+Stable tag: 0.4.14
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.14 =
+* **Admin:** If `assets/js/rwgo-tracking.js` is missing on disk (incomplete upload), show a **persistent error notice** so staging/production deploys are not silent failures.
 
 = 0.4.13 =
 * **Tracking context:** Fallback to global `$post` when `is_singular()` but `get_queried_object_id()` is 0; blog posts index uses **`page_for_posts`** when applicable.
