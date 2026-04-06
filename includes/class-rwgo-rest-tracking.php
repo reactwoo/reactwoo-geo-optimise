@@ -69,14 +69,23 @@ class RWGO_REST_Tracking {
 
 		$referer = wp_get_referer();
 		if ( is_string( $referer ) && '' !== $referer ) {
-			$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
-			$ref_host  = wp_parse_url( $referer, PHP_URL_HOST );
-			if ( is_string( $home_host ) && is_string( $ref_host ) && strtolower( $ref_host ) !== strtolower( $home_host ) ) {
-				return new \WP_Error(
-					'rwgo_invalid_referer',
-					__( 'Request not allowed from this origin.', 'reactwoo-geo-optimise' ),
-					array( 'status' => 403 )
-				);
+			$ref_host = wp_parse_url( $referer, PHP_URL_HOST );
+			if ( is_string( $ref_host ) && '' !== $ref_host ) {
+				$ref_host = strtolower( $ref_host );
+				$allowed  = array();
+				foreach ( array( home_url(), site_url() ) as $u ) {
+					$h = wp_parse_url( $u, PHP_URL_HOST );
+					if ( is_string( $h ) && '' !== $h ) {
+						$allowed[ strtolower( $h ) ] = true;
+					}
+				}
+				if ( ! isset( $allowed[ $ref_host ] ) ) {
+					return new \WP_Error(
+						'rwgo_invalid_referer',
+						__( 'Request not allowed from this origin.', 'reactwoo-geo-optimise' ),
+						array( 'status' => 403 )
+					);
+				}
 			}
 		}
 
@@ -156,12 +165,15 @@ class RWGO_REST_Tracking {
 		$page_context_id = isset( $params['page_context_id'] ) ? (int) $params['page_context_id'] : 0;
 		$page_variant_id = isset( $params['page_variant_post_id'] ) ? (int) $params['page_variant_post_id'] : $page_context_id;
 
+		$client_goal_label = isset( $params['goal_label'] ) ? sanitize_text_field( (string) $params['goal_label'] ) : '';
+
 		$parts = array(
 			'experiment_id'          => (int) $post->ID,
 			'experiment_key'         => $experiment_key,
 			'variant_id'             => $variant_id,
 			'goal_id'                => $goal_id,
 			'handler_id'             => $handler_id,
+			'client_goal_label'      => $client_goal_label,
 			'page_context_id'        => $page_context_id,
 			'page_variant_post_id'   => (int) $page_variant_id,
 			'goal_type'              => isset( $params['goal_type'] ) ? sanitize_key( (string) $params['goal_type'] ) : '',
@@ -201,6 +213,30 @@ class RWGO_REST_Tracking {
 	 * @return bool
 	 */
 	private static function config_has_goal_handler( array $cfg, $goal_id, $handler_id ) {
+		$goal_id    = sanitize_key( (string) $goal_id );
+		$handler_id = sanitize_key( (string) $handler_id );
+		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			$m       = isset( $cfg['defined_goal_mapping'] ) && is_array( $cfg['defined_goal_mapping'] ) ? $cfg['defined_goal_mapping'] : array();
+			$targets = isset( $m['targets'] ) && is_array( $m['targets'] ) ? $m['targets'] : array();
+			foreach ( $targets as $pairs ) {
+				if ( ! is_array( $pairs ) ) {
+					continue;
+				}
+				foreach ( $pairs as $p ) {
+					if ( ! is_array( $p ) ) {
+						continue;
+					}
+					$g = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
+					$h = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
+					if ( $g === $goal_id && $h === $handler_id ) {
+						return true;
+					}
+				}
+			}
+		}
+		if ( empty( $cfg['goals'] ) || ! is_array( $cfg['goals'] ) ) {
+			return false;
+		}
 		foreach ( $cfg['goals'] as $g ) {
 			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
 				continue;

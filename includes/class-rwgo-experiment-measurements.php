@@ -137,9 +137,19 @@ class RWGO_Experiment_Measurements {
 				if ( ! is_array( $h ) || empty( $h['handler_id'] ) ) {
 					continue;
 				}
-				if ( sanitize_key( (string) $h['handler_id'] ) === $handler_id ) {
-					return isset( $g['label'] ) ? (string) $g['label'] : $goal_id;
+				if ( sanitize_key( (string) $h['handler_id'] ) !== $handler_id ) {
+					continue;
 				}
+				$hl = isset( $h['label'] ) ? trim( (string) $h['label'] ) : '';
+				$gl = isset( $g['label'] ) ? trim( (string) $g['label'] ) : '';
+				$base = '' !== $hl ? $hl : ( '' !== $gl ? $gl : $goal_id );
+				$mv   = isset( $g['mapping_variant'] ) ? sanitize_key( (string) $g['mapping_variant'] ) : '';
+				if ( 'control' === $mv ) {
+					$base .= ' — ' . __( 'Control', 'reactwoo-geo-optimise' );
+				} elseif ( 'var_b' === $mv ) {
+					$base .= ' — ' . __( 'Variant B', 'reactwoo-geo-optimise' );
+				}
+				return $base;
 			}
 		}
 		return $goal_id ? $goal_id : $handler_id;

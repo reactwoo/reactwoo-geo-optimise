@@ -161,6 +161,7 @@
 			page_context_id: detail.page_context_id || 0,
 			page_variant_post_id: detail.page_variant_post_id != null ? detail.page_variant_post_id : (detail.page_context_id || 0),
 			goal_type: detail.goal_type || '',
+			goal_label: detail.goal_label || '',
 			element_fingerprint: detail.element_fingerprint || '',
 			event_instance_id: detail.event_instance_id || ''
 		};
@@ -244,7 +245,15 @@
 				}
 				var handlers = goal.handlers || [];
 				handlers.forEach(function (h) {
-					if (!h || (h.handler_type !== 'click' && h.handler_type !== 'form_submit')) {
+					var ht = h.handler_type;
+					if (!ht && goal.goal_type === 'click') {
+						ht = 'click';
+					}
+					if (!ht && goal.goal_type === 'form_submit') {
+						ht = 'form_submit';
+					}
+					h = Object.assign({}, h, { handler_type: ht });
+					if (!h.handler_type || (h.handler_type !== 'click' && h.handler_type !== 'form_submit')) {
 						return;
 					}
 					var gid = goal.goal_id;
@@ -340,8 +349,10 @@
 		}
 		var variantId = resolveVariantId(el, exp);
 		var fp = getAttr(el, 'data-rwgo-element-fingerprint') || '';
+		var gl = getAttr(el, 'data-rwgo-goal-label') || '';
 		window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
-			element_fingerprint: fp
+			element_fingerprint: fp,
+			goal_label: gl
 		});
 	}
 
@@ -368,8 +379,10 @@
 		}
 		var variantId = resolveVariantId(form, exp);
 		var fp = getAttr(form, 'data-rwgo-element-fingerprint') || '';
+		var gl = getAttr(form, 'data-rwgo-goal-label') || '';
 		window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
-			element_fingerprint: fp
+			element_fingerprint: fp,
+			goal_label: gl
 		});
 	}
 
@@ -429,8 +442,10 @@
 			}
 			var variantId = resolveVariantId(form, exp);
 			var fp = getAttr(form, 'data-rwgo-element-fingerprint') || '';
+			var gl = getAttr(form, 'data-rwgo-goal-label') || '';
 			window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
 				element_fingerprint: fp,
+				goal_label: gl,
 				source: 'elementor_form_success'
 			});
 		});

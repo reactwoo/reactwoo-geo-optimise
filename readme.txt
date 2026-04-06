@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.3
+Stable tag: 0.4.4
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.4 =
+* **Fix (tracking):** REST validation for mapped tests now accepts physical `(goal_id, handler_id)` pairs from `defined_goal_mapping.targets`, so clicks still persist if the `goals` meta array is out of sync with the mapping. Referer checks allow both `home_url` and `site_url` hosts (common on Local / multisite). Front-end stamping treats missing `handler_type` as `click` / `form_submit` from `goal_type` so `data-rwgo-experiment-key` is applied. Clicks send optional `goal_label` from `data-rwgo-goal-label` (stored on the event payload as `client_goal_label`).
+* **Reports:** Success-target labels prefer handler + goal labels and append **Control** / **Variant B** when `mapping_variant` is set so side-by-side mappings are distinguishable.
 
 = 0.4.3 =
 * **Fix (tracking):** Goal persistence used `sendBeacon` first; the browser reports success when the request is queued, not when WordPress returns 201, so REST errors (nonce, validation) were invisible and `fetch` never ran. Client goals now POST with `fetch` first so failures can succeed on retry paths and behaviour matches typical REST expectations.
