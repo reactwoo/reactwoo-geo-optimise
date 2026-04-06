@@ -366,6 +366,28 @@
 		});
 	}
 
+	/**
+	 * Stamp data-rwgo-experiment-key on any element that already has goal+handler from the builder
+	 * but did not match stampExperimentBindings() (e.g. selector order / Variant B pair present in cfg).
+	 */
+	function stampMissingExperimentKeysFromDom() {
+		try {
+			document.querySelectorAll('[data-rwgo-goal-id][data-rwgo-handler-id]').forEach(function (el) {
+				if (el.getAttribute('data-rwgo-experiment-key')) {
+					return;
+				}
+				var g = el.getAttribute('data-rwgo-goal-id');
+				var h = el.getAttribute('data-rwgo-handler-id');
+				var k = findExperimentKeyForGoalHandler(g, h);
+				if (k) {
+					el.setAttribute('data-rwgo-experiment-key', k);
+				}
+			});
+		} catch (e1) {
+			/* ignore */
+		}
+	}
+
 	function maybeFirePageViews() {
 		if (strictBinding) {
 			return;
@@ -564,6 +586,7 @@
 	function initTracking() {
 		stampElementorFormWidgets();
 		stampExperimentBindings();
+		stampMissingExperimentKeysFromDom();
 		bindElementorFormAjaxSuccess();
 		maybeFirePageViews();
 		document.addEventListener('click', onClick, true);

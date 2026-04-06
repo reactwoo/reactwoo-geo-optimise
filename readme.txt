@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.10
+Stable tag: 0.4.11
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,12 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.11 =
+* **CTA binding:** `rwgo-tracking.js` runs **`stampMissingExperimentKeysFromDom()`** after `stampExperimentBindings()` so any element with builder `data-rwgo-goal-id` + `data-rwgo-handler-id` gets `data-rwgo-experiment-key` when that pair exists in localized config (covers Variant B when the first stamp pass missed).
+* **Boot:** Documented that **`RWGO_Goal_Mapping`** is required before goal registry / REST (it was already loaded; clarified in code).
+* **Debug (opt-in):** `RWGO_REST_GOAL_DEBUG` or filter `rwgo_log_rest_goal_rejections` logs each rejected `POST /rwgo/v1/goal`; `RWGO_FRONTEND_CONFIG_LOG` or `rwgo_log_frontend_goal_config` logs localized experiment pairs; **`RWGO_TRACKING_DEBUG`** also enables Elementor goal `error_log` lines and the frontend config summary (includes `experimentPostId`, pairs, `mappingActive`).
+* Optional defines: **`RWGO_REST_GOAL_DEBUG`**, **`RWGO_FRONTEND_CONFIG_LOG`** (default false in `reactwoo-geo-optimise.php`).
 
 = 0.4.10 =
 * **REST referer:** Goal POST accepts the current request host (`HTTP_HOST`) in addition to `home_url` / `site_url`, so staging (or alternate front-end domains) no longer fails with `rwgo_invalid_referer` when WordPress URLs still point at production.

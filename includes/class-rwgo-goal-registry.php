@@ -101,7 +101,7 @@ class RWGO_Goal_Registry {
 
 		$strict = class_exists( 'RWGO_Settings', false ) && RWGO_Settings::strict_binding_mode_enabled();
 
-		if ( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG ) {
+		if ( self::should_log_frontend_config_summary() ) {
 			$dbg = array();
 			foreach ( $experiments as $ex ) {
 				if ( ! is_array( $ex ) ) {
@@ -110,6 +110,7 @@ class RWGO_Goal_Registry {
 				$goals = isset( $ex['goals'] ) && is_array( $ex['goals'] ) ? $ex['goals'] : array();
 				$pairs = self::list_goal_handler_pairs_for_debug( $goals );
 				$dbg[] = array(
+					'experimentPostId'     => isset( $ex['experimentId'] ) ? (int) $ex['experimentId'] : 0,
 					'experimentKey'        => isset( $ex['experimentKey'] ) ? (string) $ex['experimentKey'] : '',
 					'resolvedVariant'      => isset( $ex['resolvedVariant'] ) ? (string) $ex['resolvedVariant'] : '',
 					'goalCount'            => count( $goals ),
@@ -126,6 +127,24 @@ class RWGO_Goal_Registry {
 			'experiments'    => $experiments,
 			'strictBinding'  => $strict,
 		);
+	}
+
+	/**
+	 * Log {@see build_frontend_config()} summary to error_log (pairs for stamping / REST).
+	 *
+	 * @return bool
+	 */
+	private static function should_log_frontend_config_summary() {
+		if ( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG ) {
+			return true;
+		}
+		if ( defined( 'RWGO_FRONTEND_CONFIG_LOG' ) && RWGO_FRONTEND_CONFIG_LOG ) {
+			return true;
+		}
+		/**
+		 * @param bool $log Default false.
+		 */
+		return (bool) apply_filters( 'rwgo_log_frontend_goal_config', false );
 	}
 
 	/**

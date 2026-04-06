@@ -205,6 +205,9 @@ class RWGO_Elementor_Goals {
 		if ( defined( 'RWGO_ELEMENTOR_GOALS_DEBUG' ) && RWGO_ELEMENTOR_GOALS_DEBUG ) {
 			return true;
 		}
+		if ( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG ) {
+			return true;
+		}
 		/**
 		 * Enable Elementor goal registration debug logs (`error_log`).
 		 *

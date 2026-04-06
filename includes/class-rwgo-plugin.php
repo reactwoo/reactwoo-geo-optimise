@@ -62,7 +62,11 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-builder-detector.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-service.php';
-		// Load before goal registry + REST tracking (both gate on class_exists( RWGO_Goal_Mapping )).
+		/**
+		 * Per-variant defined-goal mapping (logical goal id, control/var_b physical pairs).
+		 * Must load before {@see RWGO_Goal_Registry} and {@see RWGO_REST_Tracking} — both call
+		 * `class_exists( 'RWGO_Goal_Mapping' )` for merge, validation, and REST normalization.
+		 */
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-mapping.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-measurements.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';

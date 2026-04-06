@@ -291,7 +291,7 @@ class RWGO_REST_Tracking {
 	 * @return void
 	 */
 	private static function debug_reject( $code, $detail = '' ) {
-		if ( ! defined( 'RWGO_TRACKING_DEBUG' ) || ! RWGO_TRACKING_DEBUG ) {
+		if ( ! self::should_log_rest_rejections() ) {
 			return;
 		}
 		$msg = '[RWGO REST goal] ' . (string) $code;
@@ -299,6 +299,24 @@ class RWGO_REST_Tracking {
 			$msg .= ' — ' . (string) $detail;
 		}
 		error_log( $msg ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+	}
+
+	/**
+	 * Log rejected POST /rwgo/v1/goal (server error_log).
+	 *
+	 * @return bool
+	 */
+	private static function should_log_rest_rejections() {
+		if ( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG ) {
+			return true;
+		}
+		if ( defined( 'RWGO_REST_GOAL_DEBUG' ) && RWGO_REST_GOAL_DEBUG ) {
+			return true;
+		}
+		/**
+		 * @param bool $log Default false.
+		 */
+		return (bool) apply_filters( 'rwgo_log_rest_goal_rejections', false );
 	}
 
 	/**
