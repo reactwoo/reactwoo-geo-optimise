@@ -110,6 +110,27 @@ class RWGO_REST_Tracking {
 						$allowed[ strtolower( $h ) ] = true;
 					}
 				}
+				// Staging / multi-domain: referer may match this request’s host while home_url still points elsewhere.
+				if ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) {
+					$req_host = strtolower( preg_replace( '/:\d+$/', '', (string) wp_unslash( $_SERVER['HTTP_HOST'] ) ) );
+					if ( '' !== $req_host ) {
+						$allowed[ $req_host ] = true;
+					}
+				}
+				/**
+				 * Extra hosts allowed for the JSON goal POST Referer check (e.g. alternate front-end domains).
+				 *
+				 * @param list<string> $hosts Hostnames (lowercase).
+				 */
+				$extra = apply_filters( 'rwgo_goal_referer_allowed_hosts', array() );
+				if ( is_array( $extra ) ) {
+					foreach ( $extra as $h ) {
+						$h = strtolower( (string) $h );
+						if ( '' !== $h ) {
+							$allowed[ $h ] = true;
+						}
+					}
+				}
 				if ( ! isset( $allowed[ $ref_host ] ) ) {
 					self::debug_reject( 'rwgo_invalid_referer', $ref_host );
 					return new \WP_Error(

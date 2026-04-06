@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.9
+Stable tag: 0.4.10
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,12 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.10 =
+* **REST referer:** Goal POST accepts the current request host (`HTTP_HOST`) in addition to `home_url` / `site_url`, so staging (or alternate front-end domains) no longer fails with `rwgo_invalid_referer` when WordPress URLs still point at production.
+* **Filter:** `rwgo_goal_referer_allowed_hosts` to append extra allowed referer hostnames.
+* **Tracking script:** Clicks resolve `data-rwgo-experiment-key` from localized goal+handler when the stamp step did not run; `persistToRest` warns when **`variant_id` is empty** (common cause of silent 400s).
+* **Context post ID:** Static front page resolves via `page_on_front` when `is_singular()` does not yield an ID.
 
 = 0.4.9 =
 * **Staging / clones:** Optional rewrite of enqueued `style`/`script` URLs that point at another host but under `/wp-content/` to the current site (reduces cross-origin font/CSS issues on copied sites). Filters: `rwgo_fix_cross_origin_wp_content_urls`, `rwgo_rewritten_wp_content_asset_url`.

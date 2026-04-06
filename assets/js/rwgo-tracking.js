@@ -26,6 +26,38 @@
 		return null;
 	}
 
+	/** When data-rwgo-experiment-key was not stamped (timing/CSS), resolve from localized goals. */
+	function findExperimentKeyForGoalHandler(goalId, handlerId) {
+		if (!goalId || !handlerId || !cfg.experiments || !cfg.experiments.length) {
+			return '';
+		}
+		var gi = String(goalId);
+		var hi = String(handlerId);
+		var i;
+		var j;
+		var k;
+		for (i = 0; i < cfg.experiments.length; i++) {
+			var exp = cfg.experiments[i];
+			if (!exp || !exp.goals) {
+				continue;
+			}
+			for (j = 0; j < exp.goals.length; j++) {
+				var g = exp.goals[j];
+				if (!g || String(g.goal_id) !== gi) {
+					continue;
+				}
+				var handlers = g.handlers || [];
+				for (k = 0; k < handlers.length; k++) {
+					var h = handlers[k];
+					if (h && String(h.handler_id) === hi) {
+						return exp.experimentKey || '';
+					}
+				}
+			}
+		}
+		return '';
+	}
+
 	function getAttr(el, name) {
 		return el && el.getAttribute ? el.getAttribute(name) : null;
 	}
@@ -180,6 +212,15 @@
 					hasNonce: !!cfg.nonce
 				});
 			}
+			return;
+		}
+		var vid = detail.variant_id != null ? String(detail.variant_id).trim() : '';
+		if (!vid) {
+			rwgoWarn(
+				'[RWGO] Goal not sent: empty variant_id. Server must set resolvedVariant for this URL (experiment page IDs / assignment). Enable RWGO_TRACKING_DEBUG or check Reports → diagnostics.',
+				detail.experiment_key,
+				detail.goal_id
+			);
 			return;
 		}
 		var body = {
@@ -385,12 +426,28 @@
 	function onClick(e) {
 		var el = e.target.closest ? e.target.closest('[data-rwgo-experiment-key]') : null;
 		if (!el) {
+			el = e.target.closest ? e.target.closest('[data-rwgo-goal-id][data-rwgo-handler-id]') : null;
+		}
+		if (!el) {
 			return;
 		}
-		var expKey = getAttr(el, 'data-rwgo-experiment-key');
 		var goalId = getAttr(el, 'data-rwgo-goal-id');
 		var handlerId = getAttr(el, 'data-rwgo-handler-id');
-		if (!expKey || !goalId || !handlerId) {
+		var expKey = getAttr(el, 'data-rwgo-experiment-key');
+		if (!goalId || !handlerId) {
+			return;
+		}
+		if (!expKey) {
+			expKey = findExperimentKeyForGoalHandler(goalId, handlerId);
+			if (expKey) {
+				try {
+					el.setAttribute('data-rwgo-experiment-key', expKey);
+				} catch (e0) {
+					/* ignore */
+				}
+			}
+		}
+		if (!expKey) {
 			return;
 		}
 		if (strictBinding && !stampAllowed(el)) {

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ReactWoo Geo Optimise
  * Description: Experiments, CRO, and analytics on top of ReactWoo Geo Core. Requires Geo Core.
- * Version: 0.4.9
+ * Version: 0.4.10
  * Author: ReactWoo
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'RWGO_VERSION' ) ) {
-	define( 'RWGO_VERSION', '0.4.9' );
+	define( 'RWGO_VERSION', '0.4.10' );
 }
 if ( ! defined( 'RWGO_TRACKING_DEBUG' ) ) {
 	define( 'RWGO_TRACKING_DEBUG', false );

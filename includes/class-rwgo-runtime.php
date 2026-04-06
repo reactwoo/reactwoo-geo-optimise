@@ -68,6 +68,12 @@ class RWGO_Runtime {
 				return $pid;
 			}
 		}
+		if ( function_exists( 'is_front_page' ) && is_front_page() && get_option( 'show_on_front' ) === 'page' ) {
+			$front = (int) get_option( 'page_on_front' );
+			if ( $front > 0 ) {
+				return $front;
+			}
+		}
 		if ( function_exists( 'is_shop' ) && is_shop() && function_exists( 'wc_get_page_id' ) ) {
 			$sid = (int) wc_get_page_id( 'shop' );
 			if ( $sid > 0 ) {
