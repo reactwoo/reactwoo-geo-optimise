@@ -37,6 +37,36 @@ class RWGO_REST_Tracking {
 				'args'                => array(),
 			)
 		);
+		register_rest_route(
+			'rwgo/v1',
+			'/tracking-nonce',
+			array(
+				'methods'             => 'GET',
+				'callback'            => array( __CLASS__, 'handle_tracking_nonce' ),
+				'permission_callback' => '__return_true',
+				'args'                => array(),
+			)
+		);
+	}
+
+	/**
+	 * Fresh nonce for goal POST (avoids stale nonces when HTML is full-page cached).
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public static function handle_tracking_nonce( $request ) {
+		if ( ! headers_sent() ) {
+			nocache_headers();
+			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		}
+		return new \WP_REST_Response(
+			array(
+				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
+				'restUrl' => rest_url( 'rwgo/v1/goal' ),
+			),
+			200
+		);
 	}
 
 	/**

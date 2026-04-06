@@ -23,15 +23,39 @@ class RWGO_Runtime {
 	}
 
 	/**
+	 * Post ID for the page being viewed (singular, WooCommerce shop, or filtered).
+	 *
+	 * @return int
+	 */
+	public static function resolve_frontend_context_post_id() {
+		if ( is_singular() ) {
+			$pid = (int) get_queried_object_id();
+			if ( $pid > 0 ) {
+				return $pid;
+			}
+		}
+		if ( function_exists( 'is_shop' ) && is_shop() && function_exists( 'wc_get_page_id' ) ) {
+			$sid = (int) wc_get_page_id( 'shop' );
+			if ( $sid > 0 ) {
+				return $sid;
+			}
+		}
+		/**
+		 * @param int $post_id Default 0.
+		 */
+		return (int) apply_filters( 'rwgo_tracking_context_post_id', 0 );
+	}
+
+	/**
 	 * Localize experiment + goal config for rwgo-tracking.js on singular pages.
 	 *
 	 * @return void
 	 */
 	public static function enqueue_tracking() {
-		if ( is_admin() || ! is_singular() ) {
+		if ( is_admin() ) {
 			return;
 		}
-		$pid = (int) get_queried_object_id();
+		$pid = self::resolve_frontend_context_post_id();
 		if ( $pid <= 0 ) {
 			return;
 		}
@@ -40,8 +64,9 @@ class RWGO_Runtime {
 			return;
 		}
 
-		$config['restUrl'] = rest_url( 'rwgo/v1/goal' );
-		$config['nonce']   = wp_create_nonce( RWGO_REST_Tracking::NONCE_ACTION );
+		$config['restUrl']      = rest_url( 'rwgo/v1/goal' );
+		$config['restNonceUrl'] = rest_url( 'rwgo/v1/tracking-nonce' );
+		$config['nonce']        = wp_create_nonce( RWGO_REST_Tracking::NONCE_ACTION );
 		/**
 		 * Persist browser goal events via REST into wp_rwgo_events (in addition to dataLayer).
 		 *

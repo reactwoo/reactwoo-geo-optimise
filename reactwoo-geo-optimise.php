@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'RWGO_VERSION' ) ) {
-	define( 'RWGO_VERSION', '0.4.4' );
+	define( 'RWGO_VERSION', '0.4.5' );
 }
 if ( ! defined( 'RWGO_FILE' ) ) {
 	define( 'RWGO_FILE', __FILE__ );

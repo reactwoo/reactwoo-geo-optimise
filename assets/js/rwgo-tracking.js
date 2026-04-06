@@ -451,19 +451,44 @@
 		});
 	}
 
-	function runDomReady() {
+	function initTracking() {
 		stampElementorFormWidgets();
 		stampExperimentBindings();
 		bindElementorFormAjaxSuccess();
 		maybeFirePageViews();
+		document.addEventListener('click', onClick, true);
+		document.addEventListener('submit', onSubmit, true);
+	}
+
+	function bootstrapTracking() {
+		function go() {
+			initTracking();
+		}
+		if (cfg.restNonceUrl) {
+			fetch(cfg.restNonceUrl, { credentials: 'same-origin', cache: 'no-store' })
+				.then(function (r) {
+					return r.json();
+				})
+				.then(function (data) {
+					if (data && data.nonce) {
+						cfg.nonce = data.nonce;
+					}
+					if (data && data.restUrl) {
+						cfg.restUrl = data.restUrl;
+					}
+				})
+				.catch(function () {
+					/* keep embedded nonce */
+				})
+				.finally(go);
+		} else {
+			go();
+		}
 	}
 
 	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', runDomReady);
+		document.addEventListener('DOMContentLoaded', bootstrapTracking);
 	} else {
-		runDomReady();
+		bootstrapTracking();
 	}
-
-	document.addEventListener('click', onClick, true);
-	document.addEventListener('submit', onSubmit, true);
 })();
