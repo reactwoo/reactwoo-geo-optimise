@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.12
+Stable tag: 0.4.13
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.13 =
+* **Tracking context:** Fallback to global `$post` when `is_singular()` but `get_queried_object_id()` is 0; blog posts index uses **`page_for_posts`** when applicable.
+* **WP_DEBUG:** Log when enqueue is skipped — no resolved `post_id`, or resolved id but **no experiment** includes this page (so you can tell “no script” vs “script but empty goals”).
 
 = 0.4.12 =
 * **Diagnostics:** When **`WP_DEBUG`** is on, a single **`error_log`** line is written on front-end loads that enqueue tracking: `post_id` and count of localized experiments (confirms the test page actually loads `rwgo-tracking.js` with config — admin/report screens do not).

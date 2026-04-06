@@ -67,11 +67,21 @@ class RWGO_Runtime {
 			if ( $pid > 0 ) {
 				return $pid;
 			}
+			global $post;
+			if ( $post instanceof \WP_Post && $post->ID > 0 ) {
+				return (int) $post->ID;
+			}
 		}
 		if ( function_exists( 'is_front_page' ) && is_front_page() && get_option( 'show_on_front' ) === 'page' ) {
 			$front = (int) get_option( 'page_on_front' );
 			if ( $front > 0 ) {
 				return $front;
+			}
+		}
+		if ( function_exists( 'is_home' ) && is_home() && ! is_front_page() && get_option( 'show_on_front' ) === 'page' ) {
+			$blog = (int) get_option( 'page_for_posts' );
+			if ( $blog > 0 ) {
+				return $blog;
 			}
 		}
 		if ( function_exists( 'is_shop' ) && is_shop() && function_exists( 'wc_get_page_id' ) ) {
@@ -97,10 +107,18 @@ class RWGO_Runtime {
 		}
 		$pid = self::resolve_frontend_context_post_id();
 		if ( $pid <= 0 ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[RWGO] enqueue_tracking skipped: no context post_id (not singular/home/shop or filter returned 0).' );
+			}
 			return;
 		}
 		$config = RWGO_Goal_Registry::build_frontend_config( $pid );
 		if ( empty( $config['experiments'] ) ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[RWGO] enqueue_tracking skipped: post_id=' . (int) $pid . ' has no active experiment config for this URL (check test source/variant pages).' );
+			}
 			return;
 		}
 
