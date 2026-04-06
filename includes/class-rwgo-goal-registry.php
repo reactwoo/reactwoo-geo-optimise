@@ -49,6 +49,9 @@ class RWGO_Goal_Registry {
 			}
 			$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
 			$goals = self::expand_defined_elementor_goals_across_pages( $goals, $cfg );
+			$logical_primary = class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg )
+				? RWGO_Goal_Mapping::logical_goal_id( $cfg )
+				: '';
 			/**
 			 * Goals passed to rwgo-tracking.js after cross-page Elementor expansion.
 			 *
@@ -76,16 +79,17 @@ class RWGO_Goal_Registry {
 				: array();
 
 			$experiments[] = array(
-				'experimentId'     => (int) $post->ID,
-				'experimentKey'    => (string) $cfg['experiment_key'],
-				'testName'         => get_the_title( $post ),
-				'builder'          => class_exists( 'RWGO_GTM_Handoff', false )
+				'experimentId'         => (int) $post->ID,
+				'experimentKey'        => (string) $cfg['experiment_key'],
+				'testName'             => get_the_title( $post ),
+				'builder'              => class_exists( 'RWGO_GTM_Handoff', false )
 					? RWGO_GTM_Handoff::builder_slug_for_datalayer( $cfg )
 					: ( isset( $cfg['builder_type'] ) ? sanitize_key( (string) $cfg['builder_type'] ) : '' ),
-				'variantLabels'    => $variant_labels,
-				'sourcePageId'     => $source,
-				'goals'            => $goals,
-				'resolvedVariant'  => (string) $resolved_variant,
+				'variantLabels'        => $variant_labels,
+				'sourcePageId'         => $source,
+				'goals'                => $goals,
+				'resolvedVariant'      => (string) $resolved_variant,
+				'logicalPrimaryGoalId' => (string) $logical_primary,
 			);
 		}
 
@@ -110,6 +114,9 @@ class RWGO_Goal_Registry {
 	 * @return list<array<string, mixed>>
 	 */
 	private static function expand_defined_elementor_goals_across_pages( array $goals, array $cfg ) {
+		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			return $goals;
+		}
 		if ( empty( $goals ) ) {
 			return $goals;
 		}

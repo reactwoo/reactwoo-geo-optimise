@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.3.9
+Stable tag: 0.4.0
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.0 =
+* **Defined goals:** Builder-defined conversion tracking no longer relies on matching goal labels across Control and Variant B. New tests store an explicit per-variant mapping (`defined_goal_mapping`): logical primary goal id + physical `goal_id`/`handler_id` targets for Control and Variant B. Create/Edit Test shows two pickers (“Which marked goal counts as success on Control?” / “…on Variant B?”). REST persistence rewrites fired events to the logical `primary_goal_id` so winner reporting aggregates correctly; label-based cross-page expansion remains only for older tests without explicit mapping. `rwgo-tracking.js` pushes the logical `rwgo_goal_id` to the dataLayer when mapping is active.
 
 = 0.3.9 =
 * **Tracking:** Defined Elementor/Gutenberg goals on Control and Variant B used different `goal_id`/`handler_id` hashes per page, so `rwgo-tracking.js` only stamped the experiment on the page that matched the saved test config — usually Control. Clicks on Variant B did not record. The front-end config now expands matching defined goals across all experiment page IDs (same goal label + UI goal type), so both pages stamp `data-rwgo-experiment-key` and REST validation accepts either pair.

@@ -79,6 +79,9 @@ class RWGO_Goal_Service {
 			if ( sanitize_key( (string) $g['goal_id'] ) === $pid ) {
 				return isset( $g['label'] ) ? (string) $g['label'] : $pid;
 			}
+			if ( ! empty( $g['logical_goal_id'] ) && sanitize_key( (string) $g['logical_goal_id'] ) === $pid ) {
+				return isset( $g['label'] ) ? (string) $g['label'] : $pid;
+			}
 		}
 		return $pid;
 	}

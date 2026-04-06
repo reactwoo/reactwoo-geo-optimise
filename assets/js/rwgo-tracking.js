@@ -44,10 +44,12 @@
 		var builder = '';
 		var variantLabel = '';
 		var goalLabel = '';
+		var pubGoalId = detail.goal_id || '';
 		if (exp) {
 			testName = exp.testName || '';
 			builder = exp.builder || '';
-			goalLabel = findGoalLabel(exp, detail.goal_id || '') || '';
+			pubGoalId = resolvePublicGoalId(exp, detail.goal_id || '', detail.handler_id || '');
+			goalLabel = findGoalLabel(exp, pubGoalId) || '';
 			var vid = detail.variant_id || '';
 			if (vid && exp.variantLabels && typeof exp.variantLabels === 'object') {
 				variantLabel = exp.variantLabels[vid] || '';
@@ -60,7 +62,7 @@
 			rwgo_experiment_key: detail.experiment_key || '',
 			rwgo_variant_id: detail.variant_id || '',
 			rwgo_variant_label: variantLabel,
-			rwgo_goal_id: detail.goal_id || '',
+			rwgo_goal_id: pubGoalId,
 			rwgo_goal_label: goalLabel,
 			rwgo_handler_id: detail.handler_id || '',
 			rwgo_page_context_id: detail.page_context_id || 0,
@@ -90,7 +92,13 @@
 		var i;
 		for (i = 0; i < exp.goals.length; i++) {
 			var g = exp.goals[i];
-			if (g && g.goal_id === goalId) {
+			if (!g) {
+				continue;
+			}
+			if (g.goal_id === goalId) {
+				return g.goal_type || '';
+			}
+			if (g.logical_goal_id === goalId) {
 				return g.goal_type || '';
 			}
 		}
@@ -104,11 +112,40 @@
 		var i;
 		for (i = 0; i < exp.goals.length; i++) {
 			var g = exp.goals[i];
-			if (g && g.goal_id === goalId) {
+			if (!g) {
+				continue;
+			}
+			if (g.goal_id === goalId) {
 				return g.label || g.goal_id || '';
+			}
+			if (g.logical_goal_id === goalId) {
+				return g.label || g.logical_goal_id || '';
 			}
 		}
 		return '';
+	}
+
+	/** When using per-variant mapping, use logical primary id in dataLayer (matches stored conversions). */
+	function resolvePublicGoalId(exp, goalId, handlerId) {
+		if (!exp || !goalId || !handlerId) {
+			return goalId;
+		}
+		var i;
+		for (i = 0; i < (exp.goals || []).length; i++) {
+			var g = exp.goals[i];
+			if (!g || g.goal_id !== goalId) {
+				continue;
+			}
+			var handlers = g.handlers || [];
+			var j;
+			for (j = 0; j < handlers.length; j++) {
+				var h = handlers[j];
+				if (h && h.handler_id === handlerId && g.logical_goal_id) {
+					return g.logical_goal_id;
+				}
+			}
+		}
+		return goalId;
 	}
 
 	function persistToRest(detail) {
@@ -172,7 +209,7 @@
 			detail.event_instance_id = newEventInstanceId();
 		}
 		if (!detail.goal_type && exp) {
-			detail.goal_type = findGoalType(exp, goalId);
+			detail.goal_type = findGoalType(exp, resolvePublicGoalId(exp, goalId, handlerId));
 		}
 		if (detail.page_variant_post_id == null) {
 			detail.page_variant_post_id = pageContextId;

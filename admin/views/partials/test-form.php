@@ -287,12 +287,21 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 				</label>
 			</fieldset>
 			<div id="rwgo-defined-goal-panel" class="rwgo-field" <?php echo 'defined' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
-				<label class="rwgo-field__label" for="rwgo_defined_goal_select"><?php esc_html_e( 'Detected goals', 'reactwoo-geo-optimise' ); ?></label>
-				<select id="rwgo_defined_goal_select" class="rwgo-input" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
-					<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
-				</select>
-				<p class="rwgo-hint"><?php esc_html_e( 'Prefer a defined goal for reliable tracking and clear winner labels in reports.', 'reactwoo-geo-optimise' ); ?></p>
-				<p class="rwgo-hint"><?php esc_html_e( 'If none appear yet, edit the relevant page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page you want to measure.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="rwgo-hint"><?php esc_html_e( 'Pick which marked goal counts as a conversion for each version. Labels do not need to match — the test links explicit goal IDs per page.', 'reactwoo-geo-optimise' ); ?></p>
+				<div class="rwgo-field rwgo-field--tight">
+					<label class="rwgo-field__label" for="rwgo_defined_goal_control_select"><?php esc_html_e( 'Which marked goal counts as success on Control?', 'reactwoo-geo-optimise' ); ?></label>
+					<select id="rwgo_defined_goal_control_select" class="rwgo-input rwgo-defined-goal-select" data-rwgo-mapping-role="control" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
+						<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
+					</select>
+				</div>
+				<div class="rwgo-field rwgo-field--tight" id="rwgo-defined-goal-varb-wrap">
+					<label class="rwgo-field__label" for="rwgo_defined_goal_var_b_select"><?php esc_html_e( 'Which marked goal counts as success on Variant B?', 'reactwoo-geo-optimise' ); ?></label>
+					<select id="rwgo_defined_goal_var_b_select" class="rwgo-input rwgo-defined-goal-select" data-rwgo-mapping-role="var_b" <?php echo 'traffic_only' === $pf_winner_mode ? ' disabled="disabled"' : ''; ?>>
+						<option value=""><?php esc_html_e( '— Loading…', 'reactwoo-geo-optimise' ); ?></option>
+					</select>
+					<p class="rwgo-hint"><?php esc_html_e( 'You can choose different goals for each version.', 'reactwoo-geo-optimise' ); ?></p>
+				</div>
+				<p class="rwgo-hint"><?php esc_html_e( 'If a list is empty, open the page in Elementor or Gutenberg and add a Geo Optimise goal to the CTA, form, or destination you want to measure.', 'reactwoo-geo-optimise' ); ?></p>
 			</div>
 			<div id="rwgo-automatic-goal-panel" class="rwgo-field" <?php echo 'automatic' !== $pf_goal_sel_mode ? 'hidden' : ''; ?>>
 				<label class="rwgo-field__label" for="rwgo_goal_type"><?php esc_html_e( 'Primary goal', 'reactwoo-geo-optimise' ); ?></label>

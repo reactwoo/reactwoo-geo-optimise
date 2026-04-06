@@ -149,6 +149,10 @@ class RWGO_REST_Tracking {
 			);
 		}
 
+		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			$goal_id = RWGO_Goal_Mapping::normalize_stored_goal_id( $cfg, $goal_id, $handler_id, $variant_id );
+		}
+
 		$page_context_id = isset( $params['page_context_id'] ) ? (int) $params['page_context_id'] : 0;
 		$page_variant_id = isset( $params['page_variant_post_id'] ) ? (int) $params['page_variant_post_id'] : $page_context_id;
 

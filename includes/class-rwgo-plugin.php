@@ -60,6 +60,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-builder-detector.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-goal-mapping.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-woocommerce-goals.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-db-schema.php';

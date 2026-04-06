@@ -1,5 +1,5 @@
 /**
- * Geo Optimise — defined goals picker on Create / Edit Test.
+ * Geo Optimise — defined goals: Control + Variant B mapping (Create / Edit Test).
  */
 (function () {
 	'use strict';
@@ -21,7 +21,9 @@
 	}
 
 	var hidden = document.getElementById('rwgo_defined_goal');
-	var sel = document.getElementById('rwgo_defined_goal_select');
+	var selControl = document.getElementById('rwgo_defined_goal_control_select');
+	var selVarB = document.getElementById('rwgo_defined_goal_var_b_select');
+	var varBWrap = document.getElementById('rwgo-defined-goal-varb-wrap');
 	var modeRadios = document.querySelectorAll('.rwgo-goal-sel-mode');
 	var defPanel = document.getElementById('rwgo-defined-goal-panel');
 	var autoPanel = document.getElementById('rwgo-automatic-goal-panel');
@@ -57,9 +59,11 @@
 		if (goalType) {
 			goalType.disabled = traffic || m !== 'automatic';
 		}
-		if (sel) {
-			sel.disabled = traffic || m !== 'defined';
-		}
+		[selControl, selVarB].forEach(function (sel) {
+			if (sel) {
+				sel.disabled = traffic || m !== 'defined';
+			}
+		});
 	}
 
 	function collectPostIds() {
@@ -94,20 +98,91 @@
 		return ids;
 	}
 
-	function fetchGoals() {
+	function getSourceAndVariantIds() {
+		var mode = form.getAttribute('data-rwgo-form-mode') || '';
+		if (mode === 'edit') {
+			return {
+				sourceId: parseInt(form.getAttribute('data-rwgo-source-id') || '0', 10),
+				varBId: parseInt(form.getAttribute('data-rwgo-variant-b-id') || '0', 10)
+			};
+		}
+		var s = sourceSel && sourceSel.value ? parseInt(sourceSel.value, 10) : 0;
+		var v = 0;
+		var vm = 'duplicate';
+		variantRadios.forEach(function (r) {
+			if (r.checked) {
+				vm = r.value;
+			}
+		});
+		if (vm === 'existing' && variantSel && variantSel.value) {
+			v = parseInt(variantSel.value, 10);
+		}
+		return { sourceId: s, varBId: v };
+	}
+
+	function splitGoalsByPage(goals, sourceId, varBId) {
+		var control = [];
+		var variant = [];
+		if (!goals || !goals.length) {
+			return { control: control, variant: variant };
+		}
+		goals.forEach(function (g) {
+			if (!g) {
+				return;
+			}
+			var sp = parseInt(String(g.source_post_id != null ? g.source_post_id : 0), 10);
+			if (sourceId && sp === sourceId) {
+				control.push(g);
+			}
+			if (varBId && sp === varBId) {
+				variant.push(g);
+			}
+		});
+		return { control: control, variant: variant };
+	}
+
+	function fillMappingSelect(sel, items, placeholderEmpty) {
 		if (!sel) {
 			return;
 		}
+		var keep = sel.value;
+		sel.innerHTML = '';
+		var opt0 = document.createElement('option');
+		opt0.value = '';
+		opt0.textContent = placeholderEmpty;
+		sel.appendChild(opt0);
+		items.forEach(function (g) {
+			if (!g || !g.goal_id) {
+				return;
+			}
+			var opt = document.createElement('option');
+			opt.value = JSON.stringify(g);
+			opt.textContent = g.goal_label || g.goal_id;
+			sel.appendChild(opt);
+		});
+		if (keep) {
+			sel.value = keep;
+		}
+	}
+
+	function fetchGoals() {
+		if (!selControl) {
+			return;
+		}
 		var ids = collectPostIds();
+		var pv = getSourceAndVariantIds();
 		if (!ids.length) {
-			sel.innerHTML = '';
-			var o0 = document.createElement('option');
-			o0.value = '';
-			o0.textContent =
+			var msg =
 				typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.pickSource
 					? rwgoTestFormGoalsI18n.pickSource
-					: 'Select a source page first.';
-			sel.appendChild(o0);
+					: 'Select a source page first (and Variant B if needed).';
+			fillMappingSelect(selControl, [], msg);
+			if (selVarB) {
+				fillMappingSelect(selVarB, [], msg);
+			}
+			if (varBWrap) {
+				varBWrap.hidden = false;
+			}
 			return;
 		}
 		var url = cfg.restUrl + (cfg.restUrl.indexOf('?') === -1 ? '?' : '&') + 'post_ids=' + encodeURIComponent(ids.join(','));
@@ -115,62 +190,104 @@
 		if (cfg.nonce) {
 			headers['X-WP-Nonce'] = cfg.nonce;
 		}
-		sel.disabled = true;
+		if (selControl) {
+			selControl.disabled = true;
+		}
+		if (selVarB) {
+			selVarB.disabled = true;
+		}
 		fetch(url, { credentials: 'same-origin', headers: headers })
 			.then(function (r) {
 				return r.json();
 			})
 			.then(function (data) {
 				var goals = data && data.goals ? data.goals : [];
-				sel.innerHTML = '';
-				var placeholder = document.createElement('option');
-				placeholder.value = '';
-				placeholder.textContent =
-					goals.length
-						? typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.pickGoal
-							? rwgoTestFormGoalsI18n.pickGoal
-							: '— Choose a goal —'
-						: typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.noneFound
-							? rwgoTestFormGoalsI18n.noneFound
-							: 'No defined goals found — add markers in Elementor, Gutenberg, or a destination page.';
-				sel.appendChild(placeholder);
-				goals.forEach(function (g) {
-					if (!g || !g.goal_id) {
-						return;
+				var split = splitGoalsByPage(goals, pv.sourceId, pv.varBId);
+				var pickGoal =
+					typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.pickGoal
+						? rwgoTestFormGoalsI18n.pickGoal
+						: '— Choose a goal —';
+				var noneFound =
+					typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.noneFound
+						? rwgoTestFormGoalsI18n.noneFound
+						: 'No goals on this page yet.';
+				fillMappingSelect(selControl, split.control, split.control.length ? pickGoal : noneFound);
+				var showVar = pv.varBId > 0 && pv.varBId !== pv.sourceId;
+				if (varBWrap) {
+					varBWrap.hidden = !showVar;
+				}
+				if (selVarB) {
+					if (showVar) {
+						fillMappingSelect(selVarB, split.variant, split.variant.length ? pickGoal : noneFound);
+					} else {
+						selVarB.innerHTML = '';
+						var o = document.createElement('option');
+						o.value = '';
+						o.textContent =
+							typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.varBAfterPublish
+								? rwgoTestFormGoalsI18n.varBAfterPublish
+								: 'Publish the test first or pick an existing Variant B page, then map Variant B.';
+						selVarB.appendChild(o);
 					}
-					var opt = document.createElement('option');
-					opt.value = JSON.stringify(g);
-					opt.textContent = g.goal_label || g.goal_id;
-					sel.appendChild(opt);
-				});
-				sel.disabled = false;
+				}
+				if (selControl) {
+					selControl.disabled = false;
+				}
+				if (selVarB) {
+					selVarB.disabled = false;
+				}
 				syncPanels();
 				matchInitial();
 			})
 			.catch(function () {
-				sel.innerHTML = '';
-				var err = document.createElement('option');
-				err.value = '';
-				err.textContent =
+				var err =
 					typeof rwgoTestFormGoalsI18n !== 'undefined' && rwgoTestFormGoalsI18n.loadFailed
 						? rwgoTestFormGoalsI18n.loadFailed
 						: 'Could not load goals.';
-				sel.appendChild(err);
-				sel.disabled = false;
+				fillMappingSelect(selControl, [], err);
+				if (selVarB) {
+					fillMappingSelect(selVarB, [], err);
+				}
+				if (selControl) {
+					selControl.disabled = false;
+				}
+				if (selVarB) {
+					selVarB.disabled = false;
+				}
 			});
 	}
 
-	function matchInitial() {
-		if (!hidden || !sel || getMode() !== 'defined') {
+	function payloadFromSelect(sel) {
+		if (!sel || !sel.value) {
+			return {};
+		}
+		try {
+			return JSON.parse(sel.value);
+		} catch (e) {
+			return {};
+		}
+	}
+
+	function syncHiddenFromSelects() {
+		if (!hidden) {
 			return;
 		}
-		var want = hidden.value;
-		if (!want) {
-			want = cfg.initialDefinedJson || '';
+		var c = payloadFromSelect(selControl);
+		var v = payloadFromSelect(selVarB);
+		var pv = getSourceAndVariantIds();
+		if (pv.varBId > 0 && pv.varBId !== pv.sourceId) {
+			hidden.value = JSON.stringify({ version: 2, control: c, var_b: v });
+		} else {
+			hidden.value = JSON.stringify({ version: 2, control: c, var_b: {} });
 		}
-		if (!want) {
+	}
+
+	function matchOptionByGoalId(sel, payload) {
+		if (!sel || !payload || !payload.goal_id) {
 			return;
 		}
+		var gid = payload.goal_id;
+		var hid = payload.handler_id || '';
 		var i;
 		for (i = 0; i < sel.options.length; i++) {
 			var o = sel.options[i];
@@ -179,8 +296,7 @@
 			}
 			try {
 				var g = JSON.parse(o.value);
-				var h = JSON.parse(want);
-				if (g.goal_id && h.goal_id && g.goal_id === h.goal_id) {
+				if (g.goal_id === gid && (!hid || !g.handler_id || g.handler_id === hid)) {
 					sel.selectedIndex = i;
 					return;
 				}
@@ -190,11 +306,39 @@
 		}
 	}
 
-	function onSelectChange() {
-		if (!hidden || !sel) {
+	function matchInitial() {
+		if (!hidden || getMode() !== 'defined') {
 			return;
 		}
-		hidden.value = sel.value || '';
+		var want = hidden.value;
+		if (!want) {
+			want = cfg.initialDefinedJson || '';
+		}
+		if (!want) {
+			return;
+		}
+		var h;
+		try {
+			h = JSON.parse(want);
+		} catch (e) {
+			return;
+		}
+		if (h && parseInt(h.version, 10) === 2) {
+			if (h.control && selControl) {
+				matchOptionByGoalId(selControl, h.control);
+			}
+			if (h.var_b && selVarB) {
+				matchOptionByGoalId(selVarB, h.var_b);
+			}
+			return;
+		}
+		if (h && h.goal_id && selControl) {
+			matchOptionByGoalId(selControl, h);
+		}
+	}
+
+	function onSelectChange() {
+		syncHiddenFromSelects();
 	}
 
 	modeRadios.forEach(function (r) {
@@ -205,9 +349,11 @@
 			}
 		});
 	});
-	if (sel) {
-		sel.addEventListener('change', onSelectChange);
-	}
+	[selControl, selVarB].forEach(function (sel) {
+		if (sel) {
+			sel.addEventListener('change', onSelectChange);
+		}
+	});
 	if (sourceSel) {
 		sourceSel.addEventListener('change', function () {
 			if (getMode() === 'defined') {
@@ -243,6 +389,7 @@
 			if (goalType) {
 				goalType.disabled = true;
 			}
+			syncHiddenFromSelects();
 		} else if (hidden) {
 			hidden.value = '';
 		}

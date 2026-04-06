@@ -358,11 +358,54 @@ class RWGO_Defined_Goal_Service {
 			return $warnings;
 		}
 		$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
+
+		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			$source_page = (int) ( $cfg['source_page_id'] ?? 0 );
+			$var_b       = 0;
+			if ( ! empty( $cfg['variants'] ) && is_array( $cfg['variants'] ) ) {
+				foreach ( $cfg['variants'] as $row ) {
+					if ( is_array( $row ) && isset( $row['variant_id'] ) && 'var_b' === sanitize_key( (string) $row['variant_id'] ) ) {
+						$var_b = (int) ( $row['page_id'] ?? 0 );
+						break;
+					}
+				}
+			}
+			foreach ( $goals as $g ) {
+				if ( ! is_array( $g ) || empty( $g['mapping_variant'] ) || empty( $g['goal_id'] ) ) {
+					continue;
+				}
+				$mv  = sanitize_key( (string) $g['mapping_variant'] );
+				$pid = 'control' === $mv ? $source_page : ( 'var_b' === $mv ? $var_b : 0 );
+				if ( $pid <= 0 ) {
+					continue;
+				}
+				$found = false;
+				foreach ( self::collect_for_post( $pid ) as $row ) {
+					if ( ! empty( $row['goal_id'] ) && (string) $row['goal_id'] === (string) $g['goal_id'] ) {
+						$found = true;
+						break;
+					}
+				}
+				if ( ! $found ) {
+					$warnings[] = array(
+						'code'    => 'defined_goal_missing',
+						'message' => __( 'A mapped defined goal was not found on the expected page. Edit the Control or Variant page or update the test mapping.', 'reactwoo-geo-optimise' ),
+					);
+					return $warnings;
+				}
+			}
+			return $warnings;
+		}
+
 		$want  = isset( $cfg['primary_goal_id'] ) ? sanitize_key( (string) $cfg['primary_goal_id'] ) : '';
 		$primary = null;
 		if ( '' !== $want ) {
 			foreach ( $goals as $g ) {
 				if ( is_array( $g ) && ! empty( $g['goal_id'] ) && sanitize_key( (string) $g['goal_id'] ) === $want ) {
+					$primary = $g;
+					break;
+				}
+				if ( is_array( $g ) && ! empty( $g['logical_goal_id'] ) && sanitize_key( (string) $g['logical_goal_id'] ) === $want ) {
 					$primary = $g;
 					break;
 				}

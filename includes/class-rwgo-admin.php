@@ -520,10 +520,11 @@ class RWGO_Admin {
 				'rwgo-test-form-goals',
 				'rwgoTestFormGoalsI18n',
 				array(
-					'pickSource' => __( 'Select a source page first (and Variant B if needed).', 'reactwoo-geo-optimise' ),
-					'pickGoal'   => __( '— Choose a goal —', 'reactwoo-geo-optimise' ),
-					'noneFound'  => __( 'No defined goals were found yet. Edit the relevant page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page you want to measure.', 'reactwoo-geo-optimise' ),
-					'loadFailed' => __( 'Could not load defined goals.', 'reactwoo-geo-optimise' ),
+					'pickSource'       => __( 'Select a source page first (and Variant B if needed).', 'reactwoo-geo-optimise' ),
+					'pickGoal'         => __( '— Choose a goal —', 'reactwoo-geo-optimise' ),
+					'noneFound'        => __( 'No defined goals were found yet. Edit the relevant page or variant in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page you want to measure.', 'reactwoo-geo-optimise' ),
+					'loadFailed'       => __( 'Could not load defined goals.', 'reactwoo-geo-optimise' ),
+					'varBAfterPublish' => __( 'After this test exists, edit it to choose Variant B’s goal, or pick “existing” Variant B above.', 'reactwoo-geo-optimise' ),
 				)
 			);
 		}
