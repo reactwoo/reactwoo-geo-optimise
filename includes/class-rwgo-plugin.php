@@ -60,6 +60,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-builder-detector.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-service.php';
+		// Load before goal registry + REST tracking (both gate on class_exists( RWGO_Goal_Mapping )).
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-mapping.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-measurements.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';

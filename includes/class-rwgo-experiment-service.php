@@ -74,21 +74,80 @@ class RWGO_Experiment_Service {
 	}
 
 	/**
-	 * Weights aligned with assignment_variant_slugs default.
+	 * Weights aligned with {@see assignment_variant_slugs()} order — resolved by variant_id, not array index.
 	 *
 	 * @param array<string, mixed> $config Config.
 	 * @return list<float>
 	 */
 	public static function assignment_weights( array $config ) {
-		$v = isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array();
-		$w = array( 0.5, 0.5 );
-		if ( isset( $v[0]['weight'] ) ) {
-			$w[0] = (float) $v[0]['weight'];
+		$slugs = self::assignment_variant_slugs( $config );
+		$vars  = isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array();
+		$by_id = array();
+		foreach ( $vars as $row ) {
+			if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
+				continue;
+			}
+			$vid = sanitize_key( (string) $row['variant_id'] );
+			if ( isset( $row['weight'] ) && is_numeric( $row['weight'] ) ) {
+				$by_id[ $vid ] = (float) $row['weight'];
+			}
 		}
-		if ( isset( $v[1]['weight'] ) ) {
-			$w[1] = (float) $v[1]['weight'];
+		$n     = count( $slugs );
+		$equal = $n > 0 ? 1.0 / $n : 0.5;
+		$out   = array();
+		foreach ( $slugs as $slug ) {
+			$sk = sanitize_key( (string) $slug );
+			if ( isset( $by_id[ $sk ] ) ) {
+				$out[] = (float) $by_id[ $sk ];
+			} else {
+				$out[] = $equal;
+			}
 		}
-		return $w;
+		return $out;
+	}
+
+	/**
+	 * Whether the experiment’s control or a variant page is the given post.
+	 *
+	 * @param array<string, mixed> $config          Experiment config.
+	 * @param int                  $queried_post_id Post ID.
+	 * @return bool
+	 */
+	public static function experiment_includes_page( array $config, $queried_post_id ) {
+		$queried_post_id = (int) $queried_post_id;
+		if ( $queried_post_id <= 0 ) {
+			return false;
+		}
+		$source = (int) ( $config['source_page_id'] ?? 0 );
+		if ( $source === $queried_post_id ) {
+			return true;
+		}
+		foreach ( isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array() as $row ) {
+			if ( is_array( $row ) && (int) ( $row['page_id'] ?? 0 ) === $queried_post_id ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Sum of configured weights for known variant rows (sanity check for admin warnings).
+	 *
+	 * @param array<string, mixed> $config Config.
+	 * @return float
+	 */
+	public static function configured_weight_sum( array $config ) {
+		$vars = isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array();
+		$sum  = 0.0;
+		foreach ( $vars as $row ) {
+			if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
+				continue;
+			}
+			if ( isset( $row['weight'] ) && is_numeric( $row['weight'] ) ) {
+				$sum += (float) $row['weight'];
+			}
+		}
+		return $sum;
 	}
 
 	/**

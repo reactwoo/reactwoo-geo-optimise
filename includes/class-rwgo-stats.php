@@ -12,6 +12,42 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class RWGO_Stats {
 
+	const SERVED_OPTION = 'rwgo_experiment_variant_served';
+
+	/**
+	 * Increment per-variant **served** impressions (page views where that variant’s experience was rendered).
+	 * Sticky assignment is unchanged; this only measures delivery for split validation.
+	 *
+	 * @param string $experiment_key Sanitized experiment key.
+	 * @param string $variant_slug   Variant slug (e.g. control, var_b).
+	 * @return void
+	 */
+	public static function record_variant_served( $experiment_key, $variant_slug ) {
+		$experiment_key = sanitize_key( (string) $experiment_key );
+		$variant_slug   = is_string( $variant_slug ) ? $variant_slug : (string) $variant_slug;
+		if ( '' === $experiment_key || '' === $variant_slug ) {
+			return;
+		}
+		$opt = get_option( self::SERVED_OPTION, array() );
+		if ( ! is_array( $opt ) ) {
+			$opt = array();
+		}
+		if ( ! isset( $opt[ $experiment_key ] ) || ! is_array( $opt[ $experiment_key ] ) ) {
+			$opt[ $experiment_key ] = array();
+		}
+		$cur = isset( $opt[ $experiment_key ][ $variant_slug ] ) ? (int) $opt[ $experiment_key ][ $variant_slug ] : 0;
+		$opt[ $experiment_key ][ $variant_slug ] = $cur + 1;
+		update_option( self::SERVED_OPTION, $opt, false );
+	}
+
+	/**
+	 * @return array<string, array<string, int>>
+	 */
+	public static function get_served_distribution() {
+		$opt = get_option( self::SERVED_OPTION, array() );
+		return is_array( $opt ) ? $opt : array();
+	}
+
 	/**
 	 * Snapshot for admin display and downloads. Extend via `rwgo_stats_snapshot`.
 	 *
@@ -22,6 +58,10 @@ class RWGO_Stats {
 		if ( ! is_array( $dist ) ) {
 			$dist = array();
 		}
+		$served = get_option( self::SERVED_OPTION, array() );
+		if ( ! is_array( $served ) ) {
+			$served = array();
+		}
 
 		$data = array(
 			'plugin_version'               => defined( 'RWGO_VERSION' ) ? RWGO_VERSION : '',
@@ -29,6 +69,7 @@ class RWGO_Stats {
 			'route_resolved_count'         => (int) get_option( 'rwgo_route_resolved_count', 0 ),
 			'assignment_count'             => (int) get_option( 'rwgo_assignment_count', 0 ),
 			'experiment_variant_counts'      => $dist,
+			'experiment_variant_served'      => $served,
 			'csv_export_count'             => (int) get_option( 'rwgo_csv_export_count', 0 ),
 			'last_csv_export_gmt'          => (string) get_option( 'rwgo_last_csv_export_gmt', '' ),
 			'site_url'                     => home_url( '/' ),
@@ -57,18 +98,19 @@ class RWGO_Stats {
 		$rows = array();
 		foreach ( $snapshot as $key => $value ) {
 			$key = is_string( $key ) ? $key : (string) $key;
-			if ( 'experiment_variant_counts' === $key && is_array( $value ) ) {
+			if ( ( 'experiment_variant_counts' === $key || 'experiment_variant_served' === $key ) && is_array( $value ) ) {
 				foreach ( $value as $exp => $vars ) {
 					if ( ! is_string( $exp ) || ! is_array( $vars ) ) {
 						continue;
 					}
+					$prefix = 'experiment_variant_counts' === $key ? 'experiment_variant' : 'experiment_variant_served';
 					foreach ( $vars as $vk => $cnt ) {
 						$vk = is_string( $vk ) || is_numeric( $vk ) ? (string) $vk : '';
 						if ( '' === $vk ) {
 							continue;
 						}
-						$subkey                        = 'experiment_variant.' . $exp . '.' . $vk;
-						$rows[ $subkey ]               = (string) (int) $cnt;
+						$subkey          = $prefix . '.' . $exp . '.' . $vk;
+						$rows[ $subkey ] = (string) (int) $cnt;
 					}
 				}
 				continue;

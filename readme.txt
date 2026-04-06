@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.5
+Stable tag: 0.4.6
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.6 =
+* **Split validation:** Traffic weights in assignment are read by `variant_id` (not array order). **Served** impressions per variant are counted on the front end (actual page rendered) and appear in Reports **Split diagnostics** alongside **Assigned** (first-time assignments) and **Conversion** (share of recorded conversions). Health notices when Variant B is not publicly viewable or configured weights do not sum to ~1. Optional **`RWGO_TRACKING_DEBUG`** (define in `wp-config.php`) logs REST goal reject reasons and a compact front-end tracking config summary.
 
 = 0.4.5 =
 * **Fix (tracking):** Full-page cache (and similar) often serves HTML with an **expired WP nonce**, so `POST /rwgo/v1/goal` returned 403 and no conversions were stored. On experiment pages the script now calls **`GET /rwgo/v1/tracking-nonce`** (uncached) before binding clicks, then uses the fresh nonce for persistence.

@@ -40,6 +40,27 @@ $rwgo_variant_label = static function ( $cfg, $variant_slug ) {
 $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-reports';
 $rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) ? $rwgo_experiments : array();
 $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : array();
+$exp_served       = isset( $exp_served ) && is_array( $exp_served ) ? $exp_served : array();
+
+/**
+ * Percent of total across slugs (same denominator for each slug).
+ *
+ * @param array<string, int> $counts Keyed by variant slug.
+ * @param list<string>       $slugs  Order to show.
+ * @return array<string, float|null> Percent 0–100 or null if denominator is 0.
+ */
+$rwgo_split_pct = static function ( array $counts, array $slugs ) {
+	$total = 0;
+	foreach ( $slugs as $s ) {
+		$total += isset( $counts[ $s ] ) ? (int) $counts[ $s ] : 0;
+	}
+	$out = array();
+	foreach ( $slugs as $s ) {
+		$n       = isset( $counts[ $s ] ) ? (int) $counts[ $s ] : 0;
+		$out[ $s ] = $total > 0 ? ( $n / $total ) * 100.0 : null;
+	}
+	return $out;
+};
 ?>
 <div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--reports">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
@@ -148,6 +169,67 @@ $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : ar
 						<li><a href="<?php echo esc_url( RWGO_Admin::edit_test_url( (int) $exp_post->ID, 'reports' ) ); ?>"><?php esc_html_e( 'Edit Test', 'reactwoo-geo-optimise' ); ?></a></li>
 					<?php endif; ?>
 				</ul>
+				<?php
+				if ( 'active' === $st && class_exists( 'RWGO_Experiment_Service', false ) ) :
+					if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg ) ) :
+						?>
+				<div class="notice notice-warning inline rwgo-report-health"><p><?php esc_html_e( 'Variant B is not publicly viewable — assignment stays on Control; served and conversion splits may not reflect a live B experience.', 'reactwoo-geo-optimise' ); ?></p></div>
+						<?php
+					endif;
+					$wsum = RWGO_Experiment_Service::configured_weight_sum( $cfg );
+					if ( $wsum > 0 && abs( $wsum - 1.0 ) > 0.02 ) :
+						?>
+				<div class="notice notice-warning inline rwgo-report-health"><p><?php echo esc_html( sprintf( /* translators: %s: sum like 1.10 */ __( 'Configured traffic weights sum to %s (expected ~1.0). Check variant weights in Edit Test.', 'reactwoo-geo-optimise' ), number_format_i18n( $wsum, 3 ) ) ); ?></p></div>
+						<?php
+					endif;
+				endif;
+				$slug_list = ! empty( $variants_rows ) && is_array( $variants_rows ) ? array_keys( $variants_rows ) : array();
+				if ( ! empty( $slug_list ) ) :
+					$assign_raw  = ( '' !== $key && isset( $exp_dist[ $key ] ) && is_array( $exp_dist[ $key ] ) ) ? $exp_dist[ $key ] : array();
+					$served_raw  = ( '' !== $key && isset( $exp_served[ $key ] ) && is_array( $exp_served[ $key ] ) ) ? $exp_served[ $key ] : array();
+					$assign_nums = array();
+					$served_nums = array();
+					foreach ( $slug_list as $s ) {
+						$assign_nums[ $s ] = isset( $assign_raw[ $s ] ) ? (int) $assign_raw[ $s ] : 0;
+						$served_nums[ $s ] = isset( $served_raw[ $s ] ) ? (int) $served_raw[ $s ] : 0;
+					}
+					$pct_assign = $rwgo_split_pct( $assign_nums, $slug_list );
+					$pct_served = $rwgo_split_pct( $served_nums, $slug_list );
+					$conv_total = 0;
+					foreach ( $variants_rows as $vr ) {
+						$conv_total += (int) ( $vr['completions'] ?? 0 );
+					}
+					$pct_conv = array();
+					foreach ( $slug_list as $s ) {
+						$c            = isset( $variants_rows[ $s ] ) ? (int) ( $variants_rows[ $s ]['completions'] ?? 0 ) : 0;
+						$pct_conv[ $s ] = $conv_total > 0 ? ( $c / $conv_total ) * 100.0 : null;
+					}
+					?>
+				<h3 class="rwgo-report-diagnostics-title"><?php esc_html_e( 'Split diagnostics', 'reactwoo-geo-optimise' ); ?></h3>
+				<p class="description"><?php esc_html_e( 'Assigned = first-time cookie assignments. Served = pages actually rendered per variant. Conversion = share of recorded conversions (when conversion tracking is active).', 'reactwoo-geo-optimise' ); ?></p>
+				<table class="widefat striped rwgo-table-comfortable rwgo-report-diagnostics">
+					<thead>
+						<tr>
+							<th scope="col"><?php esc_html_e( 'Variant', 'reactwoo-geo-optimise' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Assigned split', 'reactwoo-geo-optimise' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Served split', 'reactwoo-geo-optimise' ); ?></th>
+							<th scope="col"><?php esc_html_e( 'Conversion split', 'reactwoo-geo-optimise' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ( $slug_list as $s ) : ?>
+						<tr>
+							<td><?php echo esc_html( $rwgo_variant_label( $cfg, (string) $s ) ); ?></td>
+							<td><?php echo esc_html( null !== $pct_assign[ $s ] ? number_format_i18n( (float) $pct_assign[ $s ], 1 ) . '%' : '—' ); ?></td>
+							<td><?php echo esc_html( null !== $pct_served[ $s ] ? number_format_i18n( (float) $pct_served[ $s ], 1 ) . '%' : '—' ); ?></td>
+							<td><?php echo esc_html( $conversion_mode && null !== $pct_conv[ $s ] ? number_format_i18n( (float) $pct_conv[ $s ], 1 ) . '%' : '—' ); ?></td>
+						</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+					<?php
+				endif;
+				?>
 				<?php if ( ! $assignment_only && ! empty( $variants_rows ) ) : ?>
 					<table class="widefat striped rwgo-table-comfortable">
 						<thead>

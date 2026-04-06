@@ -20,6 +20,40 @@ class RWGO_Runtime {
 	public static function init() {
 		RWGO_Page_Swapper::init();
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_tracking' ), 20 );
+		add_action( 'template_redirect', array( __CLASS__, 'maybe_record_variant_served' ), 99 );
+	}
+
+	/**
+	 * Count **served** impressions per variant (page actually rendered) for split validation.
+	 * Does not change sticky assignment cookies.
+	 *
+	 * @return void
+	 */
+	public static function maybe_record_variant_served() {
+		if ( is_admin() || wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+			return;
+		}
+		if ( ! class_exists( 'RWGO_Experiment_Repository', false ) || ! class_exists( 'RWGO_Stats', false ) || ! class_exists( 'RWGO_Experiment_Service', false ) ) {
+			return;
+		}
+		$pid = self::resolve_frontend_context_post_id();
+		if ( $pid <= 0 ) {
+			return;
+		}
+		foreach ( RWGO_Experiment_Repository::get_active_touching_page( $pid ) as $row ) {
+			if ( ! isset( $row['config'] ) || ! is_array( $row['config'] ) ) {
+				continue;
+			}
+			$cfg = $row['config'];
+			if ( empty( $cfg['experiment_key'] ) ) {
+				continue;
+			}
+			$variant = RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $pid );
+			if ( '' === $variant ) {
+				continue;
+			}
+			RWGO_Stats::record_variant_served( (string) $cfg['experiment_key'], $variant );
+		}
 	}
 
 	/**

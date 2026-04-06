@@ -90,6 +90,7 @@ class RWGO_REST_Tracking {
 
 		$nonce = isset( $params['nonce'] ) ? (string) $params['nonce'] : '';
 		if ( ! wp_verify_nonce( $nonce, self::NONCE_ACTION ) ) {
+			self::debug_reject( 'rwgo_invalid_nonce', 'nonce' );
 			return new \WP_Error(
 				'rwgo_invalid_nonce',
 				__( 'Invalid or expired security token.', 'reactwoo-geo-optimise' ),
@@ -110,6 +111,7 @@ class RWGO_REST_Tracking {
 					}
 				}
 				if ( ! isset( $allowed[ $ref_host ] ) ) {
+					self::debug_reject( 'rwgo_invalid_referer', $ref_host );
 					return new \WP_Error(
 						'rwgo_invalid_referer',
 						__( 'Request not allowed from this origin.', 'reactwoo-geo-optimise' ),
@@ -125,6 +127,7 @@ class RWGO_REST_Tracking {
 		 * @param bool $allow Default true.
 		 */
 		if ( ! apply_filters( 'rwgo_allow_client_goal_rest', true ) ) {
+			self::debug_reject( 'rwgo_disabled', 'filter' );
 			return new \WP_Error(
 				'rwgo_disabled',
 				__( 'Client goal recording is disabled.', 'reactwoo-geo-optimise' ),
@@ -138,6 +141,7 @@ class RWGO_REST_Tracking {
 		$variant_id     = isset( $params['variant_id'] ) ? sanitize_key( (string) $params['variant_id'] ) : '';
 
 		if ( '' === $experiment_key || '' === $goal_id || '' === $handler_id || '' === $variant_id ) {
+			self::debug_reject( 'rwgo_missing_fields', wp_json_encode( compact( 'experiment_key', 'goal_id', 'handler_id', 'variant_id' ) ) );
 			return new \WP_Error(
 				'rwgo_missing_fields',
 				__( 'Missing experiment, goal, handler, or variant.', 'reactwoo-geo-optimise' ),
@@ -147,6 +151,7 @@ class RWGO_REST_Tracking {
 
 		$post = RWGO_Experiment_Repository::find_by_experiment_key( $experiment_key );
 		if ( ! $post instanceof \WP_Post ) {
+			self::debug_reject( 'rwgo_unknown_experiment', $experiment_key );
 			return new \WP_Error(
 				'rwgo_unknown_experiment',
 				__( 'Unknown or inactive experiment.', 'reactwoo-geo-optimise' ),
@@ -156,6 +161,7 @@ class RWGO_REST_Tracking {
 
 		$cfg = RWGO_Experiment_Repository::get_config( $post->ID );
 		if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
+			self::debug_reject( 'rwgo_inactive_experiment', (string) ( $cfg['status'] ?? '' ) );
 			return new \WP_Error(
 				'rwgo_inactive_experiment',
 				__( 'Experiment is not active.', 'reactwoo-geo-optimise' ),
@@ -164,6 +170,7 @@ class RWGO_REST_Tracking {
 		}
 
 		if ( RWGO_Goal_Service::is_assignment_only( $cfg ) || empty( $cfg['goals'] ) || ! is_array( $cfg['goals'] ) ) {
+			self::debug_reject( 'rwgo_no_goals', 'assignment_only_or_empty_goals' );
 			return new \WP_Error(
 				'rwgo_no_goals',
 				__( 'This test has no conversion goals.', 'reactwoo-geo-optimise' ),
@@ -173,6 +180,7 @@ class RWGO_REST_Tracking {
 
 		$allowed_variants = RWGO_Experiment_Service::assignment_variant_slugs( $cfg );
 		if ( ! in_array( $variant_id, $allowed_variants, true ) ) {
+			self::debug_reject( 'rwgo_bad_variant', $variant_id . ' not in ' . wp_json_encode( $allowed_variants ) );
 			return new \WP_Error(
 				'rwgo_bad_variant',
 				__( 'Invalid variant for this experiment.', 'reactwoo-geo-optimise' ),
@@ -181,6 +189,7 @@ class RWGO_REST_Tracking {
 		}
 
 		if ( ! self::config_has_goal_handler( $cfg, $goal_id, $handler_id ) ) {
+			self::debug_reject( 'rwgo_bad_goal', $goal_id . '|' . $handler_id );
 			return new \WP_Error(
 				'rwgo_bad_goal',
 				__( 'Goal or handler does not match this experiment.', 'reactwoo-geo-optimise' ),
@@ -234,6 +243,22 @@ class RWGO_REST_Tracking {
 			),
 			201
 		);
+	}
+
+	/**
+	 * @param string $code Error code / stage.
+	 * @param string $detail Extra context (no secrets).
+	 * @return void
+	 */
+	private static function debug_reject( $code, $detail = '' ) {
+		if ( ! defined( 'RWGO_TRACKING_DEBUG' ) || ! RWGO_TRACKING_DEBUG ) {
+			return;
+		}
+		$msg = '[RWGO REST goal] ' . (string) $code;
+		if ( '' !== (string) $detail ) {
+			$msg .= ' — ' . (string) $detail;
+		}
+		error_log( $msg ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
 	}
 
 	/**

@@ -95,6 +95,23 @@ class RWGO_Goal_Registry {
 
 		$strict = class_exists( 'RWGO_Settings', false ) && RWGO_Settings::strict_binding_mode_enabled();
 
+		if ( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG ) {
+			$dbg = array();
+			foreach ( $experiments as $ex ) {
+				if ( ! is_array( $ex ) ) {
+					continue;
+				}
+				$goals = isset( $ex['goals'] ) && is_array( $ex['goals'] ) ? $ex['goals'] : array();
+				$dbg[] = array(
+					'experimentKey'        => isset( $ex['experimentKey'] ) ? (string) $ex['experimentKey'] : '',
+					'resolvedVariant'      => isset( $ex['resolvedVariant'] ) ? (string) $ex['resolvedVariant'] : '',
+					'goalCount'            => count( $goals ),
+					'logicalPrimaryGoalId' => isset( $ex['logicalPrimaryGoalId'] ) ? (string) $ex['logicalPrimaryGoalId'] : '',
+				);
+			}
+			error_log( '[RWGO frontend config] page=' . (string) $queried_post_id . ' ' . wp_json_encode( $dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+		}
+
 		return array(
 			'pageContextId'  => $queried_post_id,
 			'experiments'    => $experiments,

@@ -263,6 +263,7 @@ class RWGO_Admin {
 		$route_hits = isset( $snapshot['route_resolved_count'] ) ? (int) $snapshot['route_resolved_count'] : 0;
 		$assign_n   = isset( $snapshot['assignment_count'] ) ? (int) $snapshot['assignment_count'] : 0;
 		$exp_dist   = isset( $snapshot['experiment_variant_counts'] ) && is_array( $snapshot['experiment_variant_counts'] ) ? $snapshot['experiment_variant_counts'] : array();
+		$exp_served = isset( $snapshot['experiment_variant_served'] ) && is_array( $snapshot['experiment_variant_served'] ) ? $snapshot['experiment_variant_served'] : array();
 		$csv_export_count    = isset( $snapshot['csv_export_count'] ) ? (int) $snapshot['csv_export_count'] : 0;
 		$last_csv_export_gmt = isset( $snapshot['last_csv_export_gmt'] ) ? (string) $snapshot['last_csv_export_gmt'] : '';
 		$assign_per_route    = isset( $snapshot['assignment_per_route_resolved'] ) ? $snapshot['assignment_per_route_resolved'] : '';
@@ -308,6 +309,7 @@ class RWGO_Admin {
 			'route_hits'                => $route_hits,
 			'assign_n'                  => $assign_n,
 			'exp_dist'                  => $exp_dist,
+			'exp_served'                => $exp_served,
 			'assignment_rows'           => $assignment_rows,
 			'csv_export_count'          => $csv_export_count,
 			'last_csv_export_gmt'       => $last_csv_export_gmt,
