@@ -56,10 +56,11 @@ class RWGO_Page_Swapper {
 			if ( empty( $cfg['experiment_key'] ) ) {
 				continue;
 			}
+			$exp_post_id = isset( $row['post'] ) && $row['post'] instanceof \WP_Post ? (int) $row['post']->ID : 0;
 			if ( ! RWGO_Targeting::passes( isset( $cfg['targeting'] ) ? $cfg['targeting'] : array() ) ) {
 				continue;
 			}
-			if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg ) ) {
+			if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg, $exp_post_id ) ) {
 				continue;
 			}
 			$key     = sanitize_key( (string) $cfg['experiment_key'] );
@@ -69,7 +70,7 @@ class RWGO_Page_Swapper {
 			if ( 'control' === $pick || '' === $pick ) {
 				continue;
 			}
-			$target_page = RWGO_Experiment_Service::page_id_for_variant( $cfg, $pick );
+			$target_page = RWGO_Experiment_Service::page_id_for_variant( $cfg, $pick, $exp_post_id );
 			if ( $target_page <= 0 || $target_page === $pid ) {
 				continue;
 			}

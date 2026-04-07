@@ -55,9 +55,13 @@ class RWGO_Promotion_Service {
 			return new \WP_Error( 'rwgo_promotion_perm', __( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
 		}
 
-		$cfg = RWGO_Experiment_Repository::get_config( $experiment_post_id );
+		$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+			RWGO_Experiment_Repository::get_config( $experiment_post_id ),
+			$experiment_post_id,
+			true
+		);
 		$src = (int) ( $cfg['source_page_id'] ?? 0 );
-		$b   = RWGO_Variant_Lifecycle::variant_b_page_id( $cfg );
+		$b   = RWGO_Variant_Lifecycle::variant_b_page_id( $cfg, $experiment_post_id );
 
 		if ( $src <= 0 || $b <= 0 || $b === $src ) {
 			return new \WP_Error( 'rwgo_promotion_config', __( 'Control or Variant B is missing from this test.', 'reactwoo-geo-optimise' ) );

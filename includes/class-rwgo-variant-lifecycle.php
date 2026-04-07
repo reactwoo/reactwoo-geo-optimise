@@ -18,8 +18,8 @@ class RWGO_Variant_Lifecycle {
 	 * @param array<string, mixed> $cfg Config.
 	 * @return int
 	 */
-	public static function variant_b_page_id( array $cfg ) {
-		return RWGO_Experiment_Service::page_id_for_variant( $cfg, 'var_b' );
+	public static function variant_b_page_id( array $cfg, $experiment_post_id = 0 ) {
+		return RWGO_Experiment_Service::page_id_for_variant( $cfg, 'var_b', $experiment_post_id );
 	}
 
 	/**
@@ -66,8 +66,12 @@ class RWGO_Variant_Lifecycle {
 			$variant_page_mode = 'none';
 		}
 
-		$cfg = RWGO_Experiment_Repository::get_config( $experiment_post_id );
-		$b   = self::variant_b_page_id( $cfg );
+		$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+			RWGO_Experiment_Repository::get_config( $experiment_post_id ),
+			$experiment_post_id,
+			true
+		);
+		$b   = self::variant_b_page_id( $cfg, $experiment_post_id );
 		$variants = isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array();
 		$variants = RWGO_Admin_Wizard::patch_variants_var_b( $variants, 0 );
 
@@ -101,12 +105,16 @@ class RWGO_Variant_Lifecycle {
 		if ( $experiment_post_id <= 0 || ! current_user_can( 'edit_post', $experiment_post_id ) ) {
 			return new \WP_Error( 'rwgo_regen_perm', __( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
 		}
-		$cfg = RWGO_Experiment_Repository::get_config( $experiment_post_id );
+		$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+			RWGO_Experiment_Repository::get_config( $experiment_post_id ),
+			$experiment_post_id,
+			true
+		);
 		$src = (int) ( $cfg['source_page_id'] ?? 0 );
 		if ( $src <= 0 || ! current_user_can( 'edit_post', $src ) ) {
 			return new \WP_Error( 'rwgo_regen_source', __( 'Control page is missing or not editable.', 'reactwoo-geo-optimise' ) );
 		}
-		$old_b = self::variant_b_page_id( $cfg );
+		$old_b = self::variant_b_page_id( $cfg, $experiment_post_id );
 		$new   = RWGO_Page_Duplicator::duplicate_page( $src );
 		if ( is_wp_error( $new ) ) {
 			return $new;
@@ -123,6 +131,10 @@ class RWGO_Variant_Lifecycle {
 				'variant_regenerated_at' => gmdate( 'c' ),
 			)
 		);
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$enriched = RWGO_Experiment_Repository::enrich_config_with_page_snapshots( RWGO_Experiment_Repository::get_config( $experiment_post_id ) );
+			RWGO_Experiment_Repository::save_config( $experiment_post_id, $enriched );
+		}
 
 		$trash_old = (bool) apply_filters( 'rwgo_trash_old_variant_on_regenerate', true, $old_b, $experiment_post_id );
 		if ( $trash_old && $old_b > 0 && $old_b !== $new_id && current_user_can( 'delete_post', $old_b ) ) {

@@ -92,6 +92,7 @@ class RWGO_Experiment_Repository {
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;
 			}
+			$cfg = self::normalize_page_bindings( $cfg, $post->ID, true );
 			if ( (int) ( $cfg['source_page_id'] ?? 0 ) !== $source_page_id ) {
 				continue;
 			}
@@ -123,6 +124,7 @@ class RWGO_Experiment_Repository {
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;
 			}
+			$cfg = self::normalize_page_bindings( $cfg, $post->ID, true );
 			if ( ! self::config_touches_page_id( $cfg, $page_id ) ) {
 				continue;
 			}
@@ -132,6 +134,168 @@ class RWGO_Experiment_Repository {
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Add source_page + per-variant post_name / relative_path / post_type from live posts (call on create/update).
+	 *
+	 * @param array<string, mixed> $config Experiment config.
+	 * @return array<string, mixed>
+	 */
+	public static function enrich_config_with_page_snapshots( array $config ) {
+		if ( ! class_exists( 'RWGO_Page_Binding_Resolver', false ) ) {
+			return $config;
+		}
+		$src = (int) ( $config['source_page_id'] ?? 0 );
+		if ( $src > 0 ) {
+			$snap = RWGO_Page_Binding_Resolver::snapshot_for_post( $src );
+			if ( ! empty( $snap ) ) {
+				$config['source_page'] = $snap;
+			}
+		}
+		if ( empty( $config['variants'] ) || ! is_array( $config['variants'] ) ) {
+			return $config;
+		}
+		foreach ( $config['variants'] as $i => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$pid = (int) ( $row['page_id'] ?? 0 );
+			if ( $pid <= 0 ) {
+				continue;
+			}
+			$snap = RWGO_Page_Binding_Resolver::snapshot_for_post( $pid );
+			if ( ! empty( $snap ) ) {
+				$config['variants'][ $i ] = array_merge( $row, $snap );
+			}
+		}
+		return $config;
+	}
+
+	/**
+	 * Heal stale source_page_id / variants[].page_id using stored locators; optionally persist.
+	 *
+	 * @param array<string, mixed> $cfg                 Experiment config.
+	 * @param int                  $experiment_post_id  Experiment CPT id (0 = in-memory only, no save).
+	 * @param bool                 $persist             Save meta when IDs or snapshots change.
+	 * @return array<string, mixed>
+	 */
+	public static function normalize_page_bindings( array $cfg, $experiment_post_id = 0, $persist = true ) {
+		if ( ! class_exists( 'RWGO_Page_Binding_Resolver', false ) ) {
+			return $cfg;
+		}
+		$experiment_post_id = (int) $experiment_post_id;
+		$out                = $cfg;
+
+		$src_binding = isset( $out['source_page'] ) && is_array( $out['source_page'] ) ? $out['source_page'] : array();
+		$src_binding['page_id'] = (int) ( $out['source_page_id'] ?? $src_binding['page_id'] ?? 0 );
+		$new_src                = RWGO_Page_Binding_Resolver::resolve_post_id( $src_binding );
+		if ( $new_src > 0 && (int) ( $out['source_page_id'] ?? 0 ) !== $new_src ) {
+			self::log_binding_heal( $experiment_post_id, 'source_page_id', (int) ( $out['source_page_id'] ?? 0 ), $new_src );
+			$out['source_page_id'] = $new_src;
+		}
+		if ( $new_src > 0 ) {
+			$out['source_page'] = RWGO_Page_Binding_Resolver::snapshot_for_post( $new_src );
+		}
+
+		$vars = isset( $out['variants'] ) && is_array( $out['variants'] ) ? $out['variants'] : array();
+		foreach ( $vars as $i => $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$bind = $row;
+			$bind['page_id'] = (int) ( $row['page_id'] ?? 0 );
+			$new_pid         = RWGO_Page_Binding_Resolver::resolve_post_id( $bind );
+			$vid             = isset( $row['variant_id'] ) ? sanitize_key( (string) $row['variant_id'] ) : '';
+			if ( $new_pid > 0 && (int) ( $row['page_id'] ?? 0 ) !== $new_pid ) {
+				self::log_binding_heal( $experiment_post_id, 'variant:' . $vid, (int) ( $row['page_id'] ?? 0 ), $new_pid );
+				$vars[ $i ]['page_id'] = $new_pid;
+			}
+			$use_id = $new_pid > 0 ? $new_pid : (int) ( $row['page_id'] ?? 0 );
+			if ( $use_id > 0 ) {
+				$snap = RWGO_Page_Binding_Resolver::snapshot_for_post( $use_id );
+				if ( ! empty( $snap ) ) {
+					$vars[ $i ] = array_merge( $vars[ $i ], $snap );
+				}
+			}
+		}
+		$out['variants'] = $vars;
+
+		$sig_before = wp_json_encode( self::binding_signature( $cfg ) );
+		$sig_after  = wp_json_encode( self::binding_signature( $out ) );
+		if ( $persist && $experiment_post_id > 0 && $sig_before !== $sig_after ) {
+			self::save_config( $experiment_post_id, $out );
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return array<string, mixed>
+	 */
+	private static function binding_signature( array $cfg ) {
+		$sig = array(
+			'source_page_id' => (int) ( $cfg['source_page_id'] ?? 0 ),
+			'v'              => array(),
+		);
+		foreach ( isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array() as $row ) {
+			if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
+				continue;
+			}
+			$sig['v'][ sanitize_key( (string) $row['variant_id'] ) ] = (int) ( $row['page_id'] ?? 0 );
+		}
+		ksort( $sig['v'] );
+		return $sig;
+	}
+
+	/**
+	 * @param int    $experiment_post_id Experiment CPT id (0 if unknown).
+	 * @param string $context             Field label.
+	 * @param int    $old_id              Previous ID.
+	 * @param int    $new_id              Resolved ID.
+	 * @return void
+	 */
+	private static function log_binding_heal( $experiment_post_id, $context, $old_id, $new_id ) {
+		if ( (int) $old_id === (int) $new_id ) {
+			return;
+		}
+		$log = ( defined( 'WP_DEBUG' ) && WP_DEBUG )
+			|| ( defined( 'RWGO_PAGE_BINDING_LOG' ) && RWGO_PAGE_BINDING_LOG );
+		if ( ! $log ) {
+			return;
+		}
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug.
+		error_log(
+			sprintf(
+				'[RWGO] Healed page binding (experiment_post_id=%d, %s): %d -> %d',
+				(int) $experiment_post_id,
+				$context,
+				(int) $old_id,
+				(int) $new_id
+			)
+		);
+	}
+
+	/**
+	 * Loop all experiments and normalize bindings (recovery after import/staging).
+	 *
+	 * @return int Number of experiments updated.
+	 */
+	public static function resync_all_page_bindings() {
+		$n = 0;
+		foreach ( self::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
+			if ( ! $post instanceof \WP_Post ) {
+				continue;
+			}
+			$prev = wp_json_encode( self::binding_signature( self::get_config( $post->ID ) ) );
+			self::normalize_page_bindings( self::get_config( $post->ID ), $post->ID, true );
+			$next = wp_json_encode( self::binding_signature( self::get_config( $post->ID ) ) );
+			if ( $prev !== $next ) {
+				++$n;
+			}
+		}
+		return $n;
 	}
 
 	/**

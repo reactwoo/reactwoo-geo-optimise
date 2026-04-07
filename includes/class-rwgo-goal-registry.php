@@ -28,7 +28,11 @@ class RWGO_Goal_Registry {
 			if ( ! $post instanceof \WP_Post ) {
 				continue;
 			}
-			$cfg = RWGO_Experiment_Repository::get_config( $post->ID );
+			$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+				RWGO_Experiment_Repository::get_config( $post->ID ),
+				$post->ID,
+				true
+			);
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] || empty( $cfg['experiment_key'] ) ) {
 				continue;
 			}
@@ -74,7 +78,7 @@ class RWGO_Goal_Registry {
 				);
 			}
 			$resolved_variant = class_exists( 'RWGO_Experiment_Service', false )
-				? RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $queried_post_id )
+				? RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $queried_post_id, $post->ID )
 				: '';
 
 			$variant_labels = class_exists( 'RWGO_GTM_Handoff', false )

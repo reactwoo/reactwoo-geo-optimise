@@ -15,6 +15,21 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RWGO_Experiment_Service {
 
 	/**
+	 * Heal stale page IDs from stored slugs/paths when experiment post id is known (persists); else in-memory only.
+	 *
+	 * @param array<string, mixed> $config             Experiment config.
+	 * @param int                  $experiment_post_id Experiment CPT id (0 = no persist).
+	 * @return array<string, mixed>
+	 */
+	private static function with_normalized_bindings( array $config, $experiment_post_id = 0 ) {
+		if ( ! class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			return $config;
+		}
+		$e = (int) $experiment_post_id;
+		return RWGO_Experiment_Repository::normalize_page_bindings( $config, $e, $e > 0 );
+	}
+
+	/**
 	 * @param int $source_page_id Source post ID.
 	 * @return string
 	 */
@@ -113,7 +128,8 @@ class RWGO_Experiment_Service {
 	 * @param int                  $queried_post_id Post ID.
 	 * @return bool
 	 */
-	public static function experiment_includes_page( array $config, $queried_post_id ) {
+	public static function experiment_includes_page( array $config, $queried_post_id, $experiment_post_id = 0 ) {
+		$config          = self::with_normalized_bindings( $config, $experiment_post_id );
 		$queried_post_id = (int) $queried_post_id;
 		if ( $queried_post_id <= 0 ) {
 			return false;
@@ -157,7 +173,8 @@ class RWGO_Experiment_Service {
 	 * @param string               $variant_id control|var_b.
 	 * @return int 0 if unknown.
 	 */
-	public static function page_id_for_variant( array $config, $variant_id ) {
+	public static function page_id_for_variant( array $config, $variant_id, $experiment_post_id = 0 ) {
+		$config     = self::with_normalized_bindings( $config, $experiment_post_id );
 		$variant_id = sanitize_key( (string) $variant_id );
 		$vars       = isset( $config['variants'] ) && is_array( $config['variants'] ) ? $config['variants'] : array();
 		foreach ( $vars as $row ) {
@@ -177,8 +194,9 @@ class RWGO_Experiment_Service {
 	 * @param array<string, mixed> $config Repository config.
 	 * @return bool
 	 */
-	public static function variant_b_is_routable( array $config ) {
-		$id = self::page_id_for_variant( $config, 'var_b' );
+	public static function variant_b_is_routable( array $config, $experiment_post_id = 0 ) {
+		$config = self::with_normalized_bindings( $config, $experiment_post_id );
+		$id     = self::page_id_for_variant( $config, 'var_b', 0 );
 		if ( $id <= 0 ) {
 			return false;
 		}
@@ -192,7 +210,8 @@ class RWGO_Experiment_Service {
 	 * @param int                  $queried_post_id Current post ID.
 	 * @return string control|var_b|…
 	 */
-	public static function resolve_variant_for_context( array $config, $queried_post_id ) {
+	public static function resolve_variant_for_context( array $config, $queried_post_id, $experiment_post_id = 0 ) {
+		$config          = self::with_normalized_bindings( $config, $experiment_post_id );
 		$queried_post_id = (int) $queried_post_id;
 		$key             = isset( $config['experiment_key'] ) ? sanitize_key( (string) $config['experiment_key'] ) : '';
 		if ( '' === $key ) {
@@ -200,7 +219,7 @@ class RWGO_Experiment_Service {
 		}
 		$source = (int) ( $config['source_page_id'] ?? 0 );
 		if ( $queried_post_id === $source ) {
-			if ( ! self::variant_b_is_routable( $config ) ) {
+			if ( ! self::variant_b_is_routable( $config, 0 ) ) {
 				return 'control';
 			}
 			$slugs   = self::assignment_variant_slugs( $config );

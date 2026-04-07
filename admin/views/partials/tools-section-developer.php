@@ -28,6 +28,19 @@ if ( 'var_b' === $variant ) {
 </div>
 
 <div class="rwgc-card">
+	<h2><?php esc_html_e( 'Resync page bindings (import / staging)', 'reactwoo-geo-optimise' ); ?></h2>
+	<p><?php esc_html_e( 'After cloning the site, changing the front page, or importing SQL, stored page IDs in tests may no longer match this environment. This re-resolves control and variant page IDs using saved slugs and URL paths, then updates each test’s config.', 'reactwoo-geo-optimise' ); ?></p>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<input type="hidden" name="action" value="rwgo_resync_page_bindings" />
+		<?php wp_nonce_field( 'rwgo_resync_page_bindings' ); ?>
+		<?php submit_button( __( 'Resync all tests', 'reactwoo-geo-optimise' ), 'secondary', 'submit', false ); ?>
+	</form>
+	<?php if ( isset( $_GET['rwgo_resynced'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<p class="description"><?php echo esc_html( sprintf( /* translators: %d: number of tests updated */ __( 'Updated %d test(s) whose bindings changed.', 'reactwoo-geo-optimise' ), (int) $_GET['rwgo_resynced'] ) ); ?></p>
+	<?php endif; ?>
+</div>
+
+<div class="rwgc-card">
 	<h2><?php esc_html_e( 'Experiment data in custom code', 'reactwoo-geo-optimise' ); ?></h2>
 	<p><?php esc_html_e( 'For plugins or MU code that must read saved test configuration:', 'reactwoo-geo-optimise' ); ?></p>
 	<ul>

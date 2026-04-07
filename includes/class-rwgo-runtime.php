@@ -48,7 +48,8 @@ class RWGO_Runtime {
 			if ( empty( $cfg['experiment_key'] ) ) {
 				continue;
 			}
-			$variant = RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $pid );
+			$exp_post = isset( $row['post'] ) && $row['post'] instanceof \WP_Post ? $row['post'] : null;
+			$variant  = RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $pid, $exp_post ? (int) $exp_post->ID : 0 );
 			if ( '' === $variant ) {
 				continue;
 			}

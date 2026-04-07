@@ -180,7 +180,11 @@ class RWGO_REST_Tracking {
 			);
 		}
 
-		$cfg = RWGO_Experiment_Repository::get_config( $post->ID );
+		$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+			RWGO_Experiment_Repository::get_config( $post->ID ),
+			$post->ID,
+			true
+		);
 		if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 			self::debug_reject( 'rwgo_inactive_experiment', (string) ( $cfg['status'] ?? '' ) );
 			return new \WP_Error(

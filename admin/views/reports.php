@@ -171,7 +171,7 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 				</ul>
 				<?php
 				if ( 'active' === $st && class_exists( 'RWGO_Experiment_Service', false ) ) :
-					if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg ) ) :
+					if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg, (int) $exp_post->ID ) ) :
 						?>
 				<div class="notice notice-warning inline rwgo-report-health"><p><?php esc_html_e( 'Variant B is not publicly viewable — assignment stays on Control; served and conversion splits may not reflect a live B experience.', 'reactwoo-geo-optimise' ); ?></p></div>
 						<?php

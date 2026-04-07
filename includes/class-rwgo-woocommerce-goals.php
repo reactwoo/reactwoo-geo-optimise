@@ -120,7 +120,11 @@ class RWGO_WooCommerce_Goals {
 			if ( ! $post instanceof \WP_Post ) {
 				continue;
 			}
-			$cfg = RWGO_Experiment_Repository::get_config( $post->ID );
+			$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
+				RWGO_Experiment_Repository::get_config( $post->ID ),
+				$post->ID,
+				true
+			);
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;
 			}
@@ -143,7 +147,7 @@ class RWGO_WooCommerce_Goals {
 				continue;
 			}
 			$ctx = (int) ( $cfg['source_page_id'] ?? 0 );
-			$vp  = (int) RWGO_Experiment_Service::page_id_for_variant( $cfg, $variant_id );
+			$vp  = (int) RWGO_Experiment_Service::page_id_for_variant( $cfg, $variant_id, $post->ID );
 			self::emit( (int) $post->ID, $cfg, $goal_handler['goal'], $goal_handler['handler'], $variant_id, $ctx, $vp > 0 ? $vp : $ctx );
 			$fired[] = $key;
 		}

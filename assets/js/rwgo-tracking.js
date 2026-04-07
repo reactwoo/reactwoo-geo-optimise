@@ -470,9 +470,20 @@
 			}
 		}
 		if (!expKey) {
+			if (cfg.trackClientDebug) {
+				rwgoWarn(
+					'[RWGO] Goal click ignored: this goal_id + handler_id is not in the page config, so experiment_key could not be set.',
+					goalId,
+					handlerId,
+					'Re-save the test goal from this page, or use the same Elementor goal label + goal type on Control and Variant B. Console: rwgoInspectTracking()'
+				);
+			}
 			return;
 		}
 		if (strictBinding && !stampAllowed(el)) {
+			if (cfg.trackClientDebug) {
+				rwgoWarn('[RWGO] Strict binding blocked click: need data-rwgo-element-fingerprint on the stamped widget.', el);
+			}
 			return;
 		}
 		var exp = findExperiment(expKey);
@@ -593,9 +604,58 @@
 		document.addEventListener('submit', onSubmit, true);
 	}
 
+	/** Expose for debugging when Network shows no POST …/rwgo/v1/goal — run in DevTools console. */
+	function exposeDiagnostics() {
+		if (typeof window === 'undefined') {
+			return;
+		}
+		window.rwgoInspectTracking = function () {
+			if (!cfg) {
+				console.warn('[RWGO] rwgoTracking config missing — script not localized for this URL.');
+				return;
+			}
+			var domRows = [];
+			document.querySelectorAll('[data-rwgo-goal-id]').forEach(function (node) {
+				domRows.push({
+					goal_id: node.getAttribute('data-rwgo-goal-id'),
+					handler_id: node.getAttribute('data-rwgo-handler-id'),
+					experiment_key: node.getAttribute('data-rwgo-experiment-key'),
+					tag: node.tagName
+				});
+			});
+			console.log('[RWGO] DOM elements with data-rwgo-goal-id:', domRows.length);
+			if (domRows.length) {
+				console.table(domRows);
+			} else {
+				console.warn(
+					'[RWGO] No data-rwgo-goal-id on this page — in Elementor, open the CTA widget → Advanced → Geo Optimise → enable "Use as Geo Optimise goal".'
+				);
+			}
+			var cfgRows = [];
+			(cfg.experiments || []).forEach(function (ex) {
+				var ek = ex.experimentKey || '';
+				(ex.goals || []).forEach(function (g) {
+					(g.handlers || []).forEach(function (h) {
+						if (g && g.goal_id && h && h.handler_id) {
+							cfgRows.push({
+								experiment_key: ek,
+								goal_id: g.goal_id,
+								handler_id: h.handler_id
+							});
+						}
+					});
+				});
+			});
+			console.log('[RWGO] Localized config goal/handler pairs:', cfgRows.length);
+			console.table(cfgRows);
+			console.log('[RWGO] persistClientGoals:', cfg.persistClientGoals, 'restUrl:', cfg.restUrl, 'hasNonce:', !!cfg.nonce, 'strictBinding:', !!cfg.strictBinding, 'trackClientDebug:', !!cfg.trackClientDebug);
+		};
+	}
+
 	function bootstrapTracking() {
 		function go() {
 			initTracking();
+			exposeDiagnostics();
 		}
 		if (cfg.restNonceUrl) {
 			fetch(cfg.restNonceUrl, { credentials: 'same-origin', cache: 'no-store' })

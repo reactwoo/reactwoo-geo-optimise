@@ -210,6 +210,9 @@ class RWGO_Admin_Wizard {
 			'defined_goal_pending'  => $defined_goal_pending,
 			'defined_goal_mapping'  => $defined_goal_mapping,
 		);
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$config = RWGO_Experiment_Repository::enrich_config_with_page_snapshots( $config );
+		}
 
 		$exp_post = wp_insert_post(
 			array(
@@ -453,7 +456,11 @@ class RWGO_Admin_Wizard {
 			)
 		);
 
-		RWGO_Experiment_Repository::save_config( $exp_id, $config );
+		$merged = array_merge( RWGO_Experiment_Repository::get_config( $exp_id ), $config );
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$merged = RWGO_Experiment_Repository::enrich_config_with_page_snapshots( $merged );
+		}
+		RWGO_Experiment_Repository::save_config( $exp_id, $merged );
 
 		wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_saved' => '1' ) ) );
 		exit;

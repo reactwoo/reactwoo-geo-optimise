@@ -62,6 +62,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-core-event-bridge.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-events.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-cpt.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-page-binding-resolver.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-repository.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-builder-detector.php';

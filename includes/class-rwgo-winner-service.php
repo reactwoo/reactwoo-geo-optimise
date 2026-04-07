@@ -212,6 +212,15 @@ class RWGO_Winner_Service {
 			}
 		}
 
+		// With zero completions every variant has rate 0; do not pick an arbitrary "leader".
+		$total_completions = 0;
+		foreach ( $rows as $r ) {
+			$total_completions += isset( $r['completions'] ) ? (int) $r['completions'] : 0;
+		}
+		if ( $conversion_mode && 0 === $total_completions ) {
+			$lead_slug = null;
+		}
+
 		$breakdown = $conversion_mode && '' !== $key
 			? self::goal_breakdown_rows( $key, $config, $slugs )
 			: array();

@@ -10,7 +10,7 @@ from pathlib import Path
 
 _DEFAULT_FOLDER = "reactwoo-geo-optimise"
 
-INCLUDE_DIRS = ["admin", "includes"]
+INCLUDE_DIRS = ["admin", "assets", "includes"]
 
 INCLUDE_FILES = [
     "reactwoo-geo-optimise.php",

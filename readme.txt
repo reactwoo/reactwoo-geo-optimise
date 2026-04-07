@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.16
+Stable tag: 0.4.19
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,18 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.19 =
+* **Release zip:** `scripts/package_zip.py` now includes the **`assets/`** directory (e.g. `rwgo-tracking.js`) in the R2 build.
+* **Page bindings:** Tests store **`source_page`** and per-variant **`post_name`**, **`post_type`**, **`relative_path`** (plus existing `page_id`). Runtime **`normalize_page_bindings()`** re-resolves IDs when stored IDs point at missing posts, using `url_to_postid` / `get_page_by_path` fallbacks; healed configs can persist. Used by active-test queries, **`build_frontend_config`**, redirects, REST goals, WooCommerce hooks, and promotion flows.
+* **Maintenance:** Developer → **Resync all tests** (re-runs binding normalization for every experiment).
+
+= 0.4.18 =
+* **Debugging:** On the front end, open DevTools → Console and run **`rwgoInspectTracking()`** to compare **`data-rwgo-goal-id`** / **`handler_id`** on the page with the localized experiment config (explains missing **`POST /rwgo/v1/goal`** when pairs do not match). With **`WP_DEBUG`** or **`RWGO_TRACKING_DEBUG`**, ignored goal clicks also log a **`[RWGO]`** warning (wrong pair vs config, or strict binding without fingerprint).
+
+= 0.4.17 =
+* **Reports:** Do not show a “leading variant” on total conversions when **all variants have zero completions** (the previous logic treated 0% vs 0% as a win for whichever variant was ordered first).
+* **Debugging goals:** In Chrome DevTools → **Network**, enable **Preserve log** so requests are kept across full page navigations (e.g. primary CTA links). `rwgo-tracking.js` already uses `fetch(..., { keepalive: true })` for goal POSTs.
 
 = 0.4.16 =
 * **CI:** Publish workflow preflights `GET /health` and retries the update API `POST` on transient 502/503 (aligned with ReactWoo Geo Core).
