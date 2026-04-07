@@ -260,6 +260,13 @@ class RWGO_REST_Tracking {
 
 		do_action( 'rwgo_goal_fired', $payload );
 
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log(
+				'[RWGO REST goal] accepted 201 experiment=' . $experiment_key . ' variant=' . $variant_id . ' goal=' . $goal_id . ' handler=' . $handler_id
+			);
+		}
+
 		return new \WP_REST_Response(
 			array(
 				'success' => true,

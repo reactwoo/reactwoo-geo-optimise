@@ -81,7 +81,7 @@ class RWGO_Event_Store {
 		}
 		global $wpdb;
 		$table = self::table_name();
-		$wpdb->insert(
+		$inserted = $wpdb->insert(
 			$table,
 			array(
 				'event_instance_id'      => substr( (string) ( $payload['event_instance_id'] ?? '' ), 0, 64 ),
@@ -120,7 +120,20 @@ class RWGO_Event_Store {
 				'%s',
 			)
 		);
+		if ( false === $inserted ) {
+			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+				error_log( '[RWGO EventStore] DB insert failed: ' . $wpdb->last_error . ' (is wp_rwgo_events table missing? Run plugin activation or check DB permissions.)' );
+			}
+			return;
+		}
 		$insert_id = (int) $wpdb->insert_id;
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && $insert_id > 0 ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			error_log(
+				'[RWGO EventStore] row_id=' . (string) $insert_id . ' experiment=' . (string) ( $payload['experiment_key'] ?? '' ) . ' goal=' . (string) ( $payload['goal_id'] ?? '' )
+			);
+		}
 		/**
 		 * After a goal row is stored.
 		 *

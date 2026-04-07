@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.14
+Stable tag: 0.4.15
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.15 =
+* **Diagnostics:** With **`WP_DEBUG`**, `trackClientDebug` is on in the browser (console shows successful goal POSTs and REST errors). **`error_log`** lines: **`[RWGO REST goal] accepted 201`** after a valid POST; **`[RWGO EventStore] row_id=…`** after DB insert; **`[RWGO EventStore] DB insert failed`** if `wp_rwgo_events` is missing or the insert errors (reactivate plugin or run DB upgrade).
 
 = 0.4.14 =
 * **Admin:** If `assets/js/rwgo-tracking.js` is missing on disk (incomplete upload), show a **persistent error notice** so staging/production deploys are not silent failures.

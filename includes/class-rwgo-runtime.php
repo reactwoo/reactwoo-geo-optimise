@@ -136,7 +136,11 @@ class RWGO_Runtime {
 		 *
 		 * @param bool $debug Default: RWGO_TRACKING_DEBUG or false.
 		 */
-		$config['trackClientDebug'] = (bool) apply_filters( 'rwgo_tracking_client_debug', defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG );
+		$config['trackClientDebug'] = (bool) apply_filters(
+			'rwgo_tracking_client_debug',
+			( defined( 'RWGO_TRACKING_DEBUG' ) && RWGO_TRACKING_DEBUG )
+				|| ( defined( 'WP_DEBUG' ) && WP_DEBUG )
+		);
 
 		$tracking_src = plugins_url( 'assets/js/rwgo-tracking.js', RWGO_FILE );
 		$tracking_path = RWGO_PATH . 'assets/js/rwgo-tracking.js';
