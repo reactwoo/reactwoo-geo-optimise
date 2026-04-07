@@ -27,7 +27,6 @@ jobs:
     env:
       PLUGIN_SLUG: reactwoo-geo-optimise
       MAIN_PHP: reactwoo-geo-optimise.php
-      API_BASE: https://api.reactwoo.com
       API_PUBLISH_URL: https://api.reactwoo.com/api/v5/updates/publish
     steps:
       - name: Checkout
@@ -114,22 +113,6 @@ jobs:
           set -euo pipefail
           aws s3 cp "${PLUGIN_SLUG}.zip" "s3://${{ secrets.R2_BUCKET }}/${{ steps.meta.outputs.artifact_key }}" \
             --endpoint-url "${{ steps.r2.outputs.endpoint }}"
-
-      - name: Preflight — API reachable (Node behind proxy)
-        shell: bash
-        run: |
-          set -euo pipefail
-          # 503 HTML from cPanel usually means the proxy could not reach PM2 / Node — fix on server, not in GitHub.
-          for i in 1 2 3 4 5; do
-            CODE="$(curl -sS -o /dev/null -w "%{http_code}" "${API_BASE}/health" 2>/dev/null || echo "000")"
-            echo "Attempt ${i}: GET ${API_BASE}/health -> HTTP ${CODE}"
-            if [[ "${CODE}" == "200" ]]; then
-              exit 0
-            fi
-            sleep 15
-          done
-          echo "::error::API did not return HTTP 200 on GET /health after 5 tries (last code: ${CODE}). On the cPanel host: \`npx pm2 status\`, \`npx pm2 logs reactwoo-api\`, then \`npx pm2 reload ecosystem.config.js --env production\` (see docs/PRODUCTION-SERVER.md)."
-          exit 1
 
       - name: Publish release metadata to API
         shell: bash
