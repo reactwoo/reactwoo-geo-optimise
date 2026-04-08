@@ -203,6 +203,13 @@ class RWGO_Experiment_Repository {
 		$src_binding = isset( $out['source_page'] ) && is_array( $out['source_page'] ) ? $out['source_page'] : array();
 		$src_binding['page_id'] = (int) ( $out['source_page_id'] ?? $src_binding['page_id'] ?? 0 );
 		$new_src = RWGO_Page_Binding_Resolver::resolve_post_id( $src_binding );
+		if ( $new_src > 0 ) {
+			$legacy_home = self::infer_legacy_homepage_source_id( $out, $src_binding, $new_src );
+			if ( $legacy_home > 0 && $legacy_home !== $new_src ) {
+				self::log_binding_heal( $experiment_post_id, 'source_page_id', $new_src, $legacy_home );
+				$new_src = $legacy_home;
+			}
+		}
 		if ( $new_src > 0 && (int) ( $out['source_page_id'] ?? 0 ) !== $new_src ) {
 			self::log_binding_heal( $experiment_post_id, 'source_page_id', (int) ( $out['source_page_id'] ?? 0 ), $new_src );
 			$out['source_page_id'] = $new_src;
@@ -241,6 +248,51 @@ class RWGO_Experiment_Repository {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Legacy migration fallback for old tests that were created against a stale "Home" clone.
+	 * Applies only when snapshot metadata is missing and experiment key still points to old source ID.
+	 *
+	 * @param array<string, mixed> $cfg         Experiment config.
+	 * @param array<string, mixed> $src_binding Source binding row.
+	 * @param int                  $resolved_src Source resolved by standard resolver.
+	 * @return int Front page ID or 0.
+	 */
+	private static function infer_legacy_homepage_source_id( array $cfg, array $src_binding, $resolved_src ) {
+		$resolved_src  = (int) $resolved_src;
+		$show_on_front = (string) get_option( 'show_on_front', 'posts' );
+		$page_on_front = (int) get_option( 'page_on_front', 0 );
+		if ( 'page' !== $show_on_front || $page_on_front <= 0 || $resolved_src <= 0 || $resolved_src === $page_on_front ) {
+			return 0;
+		}
+
+		$has_locator = ! empty( $src_binding['is_front_page'] )
+			|| ! empty( $src_binding['relative_path'] )
+			|| ! empty( $src_binding['post_name'] );
+		if ( $has_locator ) {
+			return 0;
+		}
+
+		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
+		if ( '' === $key || false === strpos( $key, 'rwgo_page_' . $resolved_src . '_ab_' ) ) {
+			return 0;
+		}
+
+		$src = get_post( $resolved_src );
+		if ( ! $src instanceof \WP_Post || 'page' !== $src->post_type || 'trash' === $src->post_status ) {
+			return 0;
+		}
+
+		$name  = sanitize_key( (string) $src->post_name );
+		$title = strtolower( sanitize_text_field( (string) $src->post_title ) );
+		$looks_like_home = in_array( $name, array( 'home', 'homepage', 'home-page' ), true )
+			|| false !== strpos( $title, 'home' );
+		if ( ! $looks_like_home ) {
+			return 0;
+		}
+
+		return $page_on_front;
 	}
 
 	/**

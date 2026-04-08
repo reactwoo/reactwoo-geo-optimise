@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.20
+Stable tag: 0.4.21
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,10 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.21 =
+* **Legacy homepage migration:** `normalize_page_bindings()` now applies a narrow fallback for old tests created before snapshot locators were stored. When `experiment_key` still encodes a stale home clone source and source locators are missing, it can resync `source_page_id` to the current `page_on_front`.
+* **Resync reliability:** keeps existing resolver-first behavior, but adds this guarded legacy bridge so old homepage experiments can reattach to runtime control context after import/cloning.
 
 = 0.4.20 =
 * **Canonical page bindings:** Snapshots include **`is_front_page`**, **`is_posts_page`**, **`is_shop_page`**, and **`relative_path`** (front page uses `/`). **`RWGO_Experiment_Repository::build_page_binding_snapshot()`** wraps the resolver; **`resolve_post_id()`** applies special roles (front / posts / shop) before trusting stale IDs, so homepage tests align with Reading settings after import or front-page changes.
