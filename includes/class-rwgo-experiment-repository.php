@@ -267,11 +267,14 @@ class RWGO_Experiment_Repository {
 			return 0;
 		}
 
-		$has_locator = ! empty( $src_binding['is_front_page'] )
-			|| ! empty( $src_binding['relative_path'] )
-			|| ! empty( $src_binding['post_name'] );
-		if ( $has_locator ) {
-			return 0;
+		$binding_rel = isset( $src_binding['relative_path'] ) ? '/' . trim( (string) $src_binding['relative_path'], '/' ) : '';
+		$binding_rel = '/' === $binding_rel ? '/' : untrailingslashit( $binding_rel );
+		$binding_slug = isset( $src_binding['post_name'] ) ? sanitize_key( (string) $src_binding['post_name'] ) : '';
+		$binding_points_home = ( '/' === $binding_rel || '' === $binding_rel )
+			|| in_array( $binding_rel, array( '/home', '/homepage', '/home-page' ), true )
+			|| in_array( $binding_slug, array( 'home', 'homepage', 'home-page' ), true );
+		if ( ! empty( $src_binding['is_front_page'] ) ) {
+			$binding_points_home = true;
 		}
 
 		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
@@ -298,11 +301,11 @@ class RWGO_Experiment_Repository {
 			$fp = wp_parse_url( $fp_url, PHP_URL_PATH );
 			$same_path = is_string( $sp ) && is_string( $fp ) && untrailingslashit( $sp ) === untrailingslashit( $fp );
 		}
-		if ( ! $looks_like_home && ! $same_title && ! $same_path ) {
+		if ( ! $looks_like_home && ! $same_title && ! $same_path && ! $binding_points_home ) {
 			self::log_binding_skipped(
 				$cfg,
 				sprintf(
-					'legacy-home fallback skipped: src=%d fp=%d no home/same-title/same-path signal',
+					'legacy-home fallback skipped: src=%d fp=%d no home/same-title/same-path/binding-home signal',
 					$resolved_src,
 					$page_on_front
 				)
