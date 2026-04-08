@@ -118,23 +118,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PAYLOAD="$(cat <<EOF
-          {
-            "slug": "${PLUGIN_SLUG}",
-            "version": "${{ steps.meta.outputs.version }}",
-            "channel": "${{ steps.meta.outputs.channel }}",
-            "artifact_key": "${{ steps.meta.outputs.artifact_key }}",
-            "sha256": "${{ steps.meta.outputs.sha256 }}",
-            "min_php": "${{ steps.meta.outputs.min_php }}",
-            "tested_up_to": "${{ steps.meta.outputs.tested_up_to }}",
-            "rollout_percentage": ${{ steps.meta.outputs.rollout }}
+          python - <<'PY'
+          import json
+          import os
+          payload = {
+              "slug": os.environ["PLUGIN_SLUG"],
+              "version": "${{ steps.meta.outputs.version }}",
+              "channel": "${{ steps.meta.outputs.channel }}",
+              "artifact_key": "${{ steps.meta.outputs.artifact_key }}",
+              "sha256": "${{ steps.meta.outputs.sha256 }}",
+              "min_php": "${{ steps.meta.outputs.min_php }}",
+              "tested_up_to": "${{ steps.meta.outputs.tested_up_to }}",
+              "rollout_percentage": int("${{ steps.meta.outputs.rollout }}"),
           }
-          EOF
-          )"
+          with open("publish-payload.json", "w", encoding="utf-8") as fh:
+              json.dump(payload, fh, separators=(",", ":"))
+          PY
+          python -m json.tool publish-payload.json >/dev/null
 
           # Retry: transient 502/503 from proxy or brief Node restarts (curl retries 5xx by default).
           curl --fail-with-body -sS -X POST "${API_PUBLISH_URL}" \
+            --http1.1 \
             --retry 8 --retry-delay 15 \
             -H "Authorization: Bearer ${{ secrets.UPDATES_PUBLISH_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            --data "${PAYLOAD}"
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data-binary @publish-payload.json
