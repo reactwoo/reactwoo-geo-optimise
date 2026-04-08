@@ -334,6 +334,67 @@ class RWGO_Goal_Registry {
 		return $out;
 	}
 
+	/**
+	 * Older automatic builder goals may only retain a generic click/form shell with no builder metadata.
+	 *
+	 * @param array<string, mixed> $goal Saved goal row.
+	 * @return bool
+	 */
+	private static function is_legacy_automatic_builder_goal( array $goal ) {
+		if ( ! empty( $goal['builder'] ) || ! empty( $goal['ui_goal_type'] ) || ! empty( $goal['source_type'] ) || ! empty( $goal['elementor_id'] ) ) {
+			return false;
+		}
+		$gt = isset( $goal['goal_type'] ) ? sanitize_key( (string) $goal['goal_type'] ) : '';
+		return in_array( $gt, array( 'click', 'form_submit' ), true );
+	}
+
+	/**
+	 * If a legacy automatic builder goal has exactly one stable live key across the touched pages,
+	 * expand against that key as a backwards-compatible fallback.
+	 *
+	 * @param list<array<string, mixed>> $discovered Live discovered rows.
+	 * @param string                     $builder    Effective builder slug.
+	 * @param string                     $goal_type  Goal type.
+	 * @return array{key: string, rows: list<array<string, mixed>>}
+	 */
+	private static function legacy_auto_match_group( array $discovered, $builder, $goal_type ) {
+		$builder = sanitize_key( (string) $builder );
+		$goal_type = sanitize_key( (string) $goal_type );
+		$groups = array();
+		foreach ( $discovered as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			if ( sanitize_key( (string) ( $row['builder'] ?? '' ) ) !== $builder ) {
+				continue;
+			}
+			if ( sanitize_key( (string) ( $row['goal_type'] ?? '' ) ) !== $goal_type ) {
+				continue;
+			}
+			$key = class_exists( 'RWGO_Defined_Goal_Service', false )
+				? RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $row, false )
+				: '';
+			if ( '' === $key ) {
+				continue;
+			}
+			if ( ! isset( $groups[ $key ] ) ) {
+				$groups[ $key ] = array();
+			}
+			$groups[ $key ][] = $row;
+		}
+		if ( 1 !== count( $groups ) ) {
+			return array(
+				'key'  => '',
+				'rows' => array(),
+			);
+		}
+		$key = (string) array_key_first( $groups );
+		return array(
+			'key'  => $key,
+			'rows' => $groups[ $key ],
+		);
+	}
+
 	private static function expand_defined_elementor_goals_across_pages( array $goals, array $cfg ) {
 		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
 			return $goals;
@@ -483,6 +544,18 @@ class RWGO_Goal_Registry {
 				$goal_dbg['best_score']        = $best_score;
 				$goal_dbg['matched_rows']      = count( $matched_rows );
 				error_log( '[RWGO expand] goal result ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+			}
+			if ( empty( $matched_rows ) && self::is_legacy_automatic_builder_goal( $g ) ) {
+				$legacy_group = self::legacy_auto_match_group( $discovered, $b, $gt );
+				if ( ! empty( $legacy_group['rows'] ) ) {
+					$matched_rows = $legacy_group['rows'];
+					if ( $debug_enabled ) {
+						$goal_dbg['legacy_auto_match'] = true;
+						$goal_dbg['best_key']          = (string) $legacy_group['key'];
+						$goal_dbg['matched_rows']      = count( $matched_rows );
+						error_log( '[RWGO expand] legacy auto match ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+					}
+				}
 			}
 			if ( empty( $matched_rows ) ) {
 				continue;
