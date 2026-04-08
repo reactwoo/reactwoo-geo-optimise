@@ -54,6 +54,27 @@ if ( 'var_b' === $variant ) {
 </div>
 
 <div class="rwgc-card">
+	<h2><?php esc_html_e( 'Resync conversion goal IDs (Elementor / Gutenberg)', 'reactwoo-geo-optimise' ); ?></h2>
+	<p><?php esc_html_e( 'Saved tests store goal_id and handler_id from the builder. If a CTA widget was recreated, duplicated, or imported, those IDs no longer match the live page and clicks will not track. This scans every defined-goal test, re-reads Control and Variant B content, matches goals by label and goal type, and updates stored IDs.', 'reactwoo-geo-optimise' ); ?></p>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<input type="hidden" name="action" value="rwgo_resync_goal_physical_ids" />
+		<?php wp_nonce_field( 'rwgo_resync_goal_physical_ids' ); ?>
+		<?php submit_button( __( 'Resync goal IDs for all tests', 'reactwoo-geo-optimise' ), 'secondary', 'submit', false ); ?>
+	</form>
+	<?php if ( isset( $_GET['rwgo_goal_resync'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<?php
+		$rwgo_gr_upd = isset( $_GET['rwgo_goal_resync'] ) ? (int) $_GET['rwgo_goal_resync'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_gr_sc  = isset( $_GET['rwgo_gr_scanned'] ) ? (int) $_GET['rwgo_gr_scanned'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_gr_pt  = isset( $_GET['rwgo_gr_patched'] ) ? (int) $_GET['rwgo_gr_patched'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		?>
+		<p class="description"><?php echo esc_html( sprintf( /* translators: 1: tests with config changes, 2: tests scanned */ __( '%1$d test(s) updated (scanned %2$d).', 'reactwoo-geo-optimise' ), $rwgo_gr_upd, $rwgo_gr_sc ) ); ?></p>
+		<?php if ( $rwgo_gr_pt > 0 ) : ?>
+			<p class="description"><?php echo esc_html( sprintf( /* translators: %d: goal rows patched */ __( 'Goal rows refreshed: %d.', 'reactwoo-geo-optimise' ), $rwgo_gr_pt ) ); ?></p>
+		<?php endif; ?>
+	<?php endif; ?>
+</div>
+
+<div class="rwgc-card">
 	<h2><?php esc_html_e( 'Experiment data in custom code', 'reactwoo-geo-optimise' ); ?></h2>
 	<p><?php esc_html_e( 'For plugins or MU code that must read saved test configuration:', 'reactwoo-geo-optimise' ); ?></p>
 	<ul>

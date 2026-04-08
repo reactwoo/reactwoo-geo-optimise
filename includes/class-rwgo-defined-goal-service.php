@@ -500,4 +500,248 @@ class RWGO_Defined_Goal_Service {
 		}
 		return $warnings;
 	}
+
+	/**
+	 * Match key for aligning saved experiment goals with {@see collect_for_post()} rows (label + UI type + builder).
+	 *
+	 * @param array<string, mixed> $row Discovered or saved goal-shaped array.
+	 * @param bool                 $saved_row When true, read `label`; when false, read `goal_label`.
+	 * @return string Empty if not comparable (e.g. page_destination).
+	 */
+	private static function goal_physical_match_key( array $row, $saved_row = false ) {
+		$builder = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
+		$st      = isset( $row['source_type'] ) ? sanitize_key( (string) $row['source_type'] ) : '';
+		$prefix  = '';
+		if ( 'elementor' === $builder && ( 'elementor_widget' === $st || ( $saved_row && ( '' === $st || 'defined' === $st ) ) ) ) {
+			$prefix = 'el:';
+		} elseif ( 'gutenberg' === $builder && ( 'gutenberg_block' === $st || ( $saved_row && ( '' === $st || 'defined' === $st ) ) ) ) {
+			$prefix = 'gb:';
+		} else {
+			return '';
+		}
+		$label = $saved_row
+			? ( isset( $row['label'] ) ? sanitize_text_field( (string) $row['label'] ) : '' )
+			: ( isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '' );
+		$ui    = isset( $row['ui_goal_type'] ) ? sanitize_key( (string) $row['ui_goal_type'] ) : '';
+		return $prefix . $label . "\x1e" . $ui;
+	}
+
+	/**
+	 * Which page a saved goal row belongs to for resync (Control vs Variant B).
+	 *
+	 * @param array<string, mixed> $cfg Full experiment config (normalized).
+	 * @param array<string, mixed> $g   One goal row.
+	 * @return int 0 if unknown.
+	 */
+	private static function page_id_for_saved_defined_goal( array $cfg, array $g ) {
+		$mv = isset( $g['mapping_variant'] ) ? sanitize_key( (string) $g['mapping_variant'] ) : '';
+		$src = (int) ( $cfg['source_page_id'] ?? 0 );
+		$var_b = 0;
+		if ( ! empty( $cfg['variants'] ) && is_array( $cfg['variants'] ) ) {
+			foreach ( $cfg['variants'] as $row ) {
+				if ( is_array( $row ) && isset( $row['variant_id'] ) && 'var_b' === sanitize_key( (string) $row['variant_id'] ) ) {
+					$var_b = (int) ( $row['page_id'] ?? 0 );
+					break;
+				}
+			}
+		}
+		if ( 'control' === $mv ) {
+			return $src;
+		}
+		if ( 'var_b' === $mv ) {
+			return $var_b;
+		}
+		if ( '' === $mv && ! empty( $g['is_primary'] ) ) {
+			return $src;
+		}
+		if ( '' === $mv ) {
+			return $src > 0 ? $src : $var_b;
+		}
+		return 0;
+	}
+
+	/**
+	 * Pick the next live builder row for a saved goal: prefer still-valid IDs, else first unused label+UI match.
+	 *
+	 * @param list<array<string, mixed>> $live       Goals from {@see collect_for_post()}.
+	 * @param array<string, mixed>       $saved      Saved goal row.
+	 * @param array<string, true>        $used_keys  Consumed pool keys (mutated).
+	 * @return array<string, mixed>|null
+	 */
+	private static function pick_live_row_for_saved_goal( array $live, array $saved, array &$used_keys ) {
+		$sgid = isset( $saved['goal_id'] ) ? sanitize_key( (string) $saved['goal_id'] ) : '';
+		$h0   = isset( $saved['handlers'][0] ) && is_array( $saved['handlers'][0] ) ? $saved['handlers'][0] : array();
+		$shid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
+		foreach ( $live as $row ) {
+			if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
+				continue;
+			}
+			if ( $sgid !== '' && $shid !== ''
+				&& (string) $row['goal_id'] === $sgid
+				&& isset( $row['handler_id'] ) && (string) $row['handler_id'] === $shid ) {
+				return $row;
+			}
+		}
+		$want = self::goal_physical_match_key( $saved, true );
+		if ( '' === $want ) {
+			return null;
+		}
+		foreach ( $live as $row ) {
+			if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
+				continue;
+			}
+			if ( self::goal_physical_match_key( $row, false ) !== $want ) {
+				continue;
+			}
+			$pk = (string) $row['goal_id'] . '|' . sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
+			if ( isset( $used_keys[ $pk ] ) ) {
+				continue;
+			}
+			return $row;
+		}
+		return null;
+	}
+
+	/**
+	 * Refresh saved `goal_id` / `handler_id` from live Elementor/Gutenberg definitions (after widget duplicate, import, etc.).
+	 *
+	 * Matches by label + ui_goal_type + builder (same strategy as frontend goal expansion). Updates
+	 * `defined_goal_mapping.targets` when logical mapping is active.
+	 *
+	 * @param array<string, mixed> $cfg                 Experiment config.
+	 * @param int                  $experiment_post_id Experiment CPT id for binding normalize (0 = skip persist path only).
+	 * @return array{ changed: bool, config: array<string, mixed>, goals_updated: int }
+	 */
+	public static function resync_physical_goal_ids_for_config( array $cfg, $experiment_post_id = 0 ) {
+		$experiment_post_id = (int) $experiment_post_id;
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$cfg = RWGO_Experiment_Repository::normalize_page_bindings( $cfg, $experiment_post_id, false );
+		}
+		$out       = $cfg;
+		$changed   = false;
+		$updated_n = 0;
+		if ( empty( $out['goal_selection_mode'] ) || 'defined' !== $out['goal_selection_mode'] ) {
+			return array(
+				'changed'       => false,
+				'config'        => $out,
+				'goals_updated' => 0,
+			);
+		}
+		$goals = isset( $out['goals'] ) && is_array( $out['goals'] ) ? $out['goals'] : array();
+		if ( empty( $goals ) ) {
+			return array(
+				'changed'       => false,
+				'config'        => $out,
+				'goals_updated' => 0,
+			);
+		}
+
+		$pids = array();
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) || empty( $g['is_defined'] ) ) {
+				continue;
+			}
+			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				continue;
+			}
+			$pid = self::page_id_for_saved_defined_goal( $out, $g );
+			if ( $pid > 0 ) {
+				$pids[ $pid ] = true;
+			}
+		}
+		$live_by_page = array();
+		foreach ( array_keys( $pids ) as $pid ) {
+			$live_by_page[ (int) $pid ] = self::collect_for_post( (int) $pid );
+		}
+
+		$used_by_page = array();
+		foreach ( array_keys( $pids ) as $pid ) {
+			$used_by_page[ (int) $pid ] = array();
+		}
+
+		foreach ( $goals as $i => $g ) {
+			if ( ! is_array( $g ) || empty( $g['is_defined'] ) ) {
+				continue;
+			}
+			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				continue;
+			}
+			$pid = self::page_id_for_saved_defined_goal( $out, $g );
+			if ( $pid <= 0 || empty( $live_by_page[ $pid ] ) ) {
+				continue;
+			}
+			$live = $live_by_page[ $pid ];
+			$pick = self::pick_live_row_for_saved_goal( $live, $g, $used_by_page[ $pid ] );
+			if ( ! is_array( $pick ) || empty( $pick['goal_id'] ) || empty( $pick['handler_id'] ) ) {
+				continue;
+			}
+			$pk = (string) $pick['goal_id'] . '|' . sanitize_key( (string) $pick['handler_id'] );
+			$used_by_page[ $pid ][ $pk ] = true;
+
+			$old_gid = isset( $g['goal_id'] ) ? sanitize_key( (string) $g['goal_id'] ) : '';
+			$h0      = isset( $g['handlers'][0] ) && is_array( $g['handlers'][0] ) ? $g['handlers'][0] : array();
+			$old_hid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
+			$new_gid = sanitize_key( (string) $pick['goal_id'] );
+			$new_hid = sanitize_key( (string) $pick['handler_id'] );
+			if ( $old_gid === $new_gid && $old_hid === $new_hid ) {
+				continue;
+			}
+			$goals[ $i ]['goal_id'] = $new_gid;
+			if ( ! isset( $goals[ $i ]['handlers'] ) || ! is_array( $goals[ $i ]['handlers'] ) ) {
+				$goals[ $i ]['handlers'] = array();
+			}
+			if ( ! isset( $goals[ $i ]['handlers'][0] ) || ! is_array( $goals[ $i ]['handlers'][0] ) ) {
+				$goals[ $i ]['handlers'][0] = array();
+			}
+			$goals[ $i ]['handlers'][0]['handler_id'] = $new_hid;
+			$changed                                   = true;
+			++$updated_n;
+		}
+
+		$out['goals'] = $goals;
+
+		if ( $changed && class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $out ) ) {
+			$targets = array(
+				'control' => array(),
+				'var_b'   => array(),
+			);
+			foreach ( $goals as $g ) {
+				if ( ! is_array( $g ) || empty( $g['mapping_variant'] ) || empty( $g['goal_id'] ) ) {
+					continue;
+				}
+				$vk = sanitize_key( (string) $g['mapping_variant'] );
+				if ( ! in_array( $vk, array( 'control', 'var_b' ), true ) ) {
+					continue;
+				}
+				$h0 = isset( $g['handlers'][0] ) && is_array( $g['handlers'][0] ) ? $g['handlers'][0] : array();
+				$hid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
+				if ( '' === $hid ) {
+					continue;
+				}
+				$targets[ $vk ][] = array(
+					'goal_id'    => sanitize_key( (string) $g['goal_id'] ),
+					'handler_id' => $hid,
+				);
+			}
+			if ( ! isset( $out['defined_goal_mapping'] ) || ! is_array( $out['defined_goal_mapping'] ) ) {
+				$out['defined_goal_mapping'] = array();
+			}
+			$out['defined_goal_mapping']['targets'] = $targets;
+		}
+
+		if ( $changed && ( ! class_exists( 'RWGO_Goal_Mapping', false ) || ! RWGO_Goal_Mapping::is_active( $out ) ) ) {
+			foreach ( $goals as $g ) {
+				if ( is_array( $g ) && ! empty( $g['is_primary'] ) && ! empty( $g['goal_id'] ) ) {
+					$out['primary_goal_id'] = sanitize_key( (string) $g['goal_id'] );
+					break;
+				}
+			}
+		}
+
+		return array(
+			'changed'       => $changed,
+			'config'        => $out,
+			'goals_updated' => $updated_n,
+		);
+	}
 }

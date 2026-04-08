@@ -578,6 +578,46 @@ class RWGO_Experiment_Repository {
 	}
 
 	/**
+	 * Refresh stored Elementor/Gutenberg goal_id + handler_id from live page JSON for all defined-goal tests.
+	 *
+	 * @return array{ scanned: int, updated: int, goals_patched: int }
+	 */
+	public static function resync_all_defined_goal_physical_ids() {
+		$scanned       = 0;
+		$updated       = 0;
+		$goals_patched = 0;
+		if ( ! class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+			return array(
+				'scanned'       => 0,
+				'updated'       => 0,
+				'goals_patched' => 0,
+			);
+		}
+		foreach ( self::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
+			if ( ! $post instanceof \WP_Post ) {
+				continue;
+			}
+			++$scanned;
+			$raw = self::get_config( $post->ID );
+			if ( empty( $raw['goal_selection_mode'] ) || 'defined' !== $raw['goal_selection_mode'] ) {
+				continue;
+			}
+			$result = RWGO_Defined_Goal_Service::resync_physical_goal_ids_for_config( $raw, (int) $post->ID );
+			if ( empty( $result['changed'] ) ) {
+				continue;
+			}
+			self::save_config( (int) $post->ID, $result['config'] );
+			++$updated;
+			$goals_patched += (int) ( $result['goals_updated'] ?? 0 );
+		}
+		return array(
+			'scanned'       => $scanned,
+			'updated'       => $updated,
+			'goals_patched' => $goals_patched,
+		);
+	}
+
+	/**
 	 * Manual-resync-only safety valve: force source -> current front page for legacy homepage clones.
 	 *
 	 * @param array<string, mixed> $cfg        Experiment config.

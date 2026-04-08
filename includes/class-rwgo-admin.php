@@ -250,6 +250,7 @@ class RWGO_Admin {
 		add_action( 'admin_post_rwgo_regenerate_variant', array( __CLASS__, 'handle_regenerate_variant' ) );
 		add_action( 'admin_post_rwgo_delete_test', array( __CLASS__, 'handle_delete_test' ) );
 		add_action( 'admin_post_rwgo_resync_page_bindings', array( __CLASS__, 'handle_resync_page_bindings' ) );
+		add_action( 'admin_post_rwgo_resync_goal_physical_ids', array( __CLASS__, 'handle_resync_goal_physical_ids' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -989,6 +990,35 @@ class RWGO_Admin {
 				'rwgo_rs_src'      => (string) (int) ( $stats['source_repaired'] ?? 0 ),
 				'rwgo_rs_var'      => (string) (int) ( $stats['variant_repaired'] ?? 0 ),
 				'rwgo_rs_forced'   => (string) (int) ( $stats['forced_frontpage'] ?? 0 ),
+			),
+			self::developer_url( 'developer' )
+		);
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Re-read Elementor/Gutenberg JSON on Control + Variant B and update saved goal_id / handler_id (after widget replace, import, etc.).
+	 *
+	 * @return void
+	 */
+	public static function handle_resync_goal_physical_ids() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_resync_goal_physical_ids' );
+		$stats = class_exists( 'RWGO_Experiment_Repository', false )
+			? RWGO_Experiment_Repository::resync_all_defined_goal_physical_ids()
+			: array(
+				'scanned'       => 0,
+				'updated'       => 0,
+				'goals_patched' => 0,
+			);
+		$url = add_query_arg(
+			array(
+				'rwgo_goal_resync' => (string) (int) ( $stats['updated'] ?? 0 ),
+				'rwgo_gr_scanned'  => (string) (int) ( $stats['scanned'] ?? 0 ),
+				'rwgo_gr_patched'  => (string) (int) ( $stats['goals_patched'] ?? 0 ),
 			),
 			self::developer_url( 'developer' )
 		);
