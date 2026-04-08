@@ -465,7 +465,8 @@ class RWGO_Goal_Registry {
 			$pairs_present[ sanitize_key( (string) $g['goal_id'] ) . '|' . $hid ] = true;
 		}
 
-		$out = $goals;
+		$out             = $goals;
+		$pairs_to_remove = array();
 		foreach ( $goals as $g ) {
 			if ( ! is_array( $g ) ) {
 				continue;
@@ -549,6 +550,14 @@ class RWGO_Goal_Registry {
 				$legacy_group = self::legacy_auto_match_group( $discovered, $b, $gt );
 				if ( ! empty( $legacy_group['rows'] ) ) {
 					$matched_rows = $legacy_group['rows'];
+					$orig_h0      = isset( $g['handlers'][0] ) && is_array( $g['handlers'][0] ) ? $g['handlers'][0] : array();
+					$orig_hid     = isset( $orig_h0['handler_id'] ) ? sanitize_key( (string) $orig_h0['handler_id'] ) : '';
+					$orig_gid     = isset( $g['goal_id'] ) ? sanitize_key( (string) $g['goal_id'] ) : '';
+					$orig_pk      = $orig_gid . '|' . $orig_hid;
+					if ( '' !== $orig_gid && '' !== $orig_hid ) {
+						$pairs_to_remove[ $orig_pk ] = true;
+						unset( $pairs_present[ $orig_pk ] );
+					}
 					if ( $debug_enabled ) {
 						$goal_dbg['legacy_auto_match'] = true;
 						$goal_dbg['best_key']          = (string) $legacy_group['key'];
@@ -560,6 +569,7 @@ class RWGO_Goal_Registry {
 			if ( empty( $matched_rows ) ) {
 				continue;
 			}
+			$first_clone = true;
 			foreach ( $matched_rows as $row ) {
 				$gid = isset( $row['goal_id'] ) ? sanitize_key( (string) $row['goal_id'] ) : '';
 				$hid = isset( $row['handler_id'] ) ? sanitize_key( (string) $row['handler_id'] ) : '';
@@ -592,10 +602,27 @@ class RWGO_Goal_Registry {
 						);
 					}
 				}
-				$clone['is_primary'] = false;
+				$clone['is_primary'] = $first_clone ? ! empty( $g['is_primary'] ) : false;
 				$out[]                 = $clone;
 				$pairs_present[ $pk ] = true;
+				$first_clone          = false;
 			}
+		}
+		if ( ! empty( $pairs_to_remove ) ) {
+			$out = array_values(
+				array_filter(
+					$out,
+					static function ( $goal ) use ( $pairs_to_remove ) {
+						if ( ! is_array( $goal ) || empty( $goal['goal_id'] ) ) {
+							return true;
+						}
+						$h0  = isset( $goal['handlers'][0] ) && is_array( $goal['handlers'][0] ) ? $goal['handlers'][0] : array();
+						$hid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
+						$pk  = sanitize_key( (string) $goal['goal_id'] ) . '|' . $hid;
+						return ! isset( $pairs_to_remove[ $pk ] );
+					}
+				)
+			);
 		}
 
 		return $out;
