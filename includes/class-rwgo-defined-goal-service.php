@@ -866,7 +866,10 @@ class RWGO_Defined_Goal_Service {
 			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
 			'elementor_id'        => isset( $pick['elementor_id'] ) ? sanitize_key( (string) $pick['elementor_id'] ) : sanitize_key( (string) ( $saved['elementor_id'] ?? '' ) ),
 		);
-		$built = self::build_goals_from_defined_selection( $def );
+		if ( ! class_exists( 'RWGO_Admin_Wizard', false ) || ! is_callable( array( 'RWGO_Admin_Wizard', 'build_goals_from_defined_selection' ) ) ) {
+			return null;
+		}
+		$built = RWGO_Admin_Wizard::build_goals_from_defined_selection( $def );
 		if ( empty( $built['goals'][0] ) || ! is_array( $built['goals'][0] ) ) {
 			return null;
 		}
