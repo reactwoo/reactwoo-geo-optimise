@@ -223,6 +223,11 @@ class RWGO_Experiment_Repository {
 				$new_src = $legacy_home;
 			}
 		}
+		$remap_fp = self::remap_stale_keyed_control_to_static_front( $out, $new_src );
+		if ( $remap_fp > 0 && $new_src > 0 && $remap_fp !== $new_src ) {
+			self::log_binding_heal( $experiment_post_id, 'source_page_id', $new_src, $remap_fp );
+			$new_src = $remap_fp;
+		}
 		if ( $new_src > 0 && (int) ( $out['source_page_id'] ?? 0 ) !== $new_src ) {
 			self::log_binding_heal( $experiment_post_id, 'source_page_id', (int) ( $out['source_page_id'] ?? 0 ), $new_src );
 			$out['source_page_id'] = $new_src;
@@ -317,15 +322,16 @@ class RWGO_Experiment_Repository {
 		$fp_url     = get_permalink( $page_on_front );
 		$same_path  = false;
 		if ( is_string( $src_url ) && is_string( $fp_url ) && '' !== $src_url && '' !== $fp_url ) {
-			$sp = wp_parse_url( $src_url, PHP_URL_PATH );
-			$fp = wp_parse_url( $fp_url, PHP_URL_PATH );
-			$same_path = is_string( $sp ) && is_string( $fp ) && untrailingslashit( $sp ) === untrailingslashit( $fp );
+			$sp      = wp_parse_url( $src_url, PHP_URL_PATH );
+			$fp_path = wp_parse_url( $fp_url, PHP_URL_PATH );
+			$same_path = is_string( $sp ) && is_string( $fp_path ) && untrailingslashit( $sp ) === untrailingslashit( $fp_path );
 		}
-		if ( ! $looks_like_home && ! $same_title && ! $same_path && ! $binding_points_home ) {
+		$duplicate_home_slugs = self::posts_look_like_duplicate_home_clones( $src, $fp );
+		if ( ! $looks_like_home && ! $same_title && ! $same_path && ! $binding_points_home && ! $duplicate_home_slugs ) {
 			self::log_binding_skipped(
 				$cfg,
 				sprintf(
-					'legacy-home fallback skipped: src=%d fp=%d no home/same-title/same-path/binding-home signal',
+					'legacy-home fallback skipped: src=%d fp=%d no home/same-title/same-path/binding-home/duplicate-slug signal',
 					$resolved_src,
 					$page_on_front
 				)
@@ -335,16 +341,67 @@ class RWGO_Experiment_Repository {
 		self::log_binding_skipped(
 			$cfg,
 			sprintf(
-				'legacy-home fallback selected: src=%d -> fp=%d (looks_like_home=%s same_title=%s same_path=%s)',
+				'legacy-home fallback selected: src=%d -> fp=%d (looks_like_home=%s same_title=%s same_path=%s dup_slug=%s)',
 				$resolved_src,
 				$page_on_front,
 				$looks_like_home ? '1' : '0',
 				$same_title ? '1' : '0',
-				$same_path ? '1' : '0'
+				$same_path ? '1' : '0',
+				$duplicate_home_slugs ? '1' : '0'
 			)
 		);
 
 		return $page_on_front;
+	}
+
+	/**
+	 * Detect pairs like home / home-2 / homepage-clone (common after imports or staging duplicates).
+	 *
+	 * @param \WP_Post $a Page A.
+	 * @param \WP_Post $b Page B.
+	 * @return bool
+	 */
+	private static function posts_look_like_duplicate_home_clones( \WP_Post $a, \WP_Post $b ) {
+		$pa = sanitize_key( (string) $a->post_name );
+		$pb = sanitize_key( (string) $b->post_name );
+		if ( '' === $pa || '' === $pb ) {
+			return false;
+		}
+		$pattern = '/^(home|homepage|front-page|frontpage)(-[a-z0-9\-]+)?$/';
+		return (bool) ( preg_match( $pattern, $pa ) && preg_match( $pattern, $pb ) );
+	}
+
+	/**
+	 * Remap imported control ID to Reading → static front when key integrity + URL/slug signals match.
+	 *
+	 * @param array<string, mixed> $cfg              Config (source_page_id may still be stale).
+	 * @param int                  $resolved_source Resolved control ID after resolver + infer_legacy.
+	 * @return int 0 or page_on_front.
+	 */
+	private static function remap_stale_keyed_control_to_static_front( array $cfg, $resolved_source ) {
+		$resolved_source = (int) $resolved_source;
+		$show_on_front   = (string) get_option( 'show_on_front', 'posts' );
+		$page_on_front   = (int) get_option( 'page_on_front', 0 );
+		if ( 'page' !== $show_on_front || $page_on_front <= 0 || $resolved_source <= 0 || $resolved_source === $page_on_front ) {
+			return 0;
+		}
+		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
+		if ( '' === $key || ! preg_match( '/^rwgo_page_(\d+)_ab_/', $key, $m ) || (int) $m[1] !== $resolved_source ) {
+			return 0;
+		}
+		$src_post = get_post( $resolved_source );
+		$fp_post  = get_post( $page_on_front );
+		if ( ! $src_post instanceof \WP_Post || ! $fp_post instanceof \WP_Post || 'page' !== $src_post->post_type || 'page' !== $fp_post->post_type ) {
+			return 0;
+		}
+		if ( class_exists( 'RWGO_Page_Binding_Resolver', false )
+			&& RWGO_Page_Binding_Resolver::urls_same_location( (string) get_permalink( $resolved_source ), (string) get_permalink( $page_on_front ) ) ) {
+			return $page_on_front;
+		}
+		if ( self::posts_look_like_duplicate_home_clones( $src_post, $fp_post ) ) {
+			return $page_on_front;
+		}
+		return 0;
 	}
 
 	/**
@@ -541,7 +598,8 @@ class RWGO_Experiment_Repository {
 		$home_slug  = in_array( sanitize_key( (string) $src_post->post_name ), array( 'home', 'homepage', 'home-page' ), true );
 		$root_path  = is_string( $src_path ) && '' === trim( $src_path, '/' );
 		$same_path  = is_string( $src_path ) && is_string( $fp_path ) && untrailingslashit( $src_path ) === untrailingslashit( $fp_path );
-		if ( ! $same_title && ! $home_slug && ! $root_path && ! $same_path ) {
+		$dup_slugs  = self::posts_look_like_duplicate_home_clones( $src_post, $fp_post );
+		if ( ! $same_title && ! $home_slug && ! $root_path && ! $same_path && ! $dup_slugs ) {
 			return array();
 		}
 		$cfg['source_page_id'] = $page_on_front;

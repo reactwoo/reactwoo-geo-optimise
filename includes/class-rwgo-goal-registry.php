@@ -36,21 +36,10 @@ class RWGO_Goal_Registry {
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] || empty( $cfg['experiment_key'] ) ) {
 				continue;
 			}
-			$source = (int) ( $cfg['source_page_id'] ?? 0 );
-			$match  = false;
-			if ( $source === $queried_post_id ) {
-				$match = true;
-			} else {
-				foreach ( isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array() as $row ) {
-					if ( is_array( $row ) && (int) ( $row['page_id'] ?? 0 ) === $queried_post_id ) {
-						$match = true;
-						break;
-					}
-				}
-			}
-			if ( ! $match ) {
+			if ( ! RWGO_Experiment_Repository::config_touches_page_id( $cfg, $queried_post_id ) ) {
 				continue;
 			}
+			$source = (int) ( $cfg['source_page_id'] ?? 0 );
 			$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
 			if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
 				$goals = self::merge_mapping_physical_pairs_into_goals( $goals, $cfg );

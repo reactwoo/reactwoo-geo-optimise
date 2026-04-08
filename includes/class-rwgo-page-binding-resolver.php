@@ -107,7 +107,7 @@ class RWGO_Page_Binding_Resolver {
 	 * @param string $b Full URL.
 	 * @return bool
 	 */
-	private static function urls_same_location( $a, $b ) {
+	public static function urls_same_location( $a, $b ) {
 		$pa = wp_parse_url( $a );
 		$pb = wp_parse_url( $b );
 		if ( ! is_array( $pa ) || ! is_array( $pb ) ) {
