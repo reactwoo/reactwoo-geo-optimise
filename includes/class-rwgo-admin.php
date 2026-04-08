@@ -198,6 +198,30 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * Public/front-end URL for viewing a Control or Variant page from wp-admin without experiment swapping.
+	 *
+	 * Adds a lightweight bypass query arg for privileged users so "View Control" always opens the real
+	 * Control page instead of redirecting through the active test assignment.
+	 *
+	 * @param int $post_id Page/post ID.
+	 * @return string
+	 */
+	public static function post_public_view_url( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+		$url = get_permalink( $post_id );
+		if ( ! is_string( $url ) || '' === $url ) {
+			return '';
+		}
+		if ( current_user_can( self::required_capability() ) ) {
+			$url = add_query_arg( 'rwgo_no_swap', '1', $url );
+		}
+		return $url;
+	}
+
+	/**
 	 * Primitive capability for add_menu_page / add_submenu_page (matches Geo Elementor: admins + WooCommerce shop managers).
 	 *
 	 * @return string

@@ -30,6 +30,9 @@ class RWGO_Page_Swapper {
 		if ( is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
 			return;
 		}
+		if ( is_user_logged_in() && ! empty( $_GET['rwgo_no_swap'] ) && class_exists( 'RWGO_Admin', false ) && current_user_can( RWGO_Admin::required_capability() ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
 		if ( ! is_singular() ) {
 			return;
 		}

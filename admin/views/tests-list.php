@@ -378,8 +378,8 @@ $rwgo_status_pill_class = static function ( $st ) {
 			$tt_for_builder     = isset( $cfg['test_type'] ) ? (string) $cfg['test_type'] : 'page_ab';
 			$c_builder          = $src > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $src, $tt_for_builder ) : $c_edit;
 			$v_builder          = $var_b_id > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $var_b_id, $tt_for_builder ) : $v_edit;
-			$c_live             = $src > 0 ? get_permalink( $src ) : '';
-			$v_live             = $var_b_id > 0 ? get_permalink( $var_b_id ) : '';
+			$c_live             = $src > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_public_view_url( $src ) : '';
+			$v_live             = $var_b_id > 0 && class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_public_view_url( $var_b_id ) : '';
 			$control_ok         = $src > 0 && get_post( $src ) && is_post_publicly_viewable( $src );
 			$variant_b_ok       = $var_b_id > 0 && get_post( $var_b_id ) && is_post_publicly_viewable( $var_b_id );
 			$edit_variants_url  = '' !== $edit_url ? $edit_url . '#rwgo-sec-variants' : '';
