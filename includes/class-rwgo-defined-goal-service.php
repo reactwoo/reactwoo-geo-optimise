@@ -412,6 +412,29 @@ class RWGO_Defined_Goal_Service {
 					'goal_label'      => $glab,
 				);
 			}
+			$control_goal = null;
+			$var_b_goal   = null;
+			foreach ( $goals as $g ) {
+				if ( ! is_array( $g ) || empty( $g['mapping_variant'] ) ) {
+					continue;
+				}
+				$mv = sanitize_key( (string) $g['mapping_variant'] );
+				if ( 'control' === $mv && null === $control_goal ) {
+					$control_goal = $g;
+				} elseif ( 'var_b' === $mv && null === $var_b_goal ) {
+					$var_b_goal = $g;
+				}
+			}
+			if ( is_array( $control_goal ) && is_array( $var_b_goal ) ) {
+				$control_key = self::physical_goal_match_key( $control_goal, true );
+				$var_b_key   = self::physical_goal_match_key( $var_b_goal, true );
+				if ( '' !== $control_key && '' !== $var_b_key && $control_key !== $var_b_key ) {
+					$warnings[] = array(
+						'code'    => 'defined_goal_reselect_needed',
+						'message' => __( 'Control and Variant B no longer describe the same defined goal label/type. Re-select the goal under Goal & tracking before publishing changes or relying on conversion totals.', 'reactwoo-geo-optimise' ),
+					);
+				}
+			}
 			return $warnings;
 		}
 
@@ -498,7 +521,42 @@ class RWGO_Defined_Goal_Service {
 				'goal_label' => $glab,
 			);
 		}
+		$match_key = self::physical_goal_match_key( $primary, true );
+		if ( '' !== $match_key && $source_page > 0 && $var_b > 0 ) {
+			$source_has_match = self::post_has_live_goal_match_key( $source_page, $match_key );
+			$var_b_has_match  = self::post_has_live_goal_match_key( $var_b, $match_key );
+			if ( $source_has_match xor $var_b_has_match ) {
+				$warnings[] = array(
+					'code'    => 'defined_goal_reselect_needed',
+					'message' => __( 'The selected defined goal now matches only one side of the test. If you changed, replaced, or removed the CTA on Control or Variant B, re-select the goal under Goal & tracking before publishing.', 'reactwoo-geo-optimise' ),
+				);
+			}
+		}
 		return $warnings;
+	}
+
+	/**
+	 * Whether a post still contains a comparable builder-defined goal for the saved match key.
+	 *
+	 * @param int    $post_id    Post ID.
+	 * @param string $match_key  Match key from {@see physical_goal_match_key()}.
+	 * @return bool
+	 */
+	private static function post_has_live_goal_match_key( $post_id, $match_key ) {
+		$post_id   = (int) $post_id;
+		$match_key = (string) $match_key;
+		if ( $post_id <= 0 || '' === $match_key ) {
+			return false;
+		}
+		foreach ( self::collect_for_post( $post_id ) as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			if ( self::physical_goal_match_key( $row, false ) === $match_key ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

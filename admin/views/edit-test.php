@@ -317,7 +317,7 @@ $rwgo_form_mode = 'edit';
 
 		<?php if ( $rwgo_goal_mapping_broken ) : ?>
 			<div class="notice notice-warning rwgo-notice rwgo-notice--goal-mapping" id="rwgo-goal-readiness">
-				<p class="rwgo-notice__title"><strong><?php esc_html_e( 'Mapped goal not found on page', 'reactwoo-geo-optimise' ); ?></strong></p>
+				<p class="rwgo-notice__title"><strong><?php esc_html_e( 'Defined goal needs review before publishing', 'reactwoo-geo-optimise' ); ?></strong></p>
 				<ul class="rwgo-notice__list">
 					<?php foreach ( $rwgo_goal_warnings as $rwgo_gw ) : ?>
 						<li><?php echo esc_html( isset( $rwgo_gw['message'] ) ? (string) $rwgo_gw['message'] : '' ); ?></li>
@@ -342,10 +342,10 @@ $rwgo_form_mode = 'edit';
 						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_ve ); ?>"><?php esc_html_e( 'Open Variant B in builder', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
 					<?php if ( is_string( $rwgo_goal_h ) && $rwgo_goal_h ) : ?>
-						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $rwgo_goal_h ); ?>"><?php esc_html_e( 'Update goal mapping', 'reactwoo-geo-optimise' ); ?></a>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $rwgo_goal_h ); ?>"><?php esc_html_e( 'Review goal mapping', 'reactwoo-geo-optimise' ); ?></a>
 					<?php endif; ?>
 				</p>
-				<p class="description"><?php esc_html_e( 'Conversions cannot fire for a goal that no longer exists in the content. Fix the page or pick a different detected goal.', 'reactwoo-geo-optimise' ); ?></p>
+				<p class="description"><?php esc_html_e( 'This test’s saved defined goal no longer cleanly matches the live markers on Control and Variant B. Re-select the goal under Goal & tracking before publishing further edits or trusting conversion totals.', 'reactwoo-geo-optimise' ); ?></p>
 			</div>
 		<?php endif; ?>
 
