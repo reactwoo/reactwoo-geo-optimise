@@ -280,7 +280,8 @@ class RWGO_Experiment_Repository {
 		}
 
 		$src = get_post( $resolved_src );
-		if ( ! $src instanceof \WP_Post || 'page' !== $src->post_type || 'trash' === $src->post_status ) {
+		$fp  = get_post( $page_on_front );
+		if ( ! $src instanceof \WP_Post || ! $fp instanceof \WP_Post || 'page' !== $src->post_type || 'page' !== $fp->post_type || 'trash' === $src->post_status || 'trash' === $fp->post_status ) {
 			return 0;
 		}
 
@@ -288,11 +289,57 @@ class RWGO_Experiment_Repository {
 		$title = strtolower( sanitize_text_field( (string) $src->post_title ) );
 		$looks_like_home = in_array( $name, array( 'home', 'homepage', 'home-page' ), true )
 			|| false !== strpos( $title, 'home' );
-		if ( ! $looks_like_home ) {
+		$same_title = strtolower( trim( (string) $src->post_title ) ) === strtolower( trim( (string) $fp->post_title ) );
+		$src_url    = get_permalink( $resolved_src );
+		$fp_url     = get_permalink( $page_on_front );
+		$same_path  = false;
+		if ( is_string( $src_url ) && is_string( $fp_url ) && '' !== $src_url && '' !== $fp_url ) {
+			$sp = wp_parse_url( $src_url, PHP_URL_PATH );
+			$fp = wp_parse_url( $fp_url, PHP_URL_PATH );
+			$same_path = is_string( $sp ) && is_string( $fp ) && untrailingslashit( $sp ) === untrailingslashit( $fp );
+		}
+		if ( ! $looks_like_home && ! $same_title && ! $same_path ) {
+			self::log_binding_skipped(
+				$cfg,
+				sprintf(
+					'legacy-home fallback skipped: src=%d fp=%d no home/same-title/same-path signal',
+					$resolved_src,
+					$page_on_front
+				)
+			);
 			return 0;
 		}
+		self::log_binding_skipped(
+			$cfg,
+			sprintf(
+				'legacy-home fallback selected: src=%d -> fp=%d (looks_like_home=%s same_title=%s same_path=%s)',
+				$resolved_src,
+				$page_on_front,
+				$looks_like_home ? '1' : '0',
+				$same_title ? '1' : '0',
+				$same_path ? '1' : '0'
+			)
+		);
 
 		return $page_on_front;
+	}
+
+	/**
+	 * Debug-only diagnostic line for skipped/selected legacy fallback.
+	 *
+	 * @param array<string, mixed> $cfg     Experiment config.
+	 * @param string               $message Detail message.
+	 * @return void
+	 */
+	private static function log_binding_skipped( array $cfg, $message ) {
+		$log = ( defined( 'WP_DEBUG' ) && WP_DEBUG )
+			|| ( defined( 'RWGO_PAGE_BINDING_LOG' ) && RWGO_PAGE_BINDING_LOG );
+		if ( ! $log ) {
+			return;
+		}
+		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug.
+		error_log( '[RWGO] ' . $message . ' key=' . $key );
 	}
 
 	/**
