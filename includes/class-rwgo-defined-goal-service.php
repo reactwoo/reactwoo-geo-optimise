@@ -704,7 +704,7 @@ class RWGO_Defined_Goal_Service {
 	 * @param array<string, mixed> $row   Live discovered builder goal row.
 	 * @return int Negative when not comparable; larger is better.
 	 */
-	private static function loose_live_match_score( array $saved, array $row ) {
+	public static function loose_live_match_score( array $saved, array $row ) {
 		$saved_label = isset( $saved['label'] ) ? sanitize_text_field( (string) $saved['label'] ) : '';
 		$live_label  = isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '';
 		$saved_gt    = isset( $saved['goal_type'] ) ? sanitize_key( (string) $saved['goal_type'] ) : 'click';
@@ -753,7 +753,7 @@ class RWGO_Defined_Goal_Service {
 	 * @param array<string, mixed> $pick  Live discovered builder goal row.
 	 * @return array<string, mixed>|null
 	 */
-	private static function rebuild_saved_defined_goal_from_live( array $saved, array $pick ) {
+	public static function rebuild_saved_defined_goal_from_live( array $saved, array $pick ) {
 		if ( empty( $pick['goal_id'] ) || empty( $pick['handler_id'] ) ) {
 			return null;
 		}

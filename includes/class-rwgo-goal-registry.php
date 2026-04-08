@@ -385,10 +385,13 @@ class RWGO_Goal_Registry {
 
 		$out = $goals;
 		foreach ( $goals as $g ) {
-			if ( ! is_array( $g ) || empty( $g['is_defined'] ) ) {
+			if ( ! is_array( $g ) ) {
 				continue;
 			}
-			$b = isset( $g['builder'] ) ? sanitize_key( (string) $g['builder'] ) : '';
+			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				continue;
+			}
+			$b = isset( $g['builder'] ) ? sanitize_key( (string) $g['builder'] ) : sanitize_key( (string) ( $cfg['builder_type'] ?? '' ) );
 			if ( 'elementor' !== $b && 'gutenberg' !== $b ) {
 				continue;
 			}
@@ -396,13 +399,26 @@ class RWGO_Goal_Registry {
 			if ( ! in_array( $gt, array( 'click', 'form_submit' ), true ) ) {
 				continue;
 			}
-			$key = class_exists( 'RWGO_Defined_Goal_Service', false )
+			$matched_rows = array();
+			$key          = class_exists( 'RWGO_Defined_Goal_Service', false )
 				? RWGO_Defined_Goal_Service::physical_goal_match_key( $g, true )
 				: '';
-			if ( '' === $key || ! isset( $by_match_key[ $key ] ) ) {
+			if ( '' !== $key && isset( $by_match_key[ $key ] ) ) {
+				$matched_rows = $by_match_key[ $key ];
+			} elseif ( class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+				foreach ( $discovered as $row ) {
+					if ( ! is_array( $row ) ) {
+						continue;
+					}
+					if ( RWGO_Defined_Goal_Service::loose_live_match_score( $g, $row ) > 0 ) {
+						$matched_rows[] = $row;
+					}
+				}
+			}
+			if ( empty( $matched_rows ) ) {
 				continue;
 			}
-			foreach ( $by_match_key[ $key ] as $row ) {
+			foreach ( $matched_rows as $row ) {
 				$gid = isset( $row['goal_id'] ) ? sanitize_key( (string) $row['goal_id'] ) : '';
 				$hid = isset( $row['handler_id'] ) ? sanitize_key( (string) $row['handler_id'] ) : '';
 				if ( '' === $gid || '' === $hid ) {
@@ -412,24 +428,29 @@ class RWGO_Goal_Registry {
 				if ( isset( $pairs_present[ $pk ] ) ) {
 					continue;
 				}
-				$clone = $g;
-				$clone['goal_id']     = $gid;
-				$clone['is_primary']  = false;
-				$clone['handlers']    = isset( $clone['handlers'] ) && is_array( $clone['handlers'] ) ? $clone['handlers'] : array();
-				if ( ! empty( $clone['handlers'][0] ) && is_array( $clone['handlers'][0] ) ) {
-					$clone['handlers'][0]['handler_id'] = $hid;
-				} else {
-					$clone['handlers'] = array(
-						array(
-							'handler_id'   => $hid,
-							'handler_type' => 'form_submit' === $gt ? 'form_submit' : 'click',
-							'label'        => $label,
-							'selector'     => '',
-							'dedupe'       => 'allow_multiple',
-							'event_name'   => 'rwgo_goal_fired',
-						),
-					);
+				$clone = class_exists( 'RWGO_Defined_Goal_Service', false )
+					? RWGO_Defined_Goal_Service::rebuild_saved_defined_goal_from_live( $g, $row )
+					: null;
+				if ( ! is_array( $clone ) ) {
+					$clone = $g;
+					$clone['goal_id']  = $gid;
+					$clone['handlers'] = isset( $clone['handlers'] ) && is_array( $clone['handlers'] ) ? $clone['handlers'] : array();
+					if ( ! empty( $clone['handlers'][0] ) && is_array( $clone['handlers'][0] ) ) {
+						$clone['handlers'][0]['handler_id'] = $hid;
+					} else {
+						$clone['handlers'] = array(
+							array(
+								'handler_id'   => $hid,
+								'handler_type' => 'form_submit' === $gt ? 'form_submit' : 'click',
+								'label'        => isset( $clone['label'] ) ? (string) $clone['label'] : '',
+								'selector'     => '',
+								'dedupe'       => 'allow_multiple',
+								'event_name'   => 'rwgo_goal_fired',
+							),
+						);
+					}
 				}
+				$clone['is_primary'] = false;
 				$out[]                 = $clone;
 				$pairs_present[ $pk ] = true;
 			}
