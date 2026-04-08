@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.23
+Stable tag: 0.4.24
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.24 =
+* **Resync determinism:** adds a manual-resync-only forced front-page source repair pass for legacy homepage-clone tests when standard normalization makes no change, with guarded key/source checks and explicit resync counters in admin (`forced front-page repairs`).
 
 = 0.4.23 =
 * **Homepage resync hardening:** legacy fallback no longer bails when stale locator fields exist; it now evaluates binding-home signals (`is_front_page`, root/home relative paths, home-like slugs) alongside title/path checks so cloned-import homepage tests can heal to `page_on_front`.

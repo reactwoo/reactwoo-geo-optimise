@@ -422,13 +422,14 @@ class RWGO_Experiment_Repository {
 	/**
 	 * Loop all experiments and normalize bindings (recovery after import/staging).
 	 *
-	 * @return array{scanned: int, updated: int, source_repaired: int, variant_repaired: int}
+	 * @return array{scanned: int, updated: int, source_repaired: int, variant_repaired: int, forced_frontpage: int}
 	 */
 	public static function resync_all_page_bindings() {
 		$scanned          = 0;
 		$updated          = 0;
 		$source_repaired  = 0;
 		$variant_repaired = 0;
+		$forced_frontpage = 0;
 		foreach ( self::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
 			if ( ! $post instanceof \WP_Post ) {
 				continue;
@@ -439,6 +440,14 @@ class RWGO_Experiment_Repository {
 			self::normalize_page_bindings( $raw, $post->ID, true );
 			$next_cfg = self::get_config( $post->ID );
 			$next     = self::binding_signature( $next_cfg );
+			if ( wp_json_encode( $prev ) === wp_json_encode( $next ) ) {
+				$forced = self::force_front_page_source_repair( $next_cfg, $post->ID );
+				if ( ! empty( $forced ) ) {
+					$next_cfg = self::get_config( $post->ID );
+					$next     = self::binding_signature( $next_cfg );
+					++$forced_frontpage;
+				}
+			}
 			if ( wp_json_encode( $prev ) !== wp_json_encode( $next ) ) {
 				++$updated;
 				if ( (int) ( $prev['source_page_id'] ?? 0 ) !== (int) ( $next['source_page_id'] ?? 0 ) ) {
@@ -457,7 +466,51 @@ class RWGO_Experiment_Repository {
 			'updated'          => $updated,
 			'source_repaired'  => $source_repaired,
 			'variant_repaired' => $variant_repaired,
+			'forced_frontpage' => $forced_frontpage,
 		);
+	}
+
+	/**
+	 * Manual-resync-only safety valve: force source -> current front page for legacy homepage clones.
+	 *
+	 * @param array<string, mixed> $cfg        Experiment config.
+	 * @param int                  $experiment_post_id Experiment CPT ID.
+	 * @return array<string, mixed> Updated config or empty array if no force-repair applied.
+	 */
+	private static function force_front_page_source_repair( array $cfg, $experiment_post_id ) {
+		$show_on_front = (string) get_option( 'show_on_front', 'posts' );
+		$page_on_front = (int) get_option( 'page_on_front', 0 );
+		$src           = (int) ( $cfg['source_page_id'] ?? 0 );
+		if ( 'page' !== $show_on_front || $page_on_front <= 0 || $src <= 0 || $src === $page_on_front ) {
+			return array();
+		}
+		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
+		if ( '' === $key || ! preg_match( '/^rwgo_page_(\d+)_ab_/', $key, $m ) ) {
+			return array();
+		}
+		$key_src = isset( $m[1] ) ? (int) $m[1] : 0;
+		if ( $key_src <= 0 || $key_src !== $src ) {
+			return array();
+		}
+		$src_post = get_post( $src );
+		$fp_post  = get_post( $page_on_front );
+		if ( ! $src_post instanceof \WP_Post || ! $fp_post instanceof \WP_Post || 'page' !== $src_post->post_type || 'page' !== $fp_post->post_type ) {
+			return array();
+		}
+		$src_path = wp_parse_url( (string) get_permalink( $src ), PHP_URL_PATH );
+		$fp_path  = wp_parse_url( (string) get_permalink( $page_on_front ), PHP_URL_PATH );
+		$same_title = strtolower( trim( (string) $src_post->post_title ) ) === strtolower( trim( (string) $fp_post->post_title ) );
+		$home_slug  = in_array( sanitize_key( (string) $src_post->post_name ), array( 'home', 'homepage', 'home-page' ), true );
+		$root_path  = is_string( $src_path ) && '' === trim( $src_path, '/' );
+		$same_path  = is_string( $src_path ) && is_string( $fp_path ) && untrailingslashit( $src_path ) === untrailingslashit( $fp_path );
+		if ( ! $same_title && ! $home_slug && ! $root_path && ! $same_path ) {
+			return array();
+		}
+		$cfg['source_page_id'] = $page_on_front;
+		$cfg['source_page']    = self::build_page_binding_snapshot( $page_on_front );
+		self::save_config( (int) $experiment_post_id, $cfg );
+		self::log_binding_heal( (int) $experiment_post_id, 'source_page_id', $src, $page_on_front );
+		return $cfg;
 	}
 
 	/**

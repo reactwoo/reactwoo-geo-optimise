@@ -980,6 +980,7 @@ class RWGO_Admin {
 				'updated'          => 0,
 				'source_repaired'  => 0,
 				'variant_repaired' => 0,
+				'forced_frontpage' => 0,
 			);
 		$url = add_query_arg(
 			array(
@@ -987,6 +988,7 @@ class RWGO_Admin {
 				'rwgo_rs_scanned'  => (string) (int) ( $stats['scanned'] ?? 0 ),
 				'rwgo_rs_src'      => (string) (int) ( $stats['source_repaired'] ?? 0 ),
 				'rwgo_rs_var'      => (string) (int) ( $stats['variant_repaired'] ?? 0 ),
+				'rwgo_rs_forced'   => (string) (int) ( $stats['forced_frontpage'] ?? 0 ),
 			),
 			self::developer_url( 'developer' )
 		);

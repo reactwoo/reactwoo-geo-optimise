@@ -41,10 +41,14 @@ if ( 'var_b' === $variant ) {
 		$rwgo_rs_sc  = isset( $_GET['rwgo_rs_scanned'] ) ? (int) $_GET['rwgo_rs_scanned'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$rwgo_rs_src = isset( $_GET['rwgo_rs_src'] ) ? (int) $_GET['rwgo_rs_src'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$rwgo_rs_var = isset( $_GET['rwgo_rs_var'] ) ? (int) $_GET['rwgo_rs_var'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_rs_for = isset( $_GET['rwgo_rs_forced'] ) ? (int) $_GET['rwgo_rs_forced'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		?>
 		<p class="description"><?php echo esc_html( sprintf( /* translators: 1: scanned count, 2: updated count */ __( '%1$d tests scanned — %2$d updated.', 'reactwoo-geo-optimise' ), $rwgo_rs_sc, $rwgo_rs_upd ) ); ?></p>
 		<?php if ( $rwgo_rs_src > 0 || $rwgo_rs_var > 0 ) : ?>
 			<p class="description"><?php echo esc_html( sprintf( /* translators: 1: source repairs, 2: variant repairs */ __( 'Source page IDs repaired: %1$d — Variant page IDs repaired: %2$d.', 'reactwoo-geo-optimise' ), $rwgo_rs_src, $rwgo_rs_var ) ); ?></p>
+		<?php endif; ?>
+		<?php if ( $rwgo_rs_for > 0 ) : ?>
+			<p class="description"><?php echo esc_html( sprintf( /* translators: %d: forced front-page repairs */ __( 'Forced front-page source repairs applied: %d.', 'reactwoo-geo-optimise' ), $rwgo_rs_for ) ); ?></p>
 		<?php endif; ?>
 	<?php endif; ?>
 </div>
