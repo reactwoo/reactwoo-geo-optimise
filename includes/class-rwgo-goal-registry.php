@@ -355,6 +355,27 @@ class RWGO_Goal_Registry {
 		$discovered = class_exists( 'RWGO_Defined_Goal_Service', false )
 			? RWGO_Defined_Goal_Service::collect_for_posts( $post_ids )
 			: array();
+		$debug_enabled = self::should_log_frontend_config_summary();
+		if ( $debug_enabled ) {
+			$discovered_dbg = array();
+			foreach ( $discovered as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$discovered_dbg[] = array(
+					'goal_id'      => isset( $row['goal_id'] ) ? sanitize_key( (string) $row['goal_id'] ) : '',
+					'handler_id'   => isset( $row['handler_id'] ) ? sanitize_key( (string) $row['handler_id'] ) : '',
+					'label'        => isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '',
+					'goal_type'    => isset( $row['goal_type'] ) ? sanitize_key( (string) $row['goal_type'] ) : '',
+					'ui_goal_type' => isset( $row['ui_goal_type'] ) ? sanitize_key( (string) $row['ui_goal_type'] ) : '',
+					'builder'      => isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '',
+					'source_type'  => isset( $row['source_type'] ) ? sanitize_key( (string) $row['source_type'] ) : '',
+					'source_post'  => isset( $row['source_post_id'] ) ? (int) $row['source_post_id'] : 0,
+					'elementor_id' => isset( $row['elementor_id'] ) ? sanitize_key( (string) $row['elementor_id'] ) : '',
+				);
+			}
+			error_log( '[RWGO expand] discovered experiment_key=' . (string) ( $cfg['experiment_key'] ?? '' ) . ' page_ids=' . wp_json_encode( $post_ids ) . ' rows=' . wp_json_encode( $discovered_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+		}
 
 		$by_match_key = array();
 		foreach ( $discovered as $row ) {
@@ -388,21 +409,46 @@ class RWGO_Goal_Registry {
 			if ( ! is_array( $g ) ) {
 				continue;
 			}
+			$goal_dbg = array(
+				'goal_id'      => isset( $g['goal_id'] ) ? sanitize_key( (string) $g['goal_id'] ) : '',
+				'handler_id'   => isset( $g['handlers'][0]['handler_id'] ) ? sanitize_key( (string) $g['handlers'][0]['handler_id'] ) : '',
+				'label'        => isset( $g['label'] ) ? sanitize_text_field( (string) $g['label'] ) : '',
+				'goal_type'    => isset( $g['goal_type'] ) ? sanitize_key( (string) $g['goal_type'] ) : '',
+				'ui_goal_type' => isset( $g['ui_goal_type'] ) ? sanitize_key( (string) $g['ui_goal_type'] ) : '',
+				'builder'      => isset( $g['builder'] ) ? sanitize_key( (string) $g['builder'] ) : '',
+				'source_type'  => isset( $g['source_type'] ) ? sanitize_key( (string) $g['source_type'] ) : '',
+				'elementor_id' => isset( $g['elementor_id'] ) ? sanitize_key( (string) $g['elementor_id'] ) : '',
+			);
 			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				if ( $debug_enabled ) {
+					$goal_dbg['skip'] = 'page_destination';
+					error_log( '[RWGO expand] goal skip ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+				}
 				continue;
 			}
 			$b = isset( $g['builder'] ) ? sanitize_key( (string) $g['builder'] ) : sanitize_key( (string) ( $cfg['builder_type'] ?? '' ) );
 			if ( 'elementor' !== $b && 'gutenberg' !== $b ) {
+				if ( $debug_enabled ) {
+					$goal_dbg['effective_builder'] = $b;
+					$goal_dbg['skip']              = 'builder_not_expandable';
+					error_log( '[RWGO expand] goal skip ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+				}
 				continue;
 			}
 			$gt = isset( $g['goal_type'] ) ? sanitize_key( (string) $g['goal_type'] ) : '';
 			if ( ! in_array( $gt, array( 'click', 'form_submit' ), true ) ) {
+				if ( $debug_enabled ) {
+					$goal_dbg['skip'] = 'goal_type_not_expandable';
+					error_log( '[RWGO expand] goal skip ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
+				}
 				continue;
 			}
 			if ( class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
 				$g = RWGO_Defined_Goal_Service::enrich_saved_goal_with_live_identity( $g, $discovered );
 			}
 			$matched_rows = array();
+			$best_score   = -1;
+			$best_key     = '';
 			$key          = class_exists( 'RWGO_Defined_Goal_Service', false )
 				? RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $g, true )
 				: '';
@@ -429,6 +475,14 @@ class RWGO_Goal_Registry {
 						$matched_rows[] = $best_row;
 					}
 				}
+			}
+			if ( $debug_enabled ) {
+				$goal_dbg['effective_builder'] = $b;
+				$goal_dbg['match_key']         = $key;
+				$goal_dbg['best_key']          = $best_key;
+				$goal_dbg['best_score']        = $best_score;
+				$goal_dbg['matched_rows']      = count( $matched_rows );
+				error_log( '[RWGO expand] goal result ' . wp_json_encode( $goal_dbg ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- gated debug.
 			}
 			if ( empty( $matched_rows ) ) {
 				continue;
