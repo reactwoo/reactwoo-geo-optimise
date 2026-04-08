@@ -119,7 +119,10 @@ class RWGO_Defined_Goal_Service {
 		if ( ! is_array( $data ) ) {
 			return;
 		}
-		self::walk_elementor_elements( $post_id, $data, $out );
+		$visited_templates = array(
+			(int) $post_id => true,
+		);
+		self::walk_elementor_elements( $post_id, $data, $out, $post_id, $visited_templates );
 	}
 
 	/**
@@ -128,9 +131,14 @@ class RWGO_Defined_Goal_Service {
 	 * @param list<array<string, mixed>>   $out Output.
 	 * @return void
 	 */
-	private static function walk_elementor_elements( $post_id, $elements, array &$out ) {
+	private static function walk_elementor_elements( $post_id, $elements, array &$out, $root_post_id = 0, array &$visited_templates = array() ) {
 		if ( ! is_array( $elements ) ) {
 			return;
+		}
+		$post_id      = (int) $post_id;
+		$root_post_id = (int) $root_post_id;
+		if ( $root_post_id <= 0 ) {
+			$root_post_id = $post_id;
 		}
 		foreach ( $elements as $el ) {
 			if ( ! is_array( $el ) ) {
@@ -138,10 +146,11 @@ class RWGO_Defined_Goal_Service {
 			}
 			$el_type = isset( $el['elType'] ) ? (string) $el['elType'] : '';
 			if ( 'widget' === $el_type ) {
+				$widget_type = isset( $el['widgetType'] ) ? sanitize_key( (string) $el['widgetType'] ) : '';
 				$settings = isset( $el['settings'] ) && is_array( $el['settings'] ) ? $el['settings'] : array();
 				if ( ! empty( $settings['rwgo_goal_enabled'] ) && 'yes' === (string) $settings['rwgo_goal_enabled'] ) {
 					$eid    = isset( $el['id'] ) ? (string) $el['id'] : '';
-					$ids    = self::elementor_element_ids( $post_id, $eid );
+					$ids    = self::elementor_element_ids( $root_post_id, $eid );
 					$label  = isset( $settings['rwgo_goal_label'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_label'] ) : '';
 					$ui_t   = isset( $settings['rwgo_goal_type'] ) ? sanitize_key( (string) $settings['rwgo_goal_type'] ) : 'cta_click';
 					if ( '' === $label ) {
@@ -156,7 +165,7 @@ class RWGO_Defined_Goal_Service {
 						'source_type'       => 'elementor_widget',
 						'goal_origin'       => 'elementor_widget',
 						'goal_origin_label' => __( 'Elementor widget', 'reactwoo-geo-optimise' ),
-						'source_post_id'  => $post_id,
+						'source_post_id'  => $root_post_id,
 						'handler_id'      => $ids['handler_id'],
 						'builder'         => 'elementor',
 						'is_defined'      => true,
@@ -164,9 +173,27 @@ class RWGO_Defined_Goal_Service {
 						'goal_note'       => $note,
 					);
 				}
+				if ( 'template' === $widget_type ) {
+					$template_id = 0;
+					if ( ! empty( $settings['template_id'] ) ) {
+						$template_id = (int) $settings['template_id'];
+					} elseif ( ! empty( $settings['saved_template'] ) ) {
+						$template_id = (int) $settings['saved_template'];
+					}
+					if ( $template_id > 0 && empty( $visited_templates[ $template_id ] ) ) {
+						$template_raw = get_post_meta( $template_id, '_elementor_data', true );
+						if ( is_string( $template_raw ) && '' !== $template_raw ) {
+							$template_data = json_decode( $template_raw, true );
+							if ( is_array( $template_data ) ) {
+								$visited_templates[ $template_id ] = true;
+								self::walk_elementor_elements( $template_id, $template_data, $out, $root_post_id, $visited_templates );
+							}
+						}
+					}
+				}
 			}
 			if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
-				self::walk_elementor_elements( $post_id, $el['elements'], $out );
+				self::walk_elementor_elements( $post_id, $el['elements'], $out, $root_post_id, $visited_templates );
 			}
 		}
 	}

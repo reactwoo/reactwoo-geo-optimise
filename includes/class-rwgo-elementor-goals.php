@@ -378,5 +378,17 @@ class RWGO_Elementor_Goals {
 				'data-rwgo-element-fingerprint' => 'rwgo_defined',
 			)
 		);
+		self::debug_log(
+			'render_goal_stamp',
+			array(
+				'post_id'    => (int) $pid,
+				'widget'     => (string) $wname,
+				'element_id' => (string) $eid,
+				'goal_id'    => (string) $ids['goal_id'],
+				'handler_id' => (string) $ids['handler_id'],
+				'label'      => (string) $label,
+				'ui_type'    => (string) $type,
+			)
+		);
 	}
 }
