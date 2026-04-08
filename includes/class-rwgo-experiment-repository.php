@@ -303,7 +303,8 @@ class RWGO_Experiment_Repository {
 		}
 
 		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
-		if ( '' === $key || false === strpos( $key, 'rwgo_page_' . $resolved_src . '_ab_' ) ) {
+		// Key embeds the source ID at creation time; after import/clone it may not match resolved_src.
+		if ( '' === $key || ! preg_match( '/^rwgo_page_\d+_ab_/', $key ) ) {
 			return 0;
 		}
 
@@ -386,7 +387,7 @@ class RWGO_Experiment_Repository {
 			return 0;
 		}
 		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
-		if ( '' === $key || ! preg_match( '/^rwgo_page_(\d+)_ab_/', $key, $m ) || (int) $m[1] !== $resolved_source ) {
+		if ( '' === $key || ! preg_match( '/^rwgo_page_\d+_ab_/', $key ) ) {
 			return 0;
 		}
 		$src_post = get_post( $resolved_source );
@@ -400,6 +401,17 @@ class RWGO_Experiment_Repository {
 		}
 		if ( self::posts_look_like_duplicate_home_clones( $src_post, $fp_post ) ) {
 			return $page_on_front;
+		}
+		// Site front is `/` but the saved control is a separate "Home" page (e.g. `/home/`, `/home-2/`).
+		$fp_path  = wp_parse_url( (string) get_permalink( $page_on_front ), PHP_URL_PATH );
+		$src_path = wp_parse_url( (string) get_permalink( $resolved_source ), PHP_URL_PATH );
+		$fp_path  = is_string( $fp_path ) ? untrailingslashit( $fp_path ) : '';
+		$src_path = is_string( $src_path ) ? untrailingslashit( $src_path ) : '';
+		if ( ( '' === $fp_path || '/' === $fp_path ) && is_string( $src_path ) && '' !== $src_path && '/' !== $src_path ) {
+			$seg = trim( $src_path, '/' );
+			if ( (bool) preg_match( '/^(home|homepage|home-page|front-page|frontpage)(-[a-z0-9\-]+)?$/i', $seg ) ) {
+				return $page_on_front;
+			}
 		}
 		return 0;
 	}
@@ -580,11 +592,7 @@ class RWGO_Experiment_Repository {
 			return array();
 		}
 		$key = isset( $cfg['experiment_key'] ) ? sanitize_key( (string) $cfg['experiment_key'] ) : '';
-		if ( '' === $key || ! preg_match( '/^rwgo_page_(\d+)_ab_/', $key, $m ) ) {
-			return array();
-		}
-		$key_src = isset( $m[1] ) ? (int) $m[1] : 0;
-		if ( $key_src <= 0 || $key_src !== $src ) {
+		if ( '' === $key || ! preg_match( '/^rwgo_page_\d+_ab_/', $key ) ) {
 			return array();
 		}
 		$src_post = get_post( $src );
