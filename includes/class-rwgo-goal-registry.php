@@ -409,12 +409,24 @@ class RWGO_Goal_Registry {
 			if ( '' !== $key && isset( $by_match_key[ $key ] ) ) {
 				$matched_rows = $by_match_key[ $key ];
 			} elseif ( class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+				$best_row   = null;
+				$best_score = -1;
 				foreach ( $discovered as $row ) {
 					if ( ! is_array( $row ) ) {
 						continue;
 					}
-					if ( RWGO_Defined_Goal_Service::loose_live_match_score( $g, $row ) > 0 ) {
-						$matched_rows[] = $row;
+					$score = RWGO_Defined_Goal_Service::loose_live_match_score( $g, $row );
+					if ( $score > $best_score ) {
+						$best_row   = $row;
+						$best_score = $score;
+					}
+				}
+				if ( $best_score > 0 && is_array( $best_row ) ) {
+					$best_key = RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $best_row, false );
+					if ( '' !== $best_key && isset( $by_match_key[ $best_key ] ) ) {
+						$matched_rows = $by_match_key[ $best_key ];
+					} else {
+						$matched_rows[] = $best_row;
 					}
 				}
 			}
