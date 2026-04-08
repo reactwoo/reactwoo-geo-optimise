@@ -604,23 +604,134 @@ class RWGO_Defined_Goal_Service {
 			}
 		}
 		$want = self::physical_goal_match_key( $saved, true );
-		if ( '' === $want ) {
-			return null;
+		if ( '' !== $want ) {
+			foreach ( $live as $row ) {
+				if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
+					continue;
+				}
+				if ( self::physical_goal_match_key( $row, false ) !== $want ) {
+					continue;
+				}
+				$pk = (string) $row['goal_id'] . '|' . sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
+				if ( isset( $used_keys[ $pk ] ) ) {
+					continue;
+				}
+				return $row;
+			}
 		}
+
+		$best       = null;
+		$best_score = -1;
 		foreach ( $live as $row ) {
 			if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
-				continue;
-			}
-			if ( self::physical_goal_match_key( $row, false ) !== $want ) {
 				continue;
 			}
 			$pk = (string) $row['goal_id'] . '|' . sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
 			if ( isset( $used_keys[ $pk ] ) ) {
 				continue;
 			}
-			return $row;
+			$score = self::loose_live_match_score( $saved, $row );
+			if ( $score > $best_score ) {
+				$best       = $row;
+				$best_score = $score;
+			}
 		}
-		return null;
+		return $best;
+	}
+
+	/**
+	 * Score a live builder goal row for a saved goal when older configs lack full builder metadata.
+	 *
+	 * @param array<string, mixed> $saved Saved experiment goal row.
+	 * @param array<string, mixed> $row   Live discovered builder goal row.
+	 * @return int Negative when not comparable; larger is better.
+	 */
+	private static function loose_live_match_score( array $saved, array $row ) {
+		$saved_label = isset( $saved['label'] ) ? sanitize_text_field( (string) $saved['label'] ) : '';
+		$live_label  = isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '';
+		$saved_gt    = isset( $saved['goal_type'] ) ? sanitize_key( (string) $saved['goal_type'] ) : 'click';
+		$live_gt     = isset( $row['goal_type'] ) ? sanitize_key( (string) $row['goal_type'] ) : 'click';
+		$saved_ui    = self::normalize_ui_goal_type_for_physical_match( isset( $saved['ui_goal_type'] ) ? (string) $saved['ui_goal_type'] : '', $saved_gt );
+		$live_ui     = self::normalize_ui_goal_type_for_physical_match( isset( $row['ui_goal_type'] ) ? (string) $row['ui_goal_type'] : '', $live_gt );
+		$saved_b     = isset( $saved['builder'] ) ? sanitize_key( (string) $saved['builder'] ) : '';
+		$live_b      = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
+		if ( '' === $saved_label && '' === $saved_ui && '' === $saved_b ) {
+			return -1;
+		}
+		if ( '' !== $saved_label && '' !== $live_label && $saved_label !== $live_label ) {
+			return -1;
+		}
+		if ( '' !== $saved_ui && '' !== $live_ui && $saved_ui !== $live_ui ) {
+			return -1;
+		}
+		if ( '' !== $saved_b && '' !== $live_b && $saved_b !== $live_b ) {
+			return -1;
+		}
+		$score = 0;
+		if ( '' !== $saved_label && $saved_label === $live_label ) {
+			$score += 10;
+		}
+		if ( '' !== $saved_ui && $saved_ui === $live_ui ) {
+			$score += 5;
+		}
+		if ( '' !== $saved_b && $saved_b === $live_b ) {
+			$score += 3;
+		} elseif ( '' === $saved_b && '' !== $live_b ) {
+			$score += 1;
+		}
+		if ( '' === ( isset( $saved['ui_goal_type'] ) ? sanitize_key( (string) $saved['ui_goal_type'] ) : '' ) && $saved_gt === $live_gt ) {
+			++$score;
+		}
+		return $score;
+	}
+
+	/**
+	 * Rebuild a saved defined-goal row from the current live builder metadata.
+	 *
+	 * Keeps stable logical/mapping identifiers for reporting while refreshing physical ids, labels,
+	 * builders, and goal types so future resync/front-end expansion uses current page truth.
+	 *
+	 * @param array<string, mixed> $saved Saved experiment goal row.
+	 * @param array<string, mixed> $pick  Live discovered builder goal row.
+	 * @return array<string, mixed>|null
+	 */
+	private static function rebuild_saved_defined_goal_from_live( array $saved, array $pick ) {
+		if ( empty( $pick['goal_id'] ) || empty( $pick['handler_id'] ) ) {
+			return null;
+		}
+		$def = array(
+			'goal_id'             => sanitize_key( (string) $pick['goal_id'] ),
+			'handler_id'          => sanitize_key( (string) $pick['handler_id'] ),
+			'goal_label'          => isset( $pick['goal_label'] ) ? sanitize_text_field( (string) $pick['goal_label'] ) : '',
+			'source_type'         => isset( $pick['source_type'] ) ? sanitize_key( (string) $pick['source_type'] ) : sanitize_key( (string) ( $saved['source_type'] ?? 'defined' ) ),
+			'ui_goal_type'        => isset( $pick['ui_goal_type'] ) ? sanitize_key( (string) $pick['ui_goal_type'] ) : sanitize_key( (string) ( $saved['ui_goal_type'] ?? '' ) ),
+			'builder'             => isset( $pick['builder'] ) ? sanitize_key( (string) $pick['builder'] ) : sanitize_key( (string) ( $saved['builder'] ?? '' ) ),
+			'destination_page_id' => (int) ( $pick['destination_page_id'] ?? 0 ),
+			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
+		);
+		$built = self::build_goals_from_defined_selection( $def );
+		if ( empty( $built['goals'][0] ) || ! is_array( $built['goals'][0] ) ) {
+			return null;
+		}
+		$row = $built['goals'][0];
+		if ( ! empty( $saved['logical_goal_id'] ) ) {
+			$row['logical_goal_id'] = sanitize_key( (string) $saved['logical_goal_id'] );
+		}
+		if ( ! empty( $saved['mapping_variant'] ) ) {
+			$row['mapping_variant'] = sanitize_key( (string) $saved['mapping_variant'] );
+		}
+		$row['is_primary'] = ! empty( $saved['is_primary'] );
+
+		$note = '';
+		if ( isset( $pick['goal_note'] ) ) {
+			$note = sanitize_text_field( (string) $pick['goal_note'] );
+		} elseif ( isset( $saved['goal_note'] ) ) {
+			$note = sanitize_text_field( (string) $saved['goal_note'] );
+		}
+		if ( '' !== $note ) {
+			$row['goal_note'] = $note;
+		}
+		return $row;
 	}
 
 	/**
@@ -680,46 +791,67 @@ class RWGO_Defined_Goal_Service {
 			$used_by_page[ (int) $pid ] = array();
 		}
 
+		$next_goals = array();
 		foreach ( $goals as $i => $g ) {
-			if ( ! is_array( $g ) || empty( $g['is_defined'] ) ) {
+			if ( ! is_array( $g ) ) {
+				continue;
+			}
+			if ( empty( $g['is_defined'] ) ) {
+				$next_goals[] = $g;
 				continue;
 			}
 			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				$next_goals[] = $g;
 				continue;
 			}
 			$pid = self::page_id_for_saved_defined_goal( $out, $g );
 			if ( $pid <= 0 || empty( $live_by_page[ $pid ] ) ) {
+				$next_goals[] = $g;
 				continue;
 			}
 			$live = $live_by_page[ $pid ];
 			$pick = self::pick_live_row_for_saved_goal( $live, $g, $used_by_page[ $pid ] );
 			if ( ! is_array( $pick ) || empty( $pick['goal_id'] ) || empty( $pick['handler_id'] ) ) {
+				$changed = true;
+				++$updated_n;
 				continue;
 			}
 			$pk = (string) $pick['goal_id'] . '|' . sanitize_key( (string) $pick['handler_id'] );
 			$used_by_page[ $pid ][ $pk ] = true;
-
-			$old_gid = isset( $g['goal_id'] ) ? sanitize_key( (string) $g['goal_id'] ) : '';
-			$h0      = isset( $g['handlers'][0] ) && is_array( $g['handlers'][0] ) ? $g['handlers'][0] : array();
-			$old_hid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
-			$new_gid = sanitize_key( (string) $pick['goal_id'] );
-			$new_hid = sanitize_key( (string) $pick['handler_id'] );
-			if ( $old_gid === $new_gid && $old_hid === $new_hid ) {
+			$rebuilt = self::rebuild_saved_defined_goal_from_live( $g, $pick );
+			if ( ! is_array( $rebuilt ) ) {
+				$next_goals[] = $g;
 				continue;
 			}
-			$goals[ $i ]['goal_id'] = $new_gid;
-			if ( ! isset( $goals[ $i ]['handlers'] ) || ! is_array( $goals[ $i ]['handlers'] ) ) {
-				$goals[ $i ]['handlers'] = array();
+			if ( wp_json_encode( $g ) !== wp_json_encode( $rebuilt ) ) {
+				$changed = true;
+				++$updated_n;
 			}
-			if ( ! isset( $goals[ $i ]['handlers'][0] ) || ! is_array( $goals[ $i ]['handlers'][0] ) ) {
-				$goals[ $i ]['handlers'][0] = array();
-			}
-			$goals[ $i ]['handlers'][0]['handler_id'] = $new_hid;
-			$changed                                   = true;
-			++$updated_n;
+			$next_goals[] = $rebuilt;
 		}
 
+		$goals = array_values( $next_goals );
 		$out['goals'] = $goals;
+
+		$first_goal_index = -1;
+		$has_primary      = false;
+		foreach ( $goals as $idx => $g ) {
+			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
+				continue;
+			}
+			if ( $first_goal_index < 0 ) {
+				$first_goal_index = (int) $idx;
+			}
+			if ( ! empty( $g['is_primary'] ) ) {
+				$has_primary = true;
+				break;
+			}
+		}
+		if ( ! $has_primary && $first_goal_index >= 0 ) {
+			$out['goals'][ $first_goal_index ]['is_primary'] = true;
+			$goals[ $first_goal_index ]['is_primary']        = true;
+			$changed                                         = true;
+		}
 
 		if ( $changed && class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $out ) ) {
 			$targets = array(
@@ -751,10 +883,19 @@ class RWGO_Defined_Goal_Service {
 		}
 
 		if ( $changed && ( ! class_exists( 'RWGO_Goal_Mapping', false ) || ! RWGO_Goal_Mapping::is_active( $out ) ) ) {
+			$out['primary_goal_id'] = '';
 			foreach ( $goals as $g ) {
 				if ( is_array( $g ) && ! empty( $g['is_primary'] ) && ! empty( $g['goal_id'] ) ) {
 					$out['primary_goal_id'] = sanitize_key( (string) $g['goal_id'] );
 					break;
+				}
+			}
+			if ( '' === (string) $out['primary_goal_id'] ) {
+				foreach ( $goals as $g ) {
+					if ( is_array( $g ) && ! empty( $g['goal_id'] ) ) {
+						$out['primary_goal_id'] = sanitize_key( (string) $g['goal_id'] );
+						break;
+					}
 				}
 			}
 		}
