@@ -361,19 +361,12 @@ class RWGO_Goal_Registry {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			$builder = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
-			$st      = isset( $row['source_type'] ) ? sanitize_key( (string) $row['source_type'] ) : '';
-			$prefix  = '';
-			if ( 'elementor' === $builder && 'elementor_widget' === $st ) {
-				$prefix = 'el:';
-			} elseif ( 'gutenberg' === $builder && 'gutenberg_block' === $st ) {
-				$prefix = 'gb:';
-			} else {
+			$key = class_exists( 'RWGO_Defined_Goal_Service', false )
+				? RWGO_Defined_Goal_Service::physical_goal_match_key( $row, false )
+				: '';
+			if ( '' === $key ) {
 				continue;
 			}
-			$label = isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '';
-			$ui    = isset( $row['ui_goal_type'] ) ? sanitize_key( (string) $row['ui_goal_type'] ) : '';
-			$key   = $prefix . $label . "\x1e" . $ui;
 			if ( ! isset( $by_match_key[ $key ] ) ) {
 				$by_match_key[ $key ] = array();
 			}
@@ -403,10 +396,10 @@ class RWGO_Goal_Registry {
 			if ( ! in_array( $gt, array( 'click', 'form_submit' ), true ) ) {
 				continue;
 			}
-			$label = isset( $g['label'] ) ? sanitize_text_field( (string) $g['label'] ) : '';
-			$ui    = isset( $g['ui_goal_type'] ) ? sanitize_key( (string) $g['ui_goal_type'] ) : '';
-			$key   = ( 'gutenberg' === $b ? 'gb:' : 'el:' ) . $label . "\x1e" . $ui;
-			if ( ! isset( $by_match_key[ $key ] ) ) {
+			$key = class_exists( 'RWGO_Defined_Goal_Service', false )
+				? RWGO_Defined_Goal_Service::physical_goal_match_key( $g, true )
+				: '';
+			if ( '' === $key || ! isset( $by_match_key[ $key ] ) ) {
 				continue;
 			}
 			foreach ( $by_match_key[ $key ] as $row ) {

@@ -502,27 +502,48 @@ class RWGO_Defined_Goal_Service {
 	}
 
 	/**
-	 * Match key for aligning saved experiment goals with {@see collect_for_post()} rows (label + UI type + builder).
+	 * When `ui_goal_type` is missing in saved meta, match Elementor/Gutenberg defaults (same as {@see collect_elementor_goals()}).
 	 *
-	 * @param array<string, mixed> $row Discovered or saved goal-shaped array.
-	 * @param bool                 $saved_row When true, read `label`; when false, read `goal_label`.
+	 * @param string $raw_ui     Sanitized or empty.
+	 * @param string $goal_type  Experiment goal_type (click|form_submit|…).
+	 * @return string Non-empty key segment for pairing.
+	 */
+	public static function normalize_ui_goal_type_for_physical_match( $raw_ui, $goal_type ) {
+		$raw_ui = sanitize_key( (string) $raw_ui );
+		if ( '' !== $raw_ui ) {
+			return $raw_ui;
+		}
+		$gt = sanitize_key( (string) $goal_type );
+		if ( 'form_submit' === $gt ) {
+			return 'form_submit';
+		}
+		return 'cta_click';
+	}
+
+	/**
+	 * Stable key for pairing saved experiment goals with {@see collect_for_post()} rows (label + UI type + builder).
+	 *
+	 * @param array<string, mixed> $row            Discovered row (`goal_label`) or saved config row (`label`).
+	 * @param bool                   $from_saved_meta When true, read `label`; when false, read `goal_label`.
 	 * @return string Empty if not comparable (e.g. page_destination).
 	 */
-	private static function goal_physical_match_key( array $row, $saved_row = false ) {
+	public static function physical_goal_match_key( array $row, $from_saved_meta = false ) {
 		$builder = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
 		$st      = isset( $row['source_type'] ) ? sanitize_key( (string) $row['source_type'] ) : '';
 		$prefix  = '';
-		if ( 'elementor' === $builder && ( 'elementor_widget' === $st || ( $saved_row && ( '' === $st || 'defined' === $st ) ) ) ) {
+		if ( 'elementor' === $builder && ( 'elementor_widget' === $st || ( $from_saved_meta && ( '' === $st || 'defined' === $st ) ) ) ) {
 			$prefix = 'el:';
-		} elseif ( 'gutenberg' === $builder && ( 'gutenberg_block' === $st || ( $saved_row && ( '' === $st || 'defined' === $st ) ) ) ) {
+		} elseif ( 'gutenberg' === $builder && ( 'gutenberg_block' === $st || ( $from_saved_meta && ( '' === $st || 'defined' === $st ) ) ) ) {
 			$prefix = 'gb:';
 		} else {
 			return '';
 		}
-		$label = $saved_row
+		$label = $from_saved_meta
 			? ( isset( $row['label'] ) ? sanitize_text_field( (string) $row['label'] ) : '' )
 			: ( isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '' );
-		$ui    = isset( $row['ui_goal_type'] ) ? sanitize_key( (string) $row['ui_goal_type'] ) : '';
+		$gt    = isset( $row['goal_type'] ) ? sanitize_key( (string) $row['goal_type'] ) : 'click';
+		$raw_ui = isset( $row['ui_goal_type'] ) ? (string) $row['ui_goal_type'] : '';
+		$ui     = self::normalize_ui_goal_type_for_physical_match( $raw_ui, $gt );
 		return $prefix . $label . "\x1e" . $ui;
 	}
 
@@ -582,7 +603,7 @@ class RWGO_Defined_Goal_Service {
 				return $row;
 			}
 		}
-		$want = self::goal_physical_match_key( $saved, true );
+		$want = self::physical_goal_match_key( $saved, true );
 		if ( '' === $want ) {
 			return null;
 		}
@@ -590,7 +611,7 @@ class RWGO_Defined_Goal_Service {
 			if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
 				continue;
 			}
-			if ( self::goal_physical_match_key( $row, false ) !== $want ) {
+			if ( self::physical_goal_match_key( $row, false ) !== $want ) {
 				continue;
 			}
 			$pk = (string) $row['goal_id'] . '|' . sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
