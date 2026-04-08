@@ -58,7 +58,7 @@ class RWGO_Promotion_Service {
 		$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
 			RWGO_Experiment_Repository::get_config( $experiment_post_id ),
 			$experiment_post_id,
-			true
+			false
 		);
 		$src = (int) ( $cfg['source_page_id'] ?? 0 );
 		$b   = RWGO_Variant_Lifecycle::variant_b_page_id( $cfg, $experiment_post_id );

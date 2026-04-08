@@ -142,8 +142,8 @@ class RWGO_Page_Duplicator {
 		}
 
 		$base_title = class_exists( 'RWGO_Page_Naming_Service', false )
-			? RWGO_Page_Naming_Service::generate_variant_title( $post->post_title, 'B' )
-			: $post->post_title . ' — ' . __( 'Variant B', 'reactwoo-geo-optimise' );
+			? RWGO_Page_Naming_Service::next_duplicate_variant_title( $post->post_title )
+			: $post->post_title . ' — ' . __( 'Variant 1', 'reactwoo-geo-optimise' );
 		$final_title = class_exists( 'RWGO_Page_Naming_Service', false )
 			? RWGO_Page_Naming_Service::ensure_unique_variant_title( $base_title, $post->post_type, 0 )
 			: $base_title;

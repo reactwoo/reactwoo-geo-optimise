@@ -25,6 +25,19 @@ class RWGO_Experiment_Repository {
 	 * @param int $post_id Experiment post ID.
 	 * @return array<string, mixed>
 	 */
+	/**
+	 * Canonical page binding snapshot for persistence (alias for resolver output).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array<string, mixed>
+	 */
+	public static function build_page_binding_snapshot( $post_id ) {
+		if ( ! class_exists( 'RWGO_Page_Binding_Resolver', false ) ) {
+			return array();
+		}
+		return RWGO_Page_Binding_Resolver::snapshot_for_post( (int) $post_id );
+	}
+
 	public static function get_config( $post_id ) {
 		$post_id = (int) $post_id;
 		if ( $post_id <= 0 ) {
@@ -92,7 +105,7 @@ class RWGO_Experiment_Repository {
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;
 			}
-			$cfg = self::normalize_page_bindings( $cfg, $post->ID, true );
+			$cfg = self::normalize_page_bindings( $cfg, $post->ID, false );
 			if ( (int) ( $cfg['source_page_id'] ?? 0 ) !== $source_page_id ) {
 				continue;
 			}
@@ -124,7 +137,7 @@ class RWGO_Experiment_Repository {
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;
 			}
-			$cfg = self::normalize_page_bindings( $cfg, $post->ID, true );
+			$cfg = self::normalize_page_bindings( $cfg, $post->ID, false );
 			if ( ! self::config_touches_page_id( $cfg, $page_id ) ) {
 				continue;
 			}
@@ -180,7 +193,7 @@ class RWGO_Experiment_Repository {
 	 * @param bool                 $persist             Save meta when IDs or snapshots change.
 	 * @return array<string, mixed>
 	 */
-	public static function normalize_page_bindings( array $cfg, $experiment_post_id = 0, $persist = true ) {
+	public static function normalize_page_bindings( array $cfg, $experiment_post_id = 0, $persist = false ) {
 		if ( ! class_exists( 'RWGO_Page_Binding_Resolver', false ) ) {
 			return $cfg;
 		}
@@ -189,7 +202,7 @@ class RWGO_Experiment_Repository {
 
 		$src_binding = isset( $out['source_page'] ) && is_array( $out['source_page'] ) ? $out['source_page'] : array();
 		$src_binding['page_id'] = (int) ( $out['source_page_id'] ?? $src_binding['page_id'] ?? 0 );
-		$new_src                = RWGO_Page_Binding_Resolver::resolve_post_id( $src_binding );
+		$new_src = RWGO_Page_Binding_Resolver::resolve_post_id( $src_binding );
 		if ( $new_src > 0 && (int) ( $out['source_page_id'] ?? 0 ) !== $new_src ) {
 			self::log_binding_heal( $experiment_post_id, 'source_page_id', (int) ( $out['source_page_id'] ?? 0 ), $new_src );
 			$out['source_page_id'] = $new_src;
@@ -265,11 +278,38 @@ class RWGO_Experiment_Repository {
 		if ( ! $log ) {
 			return;
 		}
+		$eid = (int) $experiment_post_id;
+		if ( 0 === strpos( (string) $context, 'variant:' ) ) {
+			$vid = substr( (string) $context, strlen( 'variant:' ) );
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug.
+			error_log(
+				sprintf(
+					'[RWGO] Resynced experiment %d variant %s page_id from %d to %d',
+					$eid,
+					$vid,
+					(int) $old_id,
+					(int) $new_id
+				)
+			);
+			return;
+		}
+		if ( 'source_page_id' === (string) $context ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug.
+			error_log(
+				sprintf(
+					'[RWGO] Resynced experiment %d source_page_id from %d to %d',
+					$eid,
+					(int) $old_id,
+					(int) $new_id
+				)
+			);
+			return;
+		}
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional debug.
 		error_log(
 			sprintf(
 				'[RWGO] Healed page binding (experiment_post_id=%d, %s): %d -> %d',
-				(int) $experiment_post_id,
+				$eid,
 				$context,
 				(int) $old_id,
 				(int) $new_id
@@ -280,22 +320,42 @@ class RWGO_Experiment_Repository {
 	/**
 	 * Loop all experiments and normalize bindings (recovery after import/staging).
 	 *
-	 * @return int Number of experiments updated.
+	 * @return array{scanned: int, updated: int, source_repaired: int, variant_repaired: int}
 	 */
 	public static function resync_all_page_bindings() {
-		$n = 0;
+		$scanned          = 0;
+		$updated          = 0;
+		$source_repaired  = 0;
+		$variant_repaired = 0;
 		foreach ( self::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
 			if ( ! $post instanceof \WP_Post ) {
 				continue;
 			}
-			$prev = wp_json_encode( self::binding_signature( self::get_config( $post->ID ) ) );
-			self::normalize_page_bindings( self::get_config( $post->ID ), $post->ID, true );
-			$next = wp_json_encode( self::binding_signature( self::get_config( $post->ID ) ) );
-			if ( $prev !== $next ) {
-				++$n;
+			++$scanned;
+			$raw  = self::get_config( $post->ID );
+			$prev = self::binding_signature( $raw );
+			self::normalize_page_bindings( $raw, $post->ID, true );
+			$next_cfg = self::get_config( $post->ID );
+			$next     = self::binding_signature( $next_cfg );
+			if ( wp_json_encode( $prev ) !== wp_json_encode( $next ) ) {
+				++$updated;
+				if ( (int) ( $prev['source_page_id'] ?? 0 ) !== (int) ( $next['source_page_id'] ?? 0 ) ) {
+					++$source_repaired;
+				}
+				foreach ( isset( $prev['v'] ) && is_array( $prev['v'] ) ? $prev['v'] : array() as $vk => $vpid ) {
+					$npid = isset( $next['v'][ $vk ] ) ? (int) $next['v'][ $vk ] : 0;
+					if ( (int) $vpid !== $npid ) {
+						++$variant_repaired;
+					}
+				}
 			}
 		}
-		return $n;
+		return array(
+			'scanned'          => $scanned,
+			'updated'          => $updated,
+			'source_repaired'  => $source_repaired,
+			'variant_repaired' => $variant_repaired,
+		);
 	}
 
 	/**
@@ -305,6 +365,7 @@ class RWGO_Experiment_Repository {
 	 */
 	public static function config_touches_page_id( array $cfg, $page_id ) {
 		$page_id = (int) $page_id;
+		$cfg     = self::normalize_page_bindings( $cfg, 0, false );
 		if ( (int) ( $cfg['source_page_id'] ?? 0 ) === $page_id ) {
 			return true;
 		}
@@ -314,6 +375,36 @@ class RWGO_Experiment_Repository {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Admin warnings: permalink round-trip, missing variant B, etc.
+	 *
+	 * @param array<string, mixed> $cfg Experiment config (raw or normalized).
+	 * @return list<array{code: string, message: string}>
+	 */
+	public static function binding_health_warnings( array $cfg ) {
+		$cfg = self::normalize_page_bindings( $cfg, 0, false );
+		$out = array();
+		$src = (int) ( $cfg['source_page_id'] ?? 0 );
+		if ( $src <= 0 ) {
+			$out[] = array(
+				'code'    => 'missing_source',
+				'message' => __( 'This test has no valid source page ID.', 'reactwoo-geo-optimise' ),
+			);
+			return $out;
+		}
+		$perm = get_permalink( $src );
+		if ( is_string( $perm ) && '' !== $perm ) {
+			$round = (int) url_to_postid( $perm );
+			if ( $round > 0 && $round !== $src ) {
+				$out[] = array(
+					'code'    => 'source_permalink_mismatch',
+					'message' => __( 'The saved source page does not match the post ID WordPress resolves for its public URL. Run Resync Page Bindings or reselect the source page.', 'reactwoo-geo-optimise' ),
+				);
+			}
+		}
+		return $out;
 	}
 
 	/**

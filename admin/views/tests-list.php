@@ -177,10 +177,14 @@ $rwgo_status_pill_class = static function ( $st ) {
 	<?php if ( ! empty( $_GET['rwgo_test_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php
 		$rwgo_tc_exp = isset( $_GET['rwgo_experiment_id'] ) ? absint( wp_unslash( $_GET['rwgo_experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwgo_tc_need_goal = ! empty( $_GET['rwgo_needs_defined_goal'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_tc_need_goal  = ! empty( $_GET['rwgo_needs_defined_goal'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwgo_tc_bind_q     = ! empty( $_GET['rwgo_binding_warn'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$rwgo_tc_cfg        = ( $rwgo_tc_exp > 0 && class_exists( 'RWGO_Experiment_Repository', false ) )
 			? RWGO_Experiment_Repository::get_config( $rwgo_tc_exp )
 			: array();
+		if ( ! empty( $rwgo_tc_cfg ) && $rwgo_tc_exp > 0 && class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$rwgo_tc_cfg = RWGO_Experiment_Repository::normalize_page_bindings( $rwgo_tc_cfg, $rwgo_tc_exp, false );
+		}
 		$rwgo_tc_src        = (int) ( $rwgo_tc_cfg['source_page_id'] ?? 0 );
 		$rwgo_tc_vb         = 0;
 		if ( ! empty( $rwgo_tc_cfg['variants'] ) && is_array( $rwgo_tc_cfg['variants'] ) ) {
@@ -206,6 +210,18 @@ $rwgo_status_pill_class = static function ( $st ) {
 							<?php esc_html_e( 'This test still needs a defined goal. Edit Control or Variant B in Elementor or Gutenberg and enable a Geo Optimise goal on the CTA, form, checkbox, or destination page — then return to Edit Test and pick it under Goal & tracking.', 'reactwoo-geo-optimise' ); ?>
 						</p>
 					</div>
+				<?php endif; ?>
+				<?php if ( $rwgo_tc_bind_q && class_exists( 'RWGO_Experiment_Repository', false ) && $rwgo_tc_exp > 0 ) : ?>
+					<?php
+					foreach ( RWGO_Experiment_Repository::binding_health_warnings( $rwgo_tc_cfg ) as $rwgo_tc_bh ) :
+						if ( ! is_array( $rwgo_tc_bh ) || empty( $rwgo_tc_bh['message'] ) ) {
+							continue;
+						}
+						?>
+					<div class="notice notice-warning inline" style="margin:10px 0 0;padding:8px 12px;">
+						<p class="rwgo-alert__text" style="margin:0;"><?php echo esc_html( (string) $rwgo_tc_bh['message'] ); ?></p>
+					</div>
+					<?php endforeach; ?>
 				<?php endif; ?>
 				<div class="rwgo-alert__actions rwgo-actions rwgo-actions--primary-secondary rwgo-actions--stack-mobile" style="margin-top:12px;">
 					<?php if ( $rwgo_tc_edit ) : ?>

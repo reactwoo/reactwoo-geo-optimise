@@ -38,15 +38,33 @@ class RWGO_Page_Naming_Service {
 	 * @param string $variant_key  Variant label, e.g. "B".
 	 * @return string
 	 */
-	public static function generate_variant_title( $source_title, $variant_key = 'B' ) {
+	public static function generate_variant_title( $source_title, $variant_key = '1' ) {
 		$source_title = is_string( $source_title ) ? $source_title : '';
-		$variant_key  = is_string( $variant_key ) && '' !== $variant_key ? $variant_key : 'B';
+		$variant_key  = is_string( $variant_key ) && '' !== $variant_key ? $variant_key : '1';
 
 		return trim( $source_title ) . ' — ' . sprintf(
-			/* translators: %s: variant letter or label (e.g. B). */
+			/* translators: %s: variant index or label (e.g. 1). */
 			__( 'Variant %s', 'reactwoo-geo-optimise' ),
 			$variant_key
 		);
+	}
+
+	/**
+	 * Base title for a new Variant B duplicate (prefers "… — Variant 1"; avoids repeating an existing "— Variant N" suffix when possible).
+	 *
+	 * @param string $source_title Control page title.
+	 * @return string
+	 */
+	public static function next_duplicate_variant_title( $source_title ) {
+		$t = trim( (string) $source_title );
+		if ( preg_match( '/^(.+?)\s+[\x{2013}\x{2014}\-]\s*Variant\s+(\d+)\s*$/iu', $t, $m ) ) {
+			$n = max( 1, (int) $m[2] ) + 1;
+			return trim( $m[1] ) . ' — ' . sprintf(
+				__( 'Variant %s', 'reactwoo-geo-optimise' ),
+				(string) $n
+			);
+		}
+		return self::generate_variant_title( $t, '1' );
 	}
 
 	/**
@@ -217,6 +235,18 @@ class RWGO_Page_Naming_Service {
 					'actual_title'   => $post->post_title,
 				)
 			);
+			$upd_title = wp_update_post(
+				wp_slash(
+					array(
+						'ID'         => $post_id,
+						'post_title' => $intended_title,
+					)
+				),
+				true
+			);
+			if ( ! is_wp_error( $upd_title ) ) {
+				clean_post_cache( $post_id );
+			}
 		}
 	}
 

@@ -123,7 +123,7 @@ class RWGO_WooCommerce_Goals {
 			$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
 				RWGO_Experiment_Repository::get_config( $post->ID ),
 				$post->ID,
-				true
+				false
 			);
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] ) {
 				continue;

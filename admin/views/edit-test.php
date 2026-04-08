@@ -21,9 +21,12 @@ foreach ( $rwgo_test_types as $tt ) {
 }
 
 $rwgo_exp_post = $rwgo_exp_id > 0 ? get_post( $rwgo_exp_id ) : null;
-$rwgo_cfg      = ( $rwgo_exp_post instanceof \WP_Post && RWGO_Experiment_CPT::POST_TYPE === $rwgo_exp_post->post_type )
+$rwgo_cfg = ( $rwgo_exp_post instanceof \WP_Post && RWGO_Experiment_CPT::POST_TYPE === $rwgo_exp_post->post_type )
 	? RWGO_Experiment_Repository::get_config( $rwgo_exp_id )
 	: array();
+if ( ! empty( $rwgo_cfg ) && class_exists( 'RWGO_Experiment_Repository', false ) && $rwgo_exp_id > 0 ) {
+	$rwgo_cfg = RWGO_Experiment_Repository::normalize_page_bindings( $rwgo_cfg, $rwgo_exp_id, false );
+}
 
 $rwgo_load_error = false;
 if ( ! $rwgo_exp_post instanceof \WP_Post || RWGO_Experiment_CPT::POST_TYPE !== $rwgo_exp_post->post_type ) {
@@ -169,6 +172,17 @@ $rwgo_form_mode = 'edit';
 		<?php if ( $rwgo_variant_title_matches_control ) : ?>
 			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Variant B uses the same title as Control. Rename the variant in the editor so visitors and reports can tell them apart.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
+
+		<?php
+		$rwgo_bind_health = class_exists( 'RWGO_Experiment_Repository', false )
+			? RWGO_Experiment_Repository::binding_health_warnings( $rwgo_cfg )
+			: array();
+		?>
+		<?php foreach ( $rwgo_bind_health as $rwgo_bh ) : ?>
+			<?php if ( is_array( $rwgo_bh ) && ! empty( $rwgo_bh['message'] ) ) : ?>
+				<div class="notice notice-warning rwgo-notice"><p><?php echo esc_html( (string) $rwgo_bh['message'] ); ?></p></div>
+			<?php endif; ?>
+		<?php endforeach; ?>
 
 		<?php if ( ! empty( $_GET['rwgo_saved'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Test settings saved.', 'reactwoo-geo-optimise' ); ?></p></div>

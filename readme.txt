@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.19
+Stable tag: 0.4.20
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,14 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.20 =
+* **Canonical page bindings:** Snapshots include **`is_front_page`**, **`is_posts_page`**, **`is_shop_page`**, and **`relative_path`** (front page uses `/`). **`RWGO_Experiment_Repository::build_page_binding_snapshot()`** wraps the resolver; **`resolve_post_id()`** applies special roles (front / posts / shop) before trusting stale IDs, so homepage tests align with Reading settings after import or front-page changes.
+* **Normalization:** **`normalize_page_bindings()`** defaults to **no DB write** on read; use **Resync all tests** or explicit saves to persist. **`config_touches_page_id()`** normalizes first. **`[RWGO] Resynced experiment …`** debug lines when **`WP_DEBUG`** is on.
+* **Create Test:** **`canonical_source_page_id_for_new_test()`** maps the chosen Control to the real front page when URLs match; experiment keys use the canonical source. Post-create **`binding_warnings`** and admin notices when bindings look unhealthy.
+* **Defined goals:** After duplicating Variant B, **`match_defined_goal_on_variant_page()`** scans the variant for a matching Elementor/Gutenberg goal (label + UI type) so **`defined_goal_mapping`** can include both physical pairs and **`logicalPrimaryGoalId`** is set.
+* **Variants:** Duplicate titles use **“— Variant 1”** (with increment when the title already ends with “— Variant N”); Elementor normalize can no longer leave Variant B with Control’s title (**`verify_variant_identity_after_save`** updates the title).
+* **Admin:** Source picker labels show **Current Front Page** / **Posts Page** / **Shop**; Developer **Resync** shows scanned / updated / source vs variant repair counts.
 
 = 0.4.19 =
 * **Release zip:** `scripts/package_zip.py` now includes the **`assets/`** directory (e.g. `rwgo-tracking.js`) in the R2 build.

@@ -973,8 +973,24 @@ class RWGO_Admin {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_resync_page_bindings' );
-		$n = class_exists( 'RWGO_Experiment_Repository', false ) ? RWGO_Experiment_Repository::resync_all_page_bindings() : 0;
-		wp_safe_redirect( add_query_arg( 'rwgo_resynced', (string) (int) $n, self::developer_url( 'developer' ) ) );
+		$stats = class_exists( 'RWGO_Experiment_Repository', false )
+			? RWGO_Experiment_Repository::resync_all_page_bindings()
+			: array(
+				'scanned'          => 0,
+				'updated'          => 0,
+				'source_repaired'  => 0,
+				'variant_repaired' => 0,
+			);
+		$url = add_query_arg(
+			array(
+				'rwgo_resynced'    => (string) (int) ( $stats['updated'] ?? 0 ),
+				'rwgo_rs_scanned'  => (string) (int) ( $stats['scanned'] ?? 0 ),
+				'rwgo_rs_src'      => (string) (int) ( $stats['source_repaired'] ?? 0 ),
+				'rwgo_rs_var'      => (string) (int) ( $stats['variant_repaired'] ?? 0 ),
+			),
+			self::developer_url( 'developer' )
+		);
+		wp_safe_redirect( $url );
 		exit;
 	}
 

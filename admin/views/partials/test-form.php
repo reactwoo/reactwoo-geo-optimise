@@ -105,7 +105,7 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Source content is fixed after creation. Duplicate the test if you want to test a different page or product.', 'reactwoo-geo-optimise' ); ?></p>
 			<div class="rwgo-summary-bar">
 				<?php if ( $pf_source_id > 0 && get_post( $pf_source_id ) ) : ?>
-					<strong><?php echo esc_html( get_the_title( $pf_source_id ) ); ?></strong>
+					<strong><?php echo esc_html( class_exists( 'RWGO_Admin_Content_Catalog', false ) ? RWGO_Admin_Content_Catalog::format_page_admin_label( $pf_source_id ) : get_the_title( $pf_source_id ) ); ?></strong>
 					<?php
 					$sel = class_exists( 'RWGO_Admin', false ) ? RWGO_Admin::post_builder_edit_url( $pf_source_id, $pf_test_type ) : get_edit_post_link( $pf_source_id );
 					$pl  = get_permalink( $pf_source_id );

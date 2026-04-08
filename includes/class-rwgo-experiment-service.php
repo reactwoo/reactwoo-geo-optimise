@@ -26,7 +26,7 @@ class RWGO_Experiment_Service {
 			return $config;
 		}
 		$e = (int) $experiment_post_id;
-		return RWGO_Experiment_Repository::normalize_page_bindings( $config, $e, $e > 0 );
+		return RWGO_Experiment_Repository::normalize_page_bindings( $config, $e, false );
 	}
 
 	/**

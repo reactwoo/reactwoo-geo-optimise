@@ -47,6 +47,18 @@ class RWGO_Admin_Wizard {
 			exit;
 		}
 
+		if ( class_exists( 'RWGO_Page_Binding_Resolver', false ) ) {
+			$canon = RWGO_Page_Binding_Resolver::canonical_source_page_id_for_new_test( $source );
+			if ( $canon > 0 && $canon !== $source ) {
+				$source = $canon;
+				$post   = get_post( $source );
+				if ( ! $post instanceof \WP_Post || ! current_user_can( 'edit_post', $post->ID ) ) {
+					wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=perm' ) );
+					exit;
+				}
+			}
+		}
+
 		$test_type     = isset( $_POST['rwgo_test_type'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_test_type'] ) ) : 'page_ab'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$allowed_types = array( 'page_ab', 'elementor_page', 'gutenberg_page', 'woo_product', 'custom_php' );
 		if ( ! in_array( $test_type, $allowed_types, true ) ) {
@@ -114,8 +126,6 @@ class RWGO_Admin_Wizard {
 			$dup = (int) $dup_res;
 		}
 
-		$key = RWGO_Experiment_Service::generate_experiment_key( $source );
-
 		$mode = isset( $_POST['rwgo_targeting_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_targeting_mode'] ) ) : 'everyone'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$targeting = array( 'mode' => 'everyone' );
 		if ( 'countries' === $mode ) {
@@ -151,14 +161,21 @@ class RWGO_Admin_Wizard {
 			if ( is_array( $parsed ) && isset( $parsed['version'] ) && 2 === (int) $parsed['version'] ) {
 				$control_def = isset( $parsed['control'] ) && is_array( $parsed['control'] ) ? $parsed['control'] : array();
 				$var_b_def   = isset( $parsed['var_b'] ) && is_array( $parsed['var_b'] ) ? $parsed['var_b'] : array();
-				$c_ok        = ! empty( $control_def['goal_id'] ) && ! empty( $control_def['handler_id'] );
-				$v_ok        = ! empty( $var_b_def['goal_id'] ) && ! empty( $var_b_def['handler_id'] );
+				$c_ok = ! empty( $control_def['goal_id'] ) && ! empty( $control_def['handler_id'] );
+				$v_ok = ! empty( $var_b_def['goal_id'] ) && ! empty( $var_b_def['handler_id'] );
 				if ( ! $c_ok ) {
 					$defined_goal_pending = true;
 					$built                = self::build_goals_from_goal_type( $goal_type );
 					$goals                = $built['goals'];
 					$primary_goal_id      = $built['primary_goal_id'];
 				} else {
+					if ( $dup > 0 && ! $v_ok ) {
+						$auto_v = self::match_defined_goal_on_variant_page( $control_def, $dup );
+						if ( is_array( $auto_v ) && ! empty( $auto_v['goal_id'] ) && ! empty( $auto_v['handler_id'] ) ) {
+							$var_b_def = array_merge( $var_b_def, $auto_v );
+							$v_ok      = true;
+						}
+					}
 					$built                = self::build_goals_from_variant_mapping( $control_def, $var_b_def, '' );
 					$goals                = $built['goals'];
 					$primary_goal_id      = $built['primary_goal_id'];
@@ -190,6 +207,8 @@ class RWGO_Admin_Wizard {
 			$goals           = $built['goals'];
 			$primary_goal_id = $built['primary_goal_id'];
 		}
+
+		$key = RWGO_Experiment_Service::generate_experiment_key( $source );
 
 		$config = array(
 			'experiment_key'       => $key,
@@ -228,12 +247,32 @@ class RWGO_Admin_Wizard {
 			exit;
 		}
 		RWGO_Experiment_Repository::save_config( (int) $exp_post, $config );
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			RWGO_Experiment_Repository::normalize_page_bindings(
+				RWGO_Experiment_Repository::get_config( (int) $exp_post ),
+				(int) $exp_post,
+				true
+			);
+			$fresh = RWGO_Experiment_Repository::get_config( (int) $exp_post );
+			RWGO_Experiment_Repository::save_config(
+				(int) $exp_post,
+				array(
+					'binding_warnings' => RWGO_Experiment_Repository::binding_health_warnings( $fresh ),
+				)
+			);
+		}
 
 		$redirect_url = admin_url(
 			'admin.php?page=rwgo-tests&rwgo_test_created=1&rwgo_experiment_id=' . (int) $exp_post
 		);
 		if ( $defined_goal_pending ) {
 			$redirect_url = add_query_arg( 'rwgo_needs_defined_goal', '1', $redirect_url );
+		}
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			$warn = RWGO_Experiment_Repository::binding_health_warnings( RWGO_Experiment_Repository::get_config( (int) $exp_post ) );
+			if ( ! empty( $warn ) ) {
+				$redirect_url = add_query_arg( 'rwgo_binding_warn', '1', $redirect_url );
+			}
 		}
 		wp_safe_redirect( $redirect_url );
 		exit;
@@ -1019,5 +1058,72 @@ class RWGO_Admin_Wizard {
 					'primary_goal_id' => $goal_id,
 				);
 		}
+	}
+
+	/**
+	 * After duplicating Control, find the Elementor (or block) defined goal on Variant B that matches Control (label + UI type).
+	 *
+	 * @param array<string, mixed> $control_def Parsed v2 control payload.
+	 * @param int                  $variant_post_id Variant B post ID.
+	 * @return array<string, mixed>|null
+	 */
+	private static function match_defined_goal_on_variant_page( array $control_def, $variant_post_id ) {
+		$variant_post_id = (int) $variant_post_id;
+		if ( $variant_post_id <= 0 || ! class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+			return null;
+		}
+		$want_label = isset( $control_def['goal_label'] ) ? sanitize_text_field( (string) $control_def['goal_label'] ) : '';
+		$want_ui    = isset( $control_def['ui_goal_type'] ) ? sanitize_key( (string) $control_def['ui_goal_type'] ) : '';
+		$want_b     = isset( $control_def['builder'] ) ? sanitize_key( (string) $control_def['builder'] ) : '';
+
+		$candidates = array();
+		foreach ( RWGO_Defined_Goal_Service::collect_for_post( $variant_post_id ) as $row ) {
+			if ( ! is_array( $row ) || empty( $row['goal_id'] ) || empty( $row['handler_id'] ) ) {
+				continue;
+			}
+			$bl = isset( $row['goal_label'] ) ? sanitize_text_field( (string) $row['goal_label'] ) : '';
+			$ui = isset( $row['ui_goal_type'] ) ? sanitize_key( (string) $row['ui_goal_type'] ) : '';
+			$b  = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
+			if ( '' !== $want_ui && $ui !== $want_ui ) {
+				continue;
+			}
+			if ( '' !== $want_b && 'elementor' === $want_b && 'elementor' !== $b ) {
+				continue;
+			}
+			if ( '' !== $want_label && $bl !== $want_label ) {
+				continue;
+			}
+			$score = 0;
+			if ( '' !== $want_label && $bl === $want_label ) {
+				$score += 10;
+			}
+			if ( '' !== $want_ui && $ui === $want_ui ) {
+				$score += 5;
+			}
+			$candidates[] = array(
+				'score' => $score,
+				'row'   => $row,
+			);
+		}
+		if ( empty( $candidates ) ) {
+			return null;
+		}
+		usort(
+			$candidates,
+			static function ( $a, $b ) {
+				return (int) ( $b['score'] ?? 0 ) <=> (int) ( $a['score'] ?? 0 );
+			}
+		);
+		$pick = $candidates[0]['row'];
+		return array(
+			'goal_id'             => (string) $pick['goal_id'],
+			'handler_id'          => (string) $pick['handler_id'],
+			'goal_label'          => isset( $pick['goal_label'] ) ? (string) $pick['goal_label'] : '',
+			'ui_goal_type'        => isset( $pick['ui_goal_type'] ) ? sanitize_key( (string) $pick['ui_goal_type'] ) : '',
+			'builder'             => isset( $pick['builder'] ) ? sanitize_key( (string) $pick['builder'] ) : '',
+			'source_type'         => isset( $pick['source_type'] ) ? sanitize_key( (string) $pick['source_type'] ) : '',
+			'destination_page_id' => (int) ( $pick['destination_page_id'] ?? 0 ),
+			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
+		);
 	}
 }

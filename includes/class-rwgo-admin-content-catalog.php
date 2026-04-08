@@ -187,8 +187,36 @@ class RWGO_Admin_Content_Catalog {
 	 * @return string
 	 */
 	private static function format_choice_label( \WP_Post $post ) {
-		$type = $post->post_type;
-		/* translators: 1: post title, 2: post type, 3: post ID */
-		return sprintf( __( '%1$s (%2$s #%3$d)', 'reactwoo-geo-optimise' ), $post->post_title, $type, (int) $post->ID );
+		$pid   = (int) $post->ID;
+		$parts = array( $post->post_title, sprintf( /* translators: %d: post ID */ __( 'ID %d', 'reactwoo-geo-optimise' ), $pid ) );
+		$show  = (string) get_option( 'show_on_front', 'posts' );
+		if ( 'page' === $show ) {
+			$front = (int) get_option( 'page_on_front', 0 );
+			$blog  = (int) get_option( 'page_for_posts', 0 );
+			if ( $front > 0 && $pid === $front ) {
+				$parts[] = __( 'Current Front Page', 'reactwoo-geo-optimise' );
+			}
+			if ( $blog > 0 && $pid === $blog ) {
+				$parts[] = __( 'Posts Page', 'reactwoo-geo-optimise' );
+			}
+		}
+		if ( function_exists( 'wc_get_page_id' ) ) {
+			$shop = (int) wc_get_page_id( 'shop' );
+			if ( $shop > 0 && $pid === $shop ) {
+				$parts[] = __( 'Shop Page', 'reactwoo-geo-optimise' );
+			}
+		}
+		return implode( ' — ', $parts );
+	}
+
+	/**
+	 * Human-readable label for admin summaries (matches picker style).
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	public static function format_page_admin_label( $post_id ) {
+		$post = get_post( (int) $post_id );
+		return $post instanceof \WP_Post ? self::format_choice_label( $post ) : '';
 	}
 }

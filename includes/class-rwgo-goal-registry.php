@@ -31,7 +31,7 @@ class RWGO_Goal_Registry {
 			$cfg = RWGO_Experiment_Repository::normalize_page_bindings(
 				RWGO_Experiment_Repository::get_config( $post->ID ),
 				$post->ID,
-				true
+				false
 			);
 			if ( empty( $cfg['status'] ) || 'active' !== $cfg['status'] || empty( $cfg['experiment_key'] ) ) {
 				continue;
