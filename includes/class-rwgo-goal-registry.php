@@ -362,7 +362,7 @@ class RWGO_Goal_Registry {
 				continue;
 			}
 			$key = class_exists( 'RWGO_Defined_Goal_Service', false )
-				? RWGO_Defined_Goal_Service::physical_goal_match_key( $row, false )
+				? RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $row, false )
 				: '';
 			if ( '' === $key ) {
 				continue;
@@ -399,9 +399,12 @@ class RWGO_Goal_Registry {
 			if ( ! in_array( $gt, array( 'click', 'form_submit' ), true ) ) {
 				continue;
 			}
+			if ( class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+				$g = RWGO_Defined_Goal_Service::enrich_saved_goal_with_live_identity( $g, $discovered );
+			}
 			$matched_rows = array();
 			$key          = class_exists( 'RWGO_Defined_Goal_Service', false )
-				? RWGO_Defined_Goal_Service::physical_goal_match_key( $g, true )
+				? RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $g, true )
 				: '';
 			if ( '' !== $key && isset( $by_match_key[ $key ] ) ) {
 				$matched_rows = $by_match_key[ $key ];

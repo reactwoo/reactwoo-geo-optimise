@@ -673,6 +673,7 @@ class RWGO_Admin_Wizard {
 			'source_post_id'        => (int) ( $pick['source_post_id'] ?? 0 ),
 			'builder'               => (string) ( $pick['builder'] ?? '' ),
 			'ui_goal_type'          => (string) ( $pick['ui_goal_type'] ?? '' ),
+			'elementor_id'          => (string) ( $pick['elementor_id'] ?? '' ),
 		);
 		return (string) wp_json_encode( $payload );
 	}
@@ -695,6 +696,7 @@ class RWGO_Admin_Wizard {
 			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
 			'builder'             => (string) ( $pick['builder'] ?? '' ),
 			'ui_goal_type'        => (string) ( $pick['ui_goal_type'] ?? '' ),
+			'elementor_id'        => (string) ( $pick['elementor_id'] ?? '' ),
 		);
 	}
 
@@ -838,6 +840,7 @@ class RWGO_Admin_Wizard {
 		$b  = isset( $def['builder'] ) ? sanitize_key( (string) $def['builder'] ) : '';
 		$o  = '' !== $source_type ? $source_type : 'defined';
 		$ui = isset( $def['ui_goal_type'] ) ? sanitize_key( (string) $def['ui_goal_type'] ) : '';
+		$elementor_id = isset( $def['elementor_id'] ) ? sanitize_key( (string) $def['elementor_id'] ) : '';
 		if ( 'form_submit' === $ui || 'form_submit' === RWGO_Defined_Goal_Service::map_ui_goal_type_to_experiment( $ui ) ) {
 			return array(
 				'goals'           => array(
@@ -851,6 +854,7 @@ class RWGO_Admin_Wizard {
 						'goal_origin'  => $o,
 						'ui_goal_type' => $ui ? $ui : 'form_submit',
 						'builder'      => $b,
+						'elementor_id' => $elementor_id,
 						'handlers'     => array(
 							array(
 								'handler_id'   => $handler_id,
@@ -878,6 +882,7 @@ class RWGO_Admin_Wizard {
 					'goal_origin'  => $o,
 					'ui_goal_type' => $ui,
 					'builder'      => $b,
+					'elementor_id' => $elementor_id,
 					'handlers'     => array(
 						array(
 							'handler_id'   => $handler_id,

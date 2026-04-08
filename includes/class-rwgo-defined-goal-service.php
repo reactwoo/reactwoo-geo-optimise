@@ -453,8 +453,8 @@ class RWGO_Defined_Goal_Service {
 				}
 			}
 			if ( is_array( $control_goal ) && is_array( $var_b_goal ) ) {
-				$control_key = self::physical_goal_match_key( $control_goal, true );
-				$var_b_key   = self::physical_goal_match_key( $var_b_goal, true );
+				$control_key = self::preferred_physical_goal_match_key( $control_goal, true );
+				$var_b_key   = self::preferred_physical_goal_match_key( $var_b_goal, true );
 				if ( '' !== $control_key && '' !== $var_b_key && $control_key !== $var_b_key ) {
 					$warnings[] = array(
 						'code'    => 'defined_goal_reselect_needed',
@@ -548,7 +548,8 @@ class RWGO_Defined_Goal_Service {
 				'goal_label' => $glab,
 			);
 		}
-		$match_key = self::physical_goal_match_key( $primary, true );
+		$primary   = self::enrich_saved_goal_with_live_identity( $primary, self::collect_for_posts( $pages_to_scan ) );
+		$match_key = self::preferred_physical_goal_match_key( $primary, true );
 		if ( '' !== $match_key && $source_page > 0 && $var_b > 0 ) {
 			$source_has_match = self::post_has_live_goal_match_key( $source_page, $match_key );
 			$var_b_has_match  = self::post_has_live_goal_match_key( $var_b, $match_key );
@@ -566,7 +567,7 @@ class RWGO_Defined_Goal_Service {
 	 * Whether a post still contains a comparable builder-defined goal for the saved match key.
 	 *
 	 * @param int    $post_id    Post ID.
-	 * @param string $match_key  Match key from {@see physical_goal_match_key()}.
+	 * @param string $match_key  Match key from {@see preferred_physical_goal_match_key()}.
 	 * @return bool
 	 */
 	private static function post_has_live_goal_match_key( $post_id, $match_key ) {
@@ -579,7 +580,7 @@ class RWGO_Defined_Goal_Service {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			if ( self::physical_goal_match_key( $row, false ) === $match_key ) {
+			if ( self::preferred_physical_goal_match_key( $row, false ) === $match_key ) {
 				return true;
 			}
 		}
@@ -630,6 +631,66 @@ class RWGO_Defined_Goal_Service {
 		$raw_ui = isset( $row['ui_goal_type'] ) ? (string) $row['ui_goal_type'] : '';
 		$ui     = self::normalize_ui_goal_type_for_physical_match( $raw_ui, $gt );
 		return $prefix . $label . "\x1e" . $ui;
+	}
+
+	/**
+	 * Preferred cross-page identity for a defined goal row.
+	 *
+	 * Elementor duplicates preserve widget `elementor_id` across source and variant pages, while
+	 * physical goal_id / handler_id hashes differ per post. Prefer that stable identity when present;
+	 * otherwise fall back to the label + UI-type matcher.
+	 *
+	 * @param array<string, mixed> $row Saved or discovered goal row.
+	 * @param bool                 $from_saved_meta Whether row comes from saved config.
+	 * @return string
+	 */
+	public static function preferred_physical_goal_match_key( array $row, $from_saved_meta = false ) {
+		$builder = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
+		if ( 'elementor' === $builder && ! empty( $row['elementor_id'] ) ) {
+			return 'elid:' . sanitize_key( (string) $row['elementor_id'] );
+		}
+		return self::physical_goal_match_key( $row, $from_saved_meta );
+	}
+
+	/**
+	 * Enrich an older saved goal row with stable live identity metadata when it still matches a live pair.
+	 *
+	 * @param array<string, mixed>            $saved Saved goal row.
+	 * @param list<array<string, mixed>> $rows  Live discovered rows across relevant pages.
+	 * @return array<string, mixed>
+	 */
+	public static function enrich_saved_goal_with_live_identity( array $saved, array $rows ) {
+		if ( ! empty( $saved['elementor_id'] ) || ( isset( $saved['builder'] ) && 'elementor' !== sanitize_key( (string) $saved['builder'] ) ) ) {
+			return $saved;
+		}
+		$gid = isset( $saved['goal_id'] ) ? sanitize_key( (string) $saved['goal_id'] ) : '';
+		$h0  = isset( $saved['handlers'][0] ) && is_array( $saved['handlers'][0] ) ? $saved['handlers'][0] : array();
+		$hid = isset( $h0['handler_id'] ) ? sanitize_key( (string) $h0['handler_id'] ) : '';
+		if ( '' === $gid || '' === $hid ) {
+			return $saved;
+		}
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			if ( sanitize_key( (string) ( $row['goal_id'] ?? '' ) ) !== $gid ) {
+				continue;
+			}
+			if ( sanitize_key( (string) ( $row['handler_id'] ?? '' ) ) !== $hid ) {
+				continue;
+			}
+			if ( ! empty( $row['elementor_id'] ) ) {
+				$saved['elementor_id'] = sanitize_key( (string) $row['elementor_id'] );
+			}
+			if ( empty( $saved['builder'] ) && ! empty( $row['builder'] ) ) {
+				$saved['builder'] = sanitize_key( (string) $row['builder'] );
+			}
+			if ( empty( $saved['source_type'] ) && ! empty( $row['source_type'] ) ) {
+				$saved['source_type'] = sanitize_key( (string) $row['source_type'] );
+			}
+			return $saved;
+		}
+		return $saved;
 	}
 
 	/**
@@ -688,13 +749,13 @@ class RWGO_Defined_Goal_Service {
 				return $row;
 			}
 		}
-		$want = self::physical_goal_match_key( $saved, true );
+		$want = self::preferred_physical_goal_match_key( $saved, true );
 		if ( '' !== $want ) {
 			foreach ( $live as $row ) {
 				if ( ! is_array( $row ) || empty( $row['goal_id'] ) ) {
 					continue;
 				}
-				if ( self::physical_goal_match_key( $row, false ) !== $want ) {
+				if ( self::preferred_physical_goal_match_key( $row, false ) !== $want ) {
 					continue;
 				}
 				$pk = (string) $row['goal_id'] . '|' . sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
@@ -740,8 +801,15 @@ class RWGO_Defined_Goal_Service {
 		$live_ui     = self::normalize_ui_goal_type_for_physical_match( isset( $row['ui_goal_type'] ) ? (string) $row['ui_goal_type'] : '', $live_gt );
 		$saved_b     = isset( $saved['builder'] ) ? sanitize_key( (string) $saved['builder'] ) : '';
 		$live_b      = isset( $row['builder'] ) ? sanitize_key( (string) $row['builder'] ) : '';
+		$saved_eid   = isset( $saved['elementor_id'] ) ? sanitize_key( (string) $saved['elementor_id'] ) : '';
+		$live_eid    = isset( $row['elementor_id'] ) ? sanitize_key( (string) $row['elementor_id'] ) : '';
 		if ( '' === $saved_label && '' === $saved_ui && '' === $saved_b ) {
 			return -1;
+		}
+		if ( '' !== $saved_eid ) {
+			if ( '' === $live_eid || $saved_eid !== $live_eid ) {
+				return -1;
+			}
 		}
 		if ( '' !== $saved_label && '' !== $live_label && $saved_label !== $live_label ) {
 			return -1;
@@ -753,6 +821,9 @@ class RWGO_Defined_Goal_Service {
 			return -1;
 		}
 		$score = 0;
+		if ( '' !== $saved_eid && $saved_eid === $live_eid ) {
+			$score += 50;
+		}
 		if ( '' !== $saved_label && $saved_label === $live_label ) {
 			$score += 10;
 		}
@@ -793,6 +864,7 @@ class RWGO_Defined_Goal_Service {
 			'builder'             => isset( $pick['builder'] ) ? sanitize_key( (string) $pick['builder'] ) : sanitize_key( (string) ( $saved['builder'] ?? '' ) ),
 			'destination_page_id' => (int) ( $pick['destination_page_id'] ?? 0 ),
 			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
+			'elementor_id'        => isset( $pick['elementor_id'] ) ? sanitize_key( (string) $pick['elementor_id'] ) : sanitize_key( (string) ( $saved['elementor_id'] ?? '' ) ),
 		);
 		$built = self::build_goals_from_defined_selection( $def );
 		if ( empty( $built['goals'][0] ) || ! is_array( $built['goals'][0] ) ) {
@@ -895,6 +967,7 @@ class RWGO_Defined_Goal_Service {
 				continue;
 			}
 			$live = $live_by_page[ $pid ];
+			$g    = self::enrich_saved_goal_with_live_identity( $g, $live );
 			$pick = self::pick_live_row_for_saved_goal( $live, $g, $used_by_page[ $pid ] );
 			if ( ! is_array( $pick ) || empty( $pick['goal_id'] ) || empty( $pick['handler_id'] ) ) {
 				$changed = true;
