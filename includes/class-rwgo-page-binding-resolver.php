@@ -124,14 +124,14 @@ class RWGO_Page_Binding_Resolver {
 	}
 
 	/**
-	 * Resolve a live post ID from a binding (special roles first, then ID, then path, then slug).
+	 * Resolve a live post ID from a binding: special roles, stored path, slug, then raw page_id last.
 	 *
 	 * @param array<string, mixed> $binding Keys: page_id, relative_path, post_name, post_type, is_front_page, ….
 	 * @return int 0 if unknown.
 	 */
 	public static function resolve_post_id( array $binding ) {
-		$show_on_front = (string) get_option( 'show_on_front', 'posts' );
-		$page_on_front = (int) get_option( 'page_on_front', 0 );
+		$show_on_front  = (string) get_option( 'show_on_front', 'posts' );
+		$page_on_front  = (int) get_option( 'page_on_front', 0 );
 		$page_for_posts = (int) get_option( 'page_for_posts', 0 );
 
 		$is_front_flag = ! empty( $binding['is_front_page'] );
@@ -162,33 +162,10 @@ class RWGO_Page_Binding_Resolver {
 			}
 		}
 
-		$id = (int) ( $binding['page_id'] ?? 0 );
-		if ( $id > 0 ) {
-			$post = get_post( $id );
-			if ( $post instanceof \WP_Post && 'trash' !== $post->post_status ) {
-				if ( 'page' === $show_on_front && $page_on_front > 0 && $id !== $page_on_front ) {
-					if ( $is_front_flag ) {
-						return $page_on_front;
-					}
-					$home_url = get_permalink( $page_on_front );
-					$this_url = get_permalink( $id );
-					if ( is_string( $home_url ) && is_string( $this_url )
-						&& self::urls_same_location( $home_url, $this_url ) ) {
-						return $page_on_front;
-					}
-				}
-				return $id;
-			}
-		}
-
 		$path = isset( $binding['relative_path'] ) ? (string) $binding['relative_path'] : '';
 		if ( '' !== $path ) {
 			$path = '/' . trim( $path, '/' );
-			if ( '/' === $path || '' === trim( $path, '/' ) ) {
-				$url = home_url( '/' );
-			} else {
-				$url = home_url( $path );
-			}
+			$url  = ( '/' === $path || '' === trim( $path, '/' ) ) ? home_url( '/' ) : home_url( $path );
 			$resolved = (int) url_to_postid( $url );
 			if ( $resolved > 0 ) {
 				return $resolved;
@@ -201,6 +178,14 @@ class RWGO_Page_Binding_Resolver {
 			$post = get_page_by_path( $slug, OBJECT, $type );
 			if ( $post instanceof \WP_Post && 'trash' !== $post->post_status ) {
 				return (int) $post->ID;
+			}
+		}
+
+		$id = (int) ( $binding['page_id'] ?? 0 );
+		if ( $id > 0 ) {
+			$post = get_post( $id );
+			if ( $post instanceof \WP_Post && 'trash' !== $post->post_status ) {
+				return $id;
 			}
 		}
 

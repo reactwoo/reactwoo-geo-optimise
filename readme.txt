@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.24
+Stable tag: 0.4.25
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.25 =
+* **Legacy page-binding resync:** `resolve_post_id()` now resolves stored `relative_path` and slug before trusting a still-existing stale `page_id`. `binding_signature()` includes snapshot/locator fields so `normalize_page_bindings()` persists snapshot upgrades (not only ID moves). Normalization backfills missing `source_page` / variant snapshots before resolve and treats root `relative_path` as front-page when `is_front_page` was unset.
 
 = 0.4.24 =
 * **Resync determinism:** adds a manual-resync-only forced front-page source repair pass for legacy homepage-clone tests when standard normalization makes no change, with guarded key/source checks and explicit resync counters in admin (`forced front-page repairs`).

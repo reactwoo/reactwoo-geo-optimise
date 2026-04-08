@@ -200,8 +200,21 @@ class RWGO_Experiment_Repository {
 		$experiment_post_id = (int) $experiment_post_id;
 		$out                = $cfg;
 
+		if ( empty( $out['source_page'] ) && ! empty( $out['source_page_id'] ) ) {
+			$snap = RWGO_Page_Binding_Resolver::snapshot_for_post( (int) $out['source_page_id'] );
+			if ( ! empty( $snap ) ) {
+				$out['source_page'] = $snap;
+			}
+		}
+
 		$src_binding = isset( $out['source_page'] ) && is_array( $out['source_page'] ) ? $out['source_page'] : array();
 		$src_binding['page_id'] = (int) ( $out['source_page_id'] ?? $src_binding['page_id'] ?? 0 );
+		if ( empty( $src_binding['is_front_page'] ) ) {
+			$rel = isset( $src_binding['relative_path'] ) ? (string) $src_binding['relative_path'] : '';
+			if ( '/' === $rel || '' === trim( $rel, '/' ) ) {
+				$src_binding['is_front_page'] = true;
+			}
+		}
 		$new_src = RWGO_Page_Binding_Resolver::resolve_post_id( $src_binding );
 		if ( $new_src > 0 ) {
 			$legacy_home = self::infer_legacy_homepage_source_id( $out, $src_binding, $new_src );
@@ -222,6 +235,13 @@ class RWGO_Experiment_Repository {
 		foreach ( $vars as $i => $row ) {
 			if ( ! is_array( $row ) ) {
 				continue;
+			}
+			if ( empty( $row['relative_path'] ) && ! empty( $row['page_id'] ) ) {
+				$snap = RWGO_Page_Binding_Resolver::snapshot_for_post( (int) $row['page_id'] );
+				if ( ! empty( $snap ) ) {
+					$vars[ $i ] = array_merge( $row, $snap );
+					$row        = $vars[ $i ];
+				}
 			}
 			$bind = $row;
 			$bind['page_id'] = (int) ( $row['page_id'] ?? 0 );
@@ -352,13 +372,29 @@ class RWGO_Experiment_Repository {
 	private static function binding_signature( array $cfg ) {
 		$sig = array(
 			'source_page_id' => (int) ( $cfg['source_page_id'] ?? 0 ),
+			'source_page'    => array(
+				'post_name'     => (string) ( $cfg['source_page']['post_name'] ?? '' ),
+				'relative_path' => (string) ( $cfg['source_page']['relative_path'] ?? '' ),
+				'post_type'     => (string) ( $cfg['source_page']['post_type'] ?? '' ),
+				'is_front_page' => ! empty( $cfg['source_page']['is_front_page'] ),
+				'is_posts_page' => ! empty( $cfg['source_page']['is_posts_page'] ),
+				'is_shop_page'  => ! empty( $cfg['source_page']['is_shop_page'] ),
+			),
 			'v'              => array(),
 		);
 		foreach ( isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array() as $row ) {
 			if ( ! is_array( $row ) || empty( $row['variant_id'] ) ) {
 				continue;
 			}
-			$sig['v'][ sanitize_key( (string) $row['variant_id'] ) ] = (int) ( $row['page_id'] ?? 0 );
+			$sig['v'][ sanitize_key( (string) $row['variant_id'] ) ] = array(
+				'page_id'       => (int) ( $row['page_id'] ?? 0 ),
+				'post_name'     => (string) ( $row['post_name'] ?? '' ),
+				'relative_path' => (string) ( $row['relative_path'] ?? '' ),
+				'post_type'     => (string) ( $row['post_type'] ?? '' ),
+				'is_front_page' => ! empty( $row['is_front_page'] ),
+				'is_posts_page' => ! empty( $row['is_posts_page'] ),
+				'is_shop_page'  => ! empty( $row['is_shop_page'] ),
+			);
 		}
 		ksort( $sig['v'] );
 		return $sig;
@@ -454,8 +490,10 @@ class RWGO_Experiment_Repository {
 					++$source_repaired;
 				}
 				foreach ( isset( $prev['v'] ) && is_array( $prev['v'] ) ? $prev['v'] : array() as $vk => $vpid ) {
-					$npid = isset( $next['v'][ $vk ] ) ? (int) $next['v'][ $vk ] : 0;
-					if ( (int) $vpid !== $npid ) {
+					$old_pid = is_array( $vpid ) ? (int) ( $vpid['page_id'] ?? 0 ) : (int) $vpid;
+					$next_ent = isset( $next['v'][ $vk ] ) ? $next['v'][ $vk ] : null;
+					$new_pid  = is_array( $next_ent ) ? (int) ( $next_ent['page_id'] ?? 0 ) : (int) ( $next_ent ?? 0 );
+					if ( $old_pid !== $new_pid ) {
 						++$variant_repaired;
 					}
 				}
