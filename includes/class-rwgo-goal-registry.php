@@ -395,6 +395,126 @@ class RWGO_Goal_Registry {
 		);
 	}
 
+	/**
+	 * Map a runtime-expanded physical goal/handler pair back to the canonical stored pair from config.
+	 *
+	 * This lets the REST endpoint accept recovered live Elementor/Gutenberg pairs while still storing
+	 * the stable config pair that reports aggregate against.
+	 *
+	 * @param array<string, mixed> $cfg        Experiment config.
+	 * @param string               $goal_id    Runtime physical goal id.
+	 * @param string               $handler_id Runtime physical handler id.
+	 * @return array{goal_id: string, handler_id: string}|null
+	 */
+	public static function canonical_stored_pair_for_runtime_pair( array $cfg, $goal_id, $handler_id ) {
+		$goal_id    = sanitize_key( (string) $goal_id );
+		$handler_id = sanitize_key( (string) $handler_id );
+		if ( '' === $goal_id || '' === $handler_id ) {
+			return null;
+		}
+		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
+			return null;
+		}
+		$goals = isset( $cfg['goals'] ) && is_array( $cfg['goals'] ) ? $cfg['goals'] : array();
+		if ( empty( $goals ) ) {
+			return null;
+		}
+		$post_ids = array( (int) ( $cfg['source_page_id'] ?? 0 ) );
+		foreach ( isset( $cfg['variants'] ) && is_array( $cfg['variants'] ) ? $cfg['variants'] : array() as $row ) {
+			if ( is_array( $row ) && ! empty( $row['page_id'] ) ) {
+				$post_ids[] = (int) $row['page_id'];
+			}
+		}
+		$post_ids = array_values( array_unique( array_filter( array_map( 'absint', $post_ids ) ) ) );
+		if ( empty( $post_ids ) || ! class_exists( 'RWGO_Defined_Goal_Service', false ) ) {
+			return null;
+		}
+		$discovered = RWGO_Defined_Goal_Service::collect_for_posts( $post_ids );
+		$by_match_key = array();
+		foreach ( $discovered as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$key = RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $row, false );
+			if ( '' === $key ) {
+				continue;
+			}
+			if ( ! isset( $by_match_key[ $key ] ) ) {
+				$by_match_key[ $key ] = array();
+			}
+			$by_match_key[ $key ][] = $row;
+		}
+		foreach ( $goals as $g ) {
+			if ( ! is_array( $g ) || empty( $g['goal_id'] ) ) {
+				continue;
+			}
+			if ( isset( $g['source_type'] ) && 'page_destination' === sanitize_key( (string) $g['source_type'] ) ) {
+				continue;
+			}
+			$canonical_h0  = isset( $g['handlers'][0] ) && is_array( $g['handlers'][0] ) ? $g['handlers'][0] : array();
+			$canonical_hid = isset( $canonical_h0['handler_id'] ) ? sanitize_key( (string) $canonical_h0['handler_id'] ) : '';
+			$canonical_gid = sanitize_key( (string) $g['goal_id'] );
+			if ( '' === $canonical_gid || '' === $canonical_hid ) {
+				continue;
+			}
+			$b = isset( $g['builder'] ) ? sanitize_key( (string) $g['builder'] ) : sanitize_key( (string) ( $cfg['builder_type'] ?? '' ) );
+			if ( 'elementor' !== $b && 'gutenberg' !== $b ) {
+				continue;
+			}
+			$gt = isset( $g['goal_type'] ) ? sanitize_key( (string) $g['goal_type'] ) : '';
+			if ( ! in_array( $gt, array( 'click', 'form_submit' ), true ) ) {
+				continue;
+			}
+			$g = RWGO_Defined_Goal_Service::enrich_saved_goal_with_live_identity( $g, $discovered );
+			$matched_rows = array();
+			$key          = RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $g, true );
+			if ( '' !== $key && isset( $by_match_key[ $key ] ) ) {
+				$matched_rows = $by_match_key[ $key ];
+			} else {
+				$best_row   = null;
+				$best_score = -1;
+				foreach ( $discovered as $row ) {
+					if ( ! is_array( $row ) ) {
+						continue;
+					}
+					$score = RWGO_Defined_Goal_Service::loose_live_match_score( $g, $row );
+					if ( $score > $best_score ) {
+						$best_row   = $row;
+						$best_score = $score;
+					}
+				}
+				if ( $best_score > 0 && is_array( $best_row ) ) {
+					$best_key = RWGO_Defined_Goal_Service::preferred_physical_goal_match_key( $best_row, false );
+					if ( '' !== $best_key && isset( $by_match_key[ $best_key ] ) ) {
+						$matched_rows = $by_match_key[ $best_key ];
+					} else {
+						$matched_rows[] = $best_row;
+					}
+				}
+			}
+			if ( empty( $matched_rows ) && self::is_legacy_automatic_builder_goal( $g ) ) {
+				$legacy_group = self::legacy_auto_match_group( $discovered, $b, $gt );
+				if ( ! empty( $legacy_group['rows'] ) ) {
+					$matched_rows = $legacy_group['rows'];
+				}
+			}
+			foreach ( $matched_rows as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$gid = sanitize_key( (string) ( $row['goal_id'] ?? '' ) );
+				$hid = sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
+				if ( $gid === $goal_id && $hid === $handler_id ) {
+					return array(
+						'goal_id'    => $canonical_gid,
+						'handler_id' => $canonical_hid,
+					);
+				}
+			}
+		}
+		return null;
+	}
+
 	private static function expand_defined_elementor_goals_across_pages( array $goals, array $cfg ) {
 		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
 			return $goals;

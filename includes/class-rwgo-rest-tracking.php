@@ -217,12 +217,20 @@ class RWGO_REST_Tracking {
 		}
 
 		if ( ! self::config_has_goal_handler( $cfg, $goal_id, $handler_id ) ) {
-			self::debug_reject( 'rwgo_bad_goal', $goal_id . '|' . $handler_id );
-			return new \WP_Error(
-				'rwgo_bad_goal',
-				__( 'Goal or handler does not match this experiment.', 'reactwoo-geo-optimise' ),
-				array( 'status' => 400 )
-			);
+			$canonical = class_exists( 'RWGO_Goal_Registry', false )
+				? RWGO_Goal_Registry::canonical_stored_pair_for_runtime_pair( $cfg, $goal_id, $handler_id )
+				: null;
+			if ( is_array( $canonical ) && ! empty( $canonical['goal_id'] ) && ! empty( $canonical['handler_id'] ) ) {
+				$goal_id    = sanitize_key( (string) $canonical['goal_id'] );
+				$handler_id = sanitize_key( (string) $canonical['handler_id'] );
+			} else {
+				self::debug_reject( 'rwgo_bad_goal', $goal_id . '|' . $handler_id );
+				return new \WP_Error(
+					'rwgo_bad_goal',
+					__( 'Goal or handler does not match this experiment.', 'reactwoo-geo-optimise' ),
+					array( 'status' => 400 )
+				);
+			}
 		}
 
 		if ( class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg ) ) {
