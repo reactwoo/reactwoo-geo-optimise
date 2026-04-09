@@ -219,6 +219,9 @@ class RWGO_Experiment_Service {
 		}
 		$source = (int) ( $config['source_page_id'] ?? 0 );
 		if ( $queried_post_id === $source ) {
+			if ( is_user_logged_in() && ! empty( $_GET['rwgo_no_swap'] ) && class_exists( 'RWGO_Admin', false ) && current_user_can( RWGO_Admin::required_capability() ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				return 'control';
+			}
 			if ( ! self::variant_b_is_routable( $config, 0 ) ) {
 				return 'control';
 			}
