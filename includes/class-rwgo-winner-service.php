@@ -204,6 +204,43 @@ class RWGO_Winner_Service {
 	}
 
 	/**
+	 * Top stored fired touchpoint for a specific variant, or overall if no variant is provided.
+	 *
+	 * @param list<array{label: string, goal_type: string, fingerprint: string, counts: array<string, int>}> $rows Touchpoint rows.
+	 * @param string                                                                                            $variant_slug Optional variant id.
+	 * @return array{label: string, goal_type: string, fingerprint: string, count: int}|null
+	 */
+	public static function top_fired_touchpoint( array $rows, $variant_slug = '' ) {
+		$variant_slug = sanitize_key( (string) $variant_slug );
+		$best         = null;
+		$best_count   = 0;
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) || empty( $row['counts'] ) || ! is_array( $row['counts'] ) ) {
+				continue;
+			}
+			$count = 0;
+			if ( '' !== $variant_slug ) {
+				$count = isset( $row['counts'][ $variant_slug ] ) ? (int) $row['counts'][ $variant_slug ] : 0;
+			} else {
+				foreach ( $row['counts'] as $n ) {
+					$count += (int) $n;
+				}
+			}
+			if ( $count <= $best_count ) {
+				continue;
+			}
+			$best_count = $count;
+			$best       = array(
+				'label'       => isset( $row['label'] ) ? (string) $row['label'] : '',
+				'goal_type'   => isset( $row['goal_type'] ) ? (string) $row['goal_type'] : '',
+				'fingerprint' => isset( $row['fingerprint'] ) ? (string) $row['fingerprint'] : '',
+				'count'       => $count,
+			);
+		}
+		return $best_count > 0 ? $best : null;
+	}
+
+	/**
 	 * Full analysis for Reports and Tests list.
 	 *
 	 * @param string               $experiment_key Experiment key.
@@ -309,6 +346,9 @@ class RWGO_Winner_Service {
 				);
 			}
 		}
+		$top_touchpoint = ! empty( $fired_touchpoints )
+			? self::top_fired_touchpoint( $fired_touchpoints, $lead_slug ? $lead_slug : '' )
+			: null;
 
 		return array(
 			'assignment_only'     => $assignment_only,
@@ -323,6 +363,7 @@ class RWGO_Winner_Service {
 			'best_rate'           => $best_rate >= 0 ? $best_rate : null,
 			'goal_breakdown'      => $breakdown,
 			'fired_touchpoints'   => $fired_touchpoints,
+			'top_fired_touchpoint'=> $top_touchpoint,
 			'insight_line'        => $insight_line,
 		);
 	}
