@@ -275,6 +275,7 @@ class RWGO_Admin {
 		add_action( 'admin_post_rwgo_delete_test', array( __CLASS__, 'handle_delete_test' ) );
 		add_action( 'admin_post_rwgo_resync_page_bindings', array( __CLASS__, 'handle_resync_page_bindings' ) );
 		add_action( 'admin_post_rwgo_resync_goal_physical_ids', array( __CLASS__, 'handle_resync_goal_physical_ids' ) );
+		add_action( 'admin_post_rwgo_resync_all_safe', array( __CLASS__, 'handle_resync_all_safe' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -998,15 +999,7 @@ class RWGO_Admin {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_resync_page_bindings' );
-		$stats = class_exists( 'RWGO_Experiment_Repository', false )
-			? RWGO_Experiment_Repository::resync_all_page_bindings()
-			: array(
-				'scanned'          => 0,
-				'updated'          => 0,
-				'source_repaired'  => 0,
-				'variant_repaired' => 0,
-				'forced_frontpage' => 0,
-			);
+		$stats = self::resync_page_bindings_stats();
 		$url = add_query_arg(
 			array(
 				'rwgo_resynced'    => (string) (int) ( $stats['updated'] ?? 0 ),
@@ -1031,13 +1024,7 @@ class RWGO_Admin {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_resync_goal_physical_ids' );
-		$stats = class_exists( 'RWGO_Experiment_Repository', false )
-			? RWGO_Experiment_Repository::resync_all_defined_goal_physical_ids()
-			: array(
-				'scanned'       => 0,
-				'updated'       => 0,
-				'goals_patched' => 0,
-			);
+		$stats = self::resync_goal_physical_ids_stats();
 		$url = add_query_arg(
 			array(
 				'rwgo_goal_resync' => (string) (int) ( $stats['updated'] ?? 0 ),
@@ -1048,6 +1035,64 @@ class RWGO_Admin {
 		);
 		wp_safe_redirect( $url );
 		exit;
+	}
+
+	/**
+	 * Run both safe resync tasks in one admin action.
+	 *
+	 * @return void
+	 */
+	public static function handle_resync_all_safe() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_resync_all_safe' );
+		$page_stats = self::resync_page_bindings_stats();
+		$goal_stats = self::resync_goal_physical_ids_stats();
+		$url        = add_query_arg(
+			array(
+				'rwgo_resync_all'  => '1',
+				'rwgo_resynced'    => (string) (int) ( $page_stats['updated'] ?? 0 ),
+				'rwgo_rs_scanned'  => (string) (int) ( $page_stats['scanned'] ?? 0 ),
+				'rwgo_rs_src'      => (string) (int) ( $page_stats['source_repaired'] ?? 0 ),
+				'rwgo_rs_var'      => (string) (int) ( $page_stats['variant_repaired'] ?? 0 ),
+				'rwgo_rs_forced'   => (string) (int) ( $page_stats['forced_frontpage'] ?? 0 ),
+				'rwgo_goal_resync' => (string) (int) ( $goal_stats['updated'] ?? 0 ),
+				'rwgo_gr_scanned'  => (string) (int) ( $goal_stats['scanned'] ?? 0 ),
+				'rwgo_gr_patched'  => (string) (int) ( $goal_stats['goals_patched'] ?? 0 ),
+			),
+			self::developer_url( 'developer' )
+		);
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * @return array<string, int>
+	 */
+	private static function resync_page_bindings_stats() {
+		return class_exists( 'RWGO_Experiment_Repository', false )
+			? RWGO_Experiment_Repository::resync_all_page_bindings()
+			: array(
+				'scanned'          => 0,
+				'updated'          => 0,
+				'source_repaired'  => 0,
+				'variant_repaired' => 0,
+				'forced_frontpage' => 0,
+			);
+	}
+
+	/**
+	 * @return array<string, int>
+	 */
+	private static function resync_goal_physical_ids_stats() {
+		return class_exists( 'RWGO_Experiment_Repository', false )
+			? RWGO_Experiment_Repository::resync_all_defined_goal_physical_ids()
+			: array(
+				'scanned'       => 0,
+				'updated'       => 0,
+				'goals_patched' => 0,
+			);
 	}
 
 	public static function handle_reset_counts() {
