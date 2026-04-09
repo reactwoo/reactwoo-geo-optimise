@@ -17,6 +17,7 @@ $last_check       = get_option( 'rwgo_license_last_check', array() );
 $last_ok          = is_array( $last_check ) && ! empty( $last_check['ok'] );
 $last_time        = is_array( $last_check ) && ! empty( $last_check['time'] ) ? (string) $last_check['time'] : '';
 $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (string) $last_check['error'] : '';
+$import_sources   = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::get_manual_import_sources() : array();
 
 ?>
 <div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--license">
@@ -24,7 +25,7 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 		<?php
 		RWGC_Admin_UI::render_page_header(
 			__( 'License', 'reactwoo-geo-optimise' ),
-			__( 'Activate your ReactWoo Geo Optimise plan. The key is stored on this site and used with Geo Core’s platform client when features require it.', 'reactwoo-geo-optimise' )
+			__( 'Activate your ReactWoo Geo Optimise plan. The key is stored on this site and used only by Geo Optimise when features require it.', 'reactwoo-geo-optimise' )
 		);
 		?>
 	<?php else : ?>
@@ -44,10 +45,16 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 		<?php elseif ( '0' === (string) $_GET['rwgo_license_test'] ) : ?>
 			<div class="notice notice-error is-dismissible rwgo-alert rwgo-alert--danger"><p class="rwgo-alert__text"><?php esc_html_e( 'Could not validate the license. Check the key, API base, and network, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( 'na' === (string) $_GET['rwgo_license_test'] ) : ?>
-			<div class="notice notice-warning is-dismissible rwgo-alert rwgo-alert--warning"><p class="rwgo-alert__text"><?php esc_html_e( 'Geo Core platform client is not available — validation could not run.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<div class="notice notice-warning is-dismissible rwgo-alert rwgo-alert--warning"><p class="rwgo-alert__text"><?php esc_html_e( 'Geo Optimise platform client is not available — validation could not run.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
 	<?php endif; ?>
 	</div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_imported'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'License key imported into Geo Optimise.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( ! empty( $_GET['rwgo_import_err'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-error is-dismissible rwgo-alert rwgo-alert--danger"><p class="rwgo-alert__text"><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['rwgo_import_err'] ) ) ); ?></p></div>
 	<?php endif; ?>
 
 	<div class="rwgo-stack rwgo-license-layout">
@@ -95,13 +102,22 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 			<div class="rwgo-license-actions-bar">
 				<?php submit_button( __( 'Save license', 'reactwoo-geo-optimise' ), 'primary', 'submit', false ); ?>
 			</div>
+
+			<?php if ( ! empty( $import_sources ) ) : ?>
+				<p class="rwgo-setting-row__hint"><?php esc_html_e( 'Optional: import a key once from another ReactWoo plugin. This does not create ongoing sharing between plugins.', 'reactwoo-geo-optimise' ); ?></p>
+				<div class="rwgo-license-actions-bar">
+					<?php foreach ( $import_sources as $source => $label ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?page=rwgo-license&rwgo_action=import_license&source=' . rawurlencode( $source ) ), 'rwgo_import_license' ) ); ?>"><?php echo esc_html( sprintf( __( 'Import from %s', 'reactwoo-geo-optimise' ), $label ) ); ?></a>
+					<?php endforeach; ?>
+				</div>
+			<?php endif; ?>
 		</form>
 
 		<?php if ( $lic_ok ) : ?>
 			<div class="rwgo-panel rwgo-panel--compact rwgo-license-actions-panel">
 				<h2 class="screen-reader-text"><?php esc_html_e( 'More license actions', 'reactwoo-geo-optimise' ); ?></h2>
 				<div class="rwgo-license-actions-bar">
-					<?php if ( class_exists( 'RWGC_Platform_Client', false ) ) : ?>
+					<?php if ( class_exists( 'RWGO_Platform_Client', false ) ) : ?>
 						<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-license-test-form">
 							<input type="hidden" name="action" value="rwgo_test_license" />
 							<?php wp_nonce_field( 'rwgo_test_license' ); ?>

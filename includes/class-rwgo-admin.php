@@ -749,9 +749,9 @@ class RWGO_Admin {
 			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_test_license' );
-		if ( class_exists( 'RWGC_Platform_Client', false ) ) {
-			RWGC_Platform_Client::clear_token_cache();
-			$tok = RWGC_Platform_Client::get_access_token();
+		if ( class_exists( 'RWGO_Platform_Client', false ) ) {
+			RWGO_Platform_Client::clear_token_cache();
+			$tok = RWGO_Platform_Client::get_access_token();
 			if ( is_wp_error( $tok ) ) {
 				update_option( 'rwgo_license_last_check', array( 'ok' => false, 'time' => gmdate( 'c' ), 'error' => $tok->get_error_message() ), false );
 				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=0' ) );
@@ -777,16 +777,41 @@ class RWGO_Admin {
 		if ( empty( $_GET['page'] ) || 'rwgo-license' !== $_GET['page'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return;
 		}
-		if ( empty( $_GET['rwgo_action'] ) || 'clear_license' !== $_GET['rwgo_action'] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( empty( $_GET['rwgo_action'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			return;
 		}
-		if ( empty( $_GET['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'rwgo_clear_license' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$action = sanitize_key( wp_unslash( $_GET['rwgo_action'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( 'clear_license' === $action ) {
+			if ( empty( $_GET['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'rwgo_clear_license' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				return;
+			}
+			if ( class_exists( 'RWGO_Settings', false ) ) {
+				RWGO_Settings::clear_license_key();
+			}
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_disconnected=1' ) );
+			exit;
+		}
+		if ( 'import_license' !== $action ) {
 			return;
 		}
-		if ( class_exists( 'RWGO_Settings', false ) ) {
-			RWGO_Settings::clear_license_key();
+		if ( empty( $_GET['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_GET['_wpnonce'] ), 'rwgo_import_license' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
 		}
-		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_disconnected=1' ) );
+		$source = isset( $_GET['source'] ) ? sanitize_key( wp_unslash( $_GET['source'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$result = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::import_license_from_source( $source ) : new WP_Error( 'rwgo_missing_settings', __( 'Geo Optimise settings are not available.', 'reactwoo-geo-optimise' ) );
+		if ( is_wp_error( $result ) ) {
+			wp_safe_redirect(
+				add_query_arg(
+					array(
+						'page'            => 'rwgo-license',
+						'rwgo_import_err' => rawurlencode( $result->get_error_message() ),
+					),
+					admin_url( 'admin.php' )
+				)
+			);
+			exit;
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_imported=' . rawurlencode( $source ) ) );
 		exit;
 	}
 

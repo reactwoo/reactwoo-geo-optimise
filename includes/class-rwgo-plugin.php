@@ -49,11 +49,10 @@ class RWGO_Plugin {
 			add_action( 'admin_notices', array( $this, 'maybe_admin_notice_missing_tracking_js' ) );
 		}
 
+		require_once RWGO_PATH . 'includes/class-rwgo-platform-client.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-staging-asset-fix.php';
 		RWGO_Staging_Asset_Fix::init();
-		RWGO_Settings::register_platform_filters();
-		RWGO_Settings::maybe_migrate_from_geo_core();
 		RWGO_Settings::init();
 
 		require_once RWGO_PATH . 'includes/class-rwgo-stats.php';
@@ -135,11 +134,13 @@ class RWGO_Plugin {
 		if ( class_exists( 'RWGC_Satellite_Updater', false ) ) {
 			RWGC_Satellite_Updater::register(
 				array(
-					'basename'     => plugin_basename( RWGO_FILE ),
-					'version'      => RWGO_VERSION,
-					'catalog_slug' => 'reactwoo-geo-optimise',
-					'name'         => __( 'ReactWoo Geo Optimise', 'reactwoo-geo-optimise' ),
-					'description'  => __( 'Experiments and optimisation on top of ReactWoo Geo Core.', 'reactwoo-geo-optimise' ),
+					'basename'              => plugin_basename( RWGO_FILE ),
+					'version'               => RWGO_VERSION,
+					'catalog_slug'          => 'reactwoo-geo-optimise',
+					'name'                  => __( 'ReactWoo Geo Optimise', 'reactwoo-geo-optimise' ),
+					'description'           => __( 'Experiments and optimisation on top of ReactWoo Geo Core.', 'reactwoo-geo-optimise' ),
+					'get_bearer_callback'   => array( 'RWGO_Platform_Client', 'get_bearer_for_updates' ),
+					'get_api_base_callback' => array( 'RWGO_Platform_Client', 'get_api_base' ),
 				)
 			);
 		}
