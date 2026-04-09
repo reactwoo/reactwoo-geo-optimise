@@ -341,4 +341,50 @@ class RWGO_Event_Store {
 		}
 		return $out;
 	}
+
+	/**
+	 * Raw stored goal events for an experiment, including decoded meta payload.
+	 *
+	 * @param string $experiment_key Key.
+	 * @return list<array{variant_id: string, goal_id: string, handler_id: string, meta: array<string, mixed>}>
+	 */
+	public static function list_goal_event_rows( $experiment_key ) {
+		global $wpdb;
+		$table = self::table_name();
+		$key   = sanitize_text_field( (string) $experiment_key );
+		if ( '' === $key ) {
+			return array();
+		}
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name.
+		$sql = $wpdb->prepare(
+			"SELECT variant_id, goal_id, handler_id, meta_json FROM {$table} WHERE experiment_key = %s AND event_type = %s ORDER BY id ASC",
+			$key,
+			'goal_fired'
+		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$results = $wpdb->get_results( $sql, ARRAY_A );
+		if ( ! is_array( $results ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $results as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$meta = array();
+			if ( ! empty( $row['meta_json'] ) && is_string( $row['meta_json'] ) ) {
+				$decoded = json_decode( $row['meta_json'], true );
+				if ( is_array( $decoded ) ) {
+					$meta = $decoded;
+				}
+			}
+			$out[] = array(
+				'variant_id' => sanitize_key( (string) ( $row['variant_id'] ?? '' ) ),
+				'goal_id'    => sanitize_key( (string) ( $row['goal_id'] ?? '' ) ),
+				'handler_id' => sanitize_key( (string) ( $row['handler_id'] ?? '' ) ),
+				'meta'       => $meta,
+			);
+		}
+		return $out;
+	}
 }

@@ -108,6 +108,7 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 					'variants'          => array(),
 					'leading_variant'   => null,
 					'goal_breakdown'    => array(),
+					'fired_touchpoints' => array(),
 					'insight_line'      => '',
 				);
 
@@ -119,6 +120,7 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 			$lead_slug        = isset( $analysis['leading_variant'] ) ? $analysis['leading_variant'] : null;
 			$lead_label       = ( $conversion_mode && $lead_slug ) ? $rwgo_variant_label( $cfg, (string) $lead_slug ) : '';
 			$goal_breakdown   = isset( $analysis['goal_breakdown'] ) && is_array( $analysis['goal_breakdown'] ) ? $analysis['goal_breakdown'] : array();
+			$fired_touchpoints = isset( $analysis['fired_touchpoints'] ) && is_array( $analysis['fired_touchpoints'] ) ? $analysis['fired_touchpoints'] : array();
 			$insight_line     = isset( $analysis['insight_line'] ) ? (string) $analysis['insight_line'] : '';
 
 			$total_assign = 0;
@@ -271,6 +273,35 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 										<td><?php echo esc_html( isset( $br['label'] ) ? (string) $br['label'] : '' ); ?></td>
 										<?php foreach ( $variants_rows as $slug => $_vr ) : ?>
 											<td><?php echo esc_html( (string) (int) ( is_array( $br['counts'] ?? null ) ? ( $br['counts'][ $slug ] ?? 0 ) : 0 ) ); ?></td>
+										<?php endforeach; ?>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					<?php endif; ?>
+					<?php if ( ! empty( $fired_touchpoints ) ) : ?>
+						<h3 class="rwgo-report-breakdown-title"><?php esc_html_e( 'By actual fired label', 'reactwoo-geo-optimise' ); ?></h3>
+						<p class="description"><?php esc_html_e( 'This uses the stored event payload so you can see the real CTA/form label that fired on the page, grouped by variant.', 'reactwoo-geo-optimise' ); ?></p>
+						<table class="widefat striped rwgo-table-comfortable rwgo-report-breakdown">
+							<thead>
+								<tr>
+									<th scope="col"><?php esc_html_e( 'Fired label', 'reactwoo-geo-optimise' ); ?></th>
+									<th scope="col"><?php esc_html_e( 'Type', 'reactwoo-geo-optimise' ); ?></th>
+									<th scope="col"><?php esc_html_e( 'Element fingerprint', 'reactwoo-geo-optimise' ); ?></th>
+									<?php foreach ( $variants_rows as $slug => $_vr ) : ?>
+										<th scope="col"><?php echo esc_html( $rwgo_variant_label( $cfg, (string) $slug ) ); ?></th>
+									<?php endforeach; ?>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ( $fired_touchpoints as $touch_row ) : ?>
+									<?php if ( ! is_array( $touch_row ) ) { continue; } ?>
+									<tr>
+										<td><?php echo esc_html( isset( $touch_row['label'] ) ? (string) $touch_row['label'] : '' ); ?></td>
+										<td><?php echo esc_html( isset( $touch_row['goal_type'] ) ? (string) $touch_row['goal_type'] : '' ); ?></td>
+										<td><?php echo esc_html( ! empty( $touch_row['fingerprint'] ) ? (string) $touch_row['fingerprint'] : '—' ); ?></td>
+										<?php foreach ( $variants_rows as $slug => $_vr ) : ?>
+											<td><?php echo esc_html( (string) (int) ( is_array( $touch_row['counts'] ?? null ) ? ( $touch_row['counts'][ $slug ] ?? 0 ) : 0 ) ); ?></td>
 										<?php endforeach; ?>
 									</tr>
 								<?php endforeach; ?>

@@ -40,25 +40,7 @@ class RWGO_Winner_Service {
 		if ( empty( $slugs ) ) {
 			return array();
 		}
-		$allowed = array();
-		foreach ( $slugs as $slug ) {
-			$pairs = RWGO_Experiment_Measurements::stored_pairs_for_variant( $config, $slug );
-			if ( empty( $pairs ) ) {
-				$pairs = RWGO_Experiment_Measurements::stored_pairs_all_goals( $config );
-			}
-			$allowed[ $slug ] = array();
-			foreach ( $pairs as $p ) {
-				if ( ! is_array( $p ) ) {
-					continue;
-				}
-				$g = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
-				$h = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
-				if ( '' === $g || '' === $h ) {
-					continue;
-				}
-				$allowed[ $slug ][ $g . '|' . $h ] = true;
-			}
-		}
+		$allowed = self::allowed_pairs_by_variant( $config, $slugs );
 		// Seed rows from configured pairs so the report lists measured CTAs even when counts are still zero.
 		$acc = array();
 		foreach ( $slugs as $slug ) {
@@ -103,6 +85,92 @@ class RWGO_Winner_Service {
 		usort(
 			$vals,
 			static function ( $a, $b ) {
+				$la = isset( $a['label'] ) ? (string) $a['label'] : '';
+				$lb = isset( $b['label'] ) ? (string) $b['label'] : '';
+				return strcasecmp( $la, $lb );
+			}
+		);
+		return $vals;
+	}
+
+	/**
+	 * Event-level breakdown using the actual stored fired label/type, grouped per variant.
+	 *
+	 * @param string               $experiment_key Key.
+	 * @param array<string, mixed> $config         Experiment config.
+	 * @param list<string>         $variant_slugs  Variants to show columns for.
+	 * @return list<array{bucket_key: string, label: string, goal_type: string, fingerprint: string, counts: array<string, int>}>
+	 */
+	public static function fired_touchpoint_rows( $experiment_key, array $config, array $variant_slugs ) {
+		if ( ! class_exists( 'RWGO_Event_Store', false ) || ! class_exists( 'RWGO_Experiment_Measurements', false ) ) {
+			return array();
+		}
+		$key = sanitize_text_field( (string) $experiment_key );
+		if ( '' === $key ) {
+			return array();
+		}
+		$slugs = array();
+		foreach ( $variant_slugs as $s ) {
+			$k = sanitize_key( (string) $s );
+			if ( '' !== $k ) {
+				$slugs[] = $k;
+			}
+		}
+		if ( empty( $slugs ) ) {
+			return array();
+		}
+		$allowed = self::allowed_pairs_by_variant( $config, $slugs );
+		$raw     = RWGO_Event_Store::list_goal_event_rows( $key );
+		$acc     = array();
+		foreach ( $raw as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$variant = sanitize_key( (string) ( $row['variant_id'] ?? '' ) );
+			if ( '' === $variant || ! isset( $allowed[ $variant ] ) ) {
+				continue;
+			}
+			$goal_id    = sanitize_key( (string) ( $row['goal_id'] ?? '' ) );
+			$handler_id = sanitize_key( (string) ( $row['handler_id'] ?? '' ) );
+			$pair_key   = $goal_id . '|' . $handler_id;
+			if ( '' === $goal_id || '' === $handler_id || empty( $allowed[ $variant ][ $pair_key ] ) ) {
+				continue;
+			}
+			$meta        = isset( $row['meta'] ) && is_array( $row['meta'] ) ? $row['meta'] : array();
+			$fired_label = isset( $meta['client_goal_label'] ) ? trim( (string) $meta['client_goal_label'] ) : '';
+			if ( '' === $fired_label && isset( $meta['goal_label'] ) ) {
+				$fired_label = trim( (string) $meta['goal_label'] );
+			}
+			if ( '' === $fired_label ) {
+				$fired_label = RWGO_Experiment_Measurements::label_for_pair( $config, $goal_id, $handler_id );
+			}
+			$fingerprint = isset( $meta['element_fingerprint'] ) ? trim( (string) $meta['element_fingerprint'] ) : '';
+			$goal_type   = self::normalize_goal_type_label( isset( $meta['goal_type'] ) ? (string) $meta['goal_type'] : '' );
+			$bucket_key  = strtolower( $fired_label ) . '|' . strtolower( $goal_type ) . '|' . strtolower( $fingerprint );
+			if ( ! isset( $acc[ $bucket_key ] ) ) {
+				$acc[ $bucket_key ] = array(
+					'bucket_key'  => $bucket_key,
+					'label'       => $fired_label,
+					'goal_type'   => $goal_type,
+					'fingerprint' => $fingerprint,
+					'counts'      => array_fill_keys( $slugs, 0 ),
+				);
+			}
+			$acc[ $bucket_key ]['counts'][ $variant ]++;
+		}
+		$vals = array_values( $acc );
+		usort(
+			$vals,
+			static function ( $a, $b ) use ( $slugs ) {
+				$total_a = 0;
+				$total_b = 0;
+				foreach ( $slugs as $slug ) {
+					$total_a += isset( $a['counts'][ $slug ] ) ? (int) $a['counts'][ $slug ] : 0;
+					$total_b += isset( $b['counts'][ $slug ] ) ? (int) $b['counts'][ $slug ] : 0;
+				}
+				if ( $total_a !== $total_b ) {
+					return $total_b <=> $total_a;
+				}
 				$la = isset( $a['label'] ) ? (string) $a['label'] : '';
 				$lb = isset( $b['label'] ) ? (string) $b['label'] : '';
 				return strcasecmp( $la, $lb );
@@ -224,6 +292,9 @@ class RWGO_Winner_Service {
 		$breakdown = $conversion_mode && '' !== $key
 			? self::goal_breakdown_rows( $key, $config, $slugs )
 			: array();
+		$fired_touchpoints = $conversion_mode && '' !== $key
+			? self::fired_touchpoint_rows( $key, $config, $slugs )
+			: array();
 
 		$insight_line = '';
 		if ( $conversion_mode && $lead_slug && ! empty( $breakdown ) ) {
@@ -251,6 +322,7 @@ class RWGO_Winner_Service {
 			'leading_variant'     => $lead_slug,
 			'best_rate'           => $best_rate >= 0 ? $best_rate : null,
 			'goal_breakdown'      => $breakdown,
+			'fired_touchpoints'   => $fired_touchpoints,
 			'insight_line'        => $insight_line,
 		);
 	}
@@ -277,6 +349,59 @@ class RWGO_Winner_Service {
 		}
 		$pairs = RWGO_Experiment_Measurements::stored_pairs_all_goals( $config );
 		return ! empty( $pairs );
+	}
+
+	/**
+	 * @param array<string, mixed> $config Experiment config.
+	 * @param list<string>         $variant_slugs Variants to show.
+	 * @return array<string, array<string, bool>>
+	 */
+	private static function allowed_pairs_by_variant( array $config, array $variant_slugs ) {
+		$allowed = array();
+		foreach ( $variant_slugs as $slug ) {
+			$slug = sanitize_key( (string) $slug );
+			if ( '' === $slug ) {
+				continue;
+			}
+			$pairs = RWGO_Experiment_Measurements::stored_pairs_for_variant( $config, $slug );
+			if ( empty( $pairs ) ) {
+				$pairs = RWGO_Experiment_Measurements::stored_pairs_all_goals( $config );
+			}
+			$allowed[ $slug ] = array();
+			foreach ( $pairs as $p ) {
+				if ( ! is_array( $p ) ) {
+					continue;
+				}
+				$g = sanitize_key( (string) ( $p['goal_id'] ?? '' ) );
+				$h = sanitize_key( (string) ( $p['handler_id'] ?? '' ) );
+				if ( '' === $g || '' === $h ) {
+					continue;
+				}
+				$allowed[ $slug ][ $g . '|' . $h ] = true;
+			}
+		}
+		return $allowed;
+	}
+
+	/**
+	 * @param string $goal_type Stored goal type.
+	 * @return string
+	 */
+	private static function normalize_goal_type_label( $goal_type ) {
+		$goal_type = sanitize_key( (string) $goal_type );
+		if ( '' === $goal_type ) {
+			return __( 'Unknown', 'reactwoo-geo-optimise' );
+		}
+		if ( 'cta_click' === $goal_type ) {
+			return __( 'CTA click', 'reactwoo-geo-optimise' );
+		}
+		if ( 'form_submit' === $goal_type ) {
+			return __( 'Form submit', 'reactwoo-geo-optimise' );
+		}
+		if ( 'click' === $goal_type ) {
+			return __( 'Click', 'reactwoo-geo-optimise' );
+		}
+		return ucwords( str_replace( '_', ' ', $goal_type ) );
 	}
 
 	/**
