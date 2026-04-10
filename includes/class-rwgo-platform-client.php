@@ -106,19 +106,21 @@ class RWGO_Platform_Client {
 			return new WP_Error( 'rwgo_no_domain', __( 'Could not determine this site domain for license login.', 'reactwoo-geo-optimise' ) );
 		}
 
+		$body = array(
+			'license_key'  => $license,
+			'domain'       => $domain,
+			'product_slug' => self::PRODUCT_SLUG,
+			'catalog_slug' => self::PRODUCT_SLUG,
+		);
+		$filtered = apply_filters( 'rwgc_auth_login_body', $body, $license, $domain );
+		$body     = is_array( $filtered ) ? $filtered : $body;
+
 		$response = wp_remote_post(
 			self::get_api_base() . self::LOGIN_PATH,
 			array(
 				'timeout' => 30,
 				'headers' => self::base_headers(),
-				'body'    => wp_json_encode(
-					array(
-						'license_key' => $license,
-						'domain'      => $domain,
-						'product_slug' => self::PRODUCT_SLUG,
-						'catalog_slug' => self::PRODUCT_SLUG,
-					)
-				),
+				'body'    => wp_json_encode( $body ),
 			)
 		);
 		if ( is_wp_error( $response ) ) {
