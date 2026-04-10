@@ -19,7 +19,7 @@ foreach ( $rwgo_test_types as $tt ) {
 }
 $rwgo_form_mode = 'create';
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--create-test">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--create-test">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

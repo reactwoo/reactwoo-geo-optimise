@@ -78,7 +78,7 @@ $rwgo_back_url = 'tests' === $rwgo_ret ? admin_url( 'admin.php?page=rwgo-tests' 
 
 $rwgc_nav_current = 'rwgo-tests';
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--promote-winner">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--promote-winner">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

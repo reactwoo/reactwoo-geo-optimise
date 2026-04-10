@@ -13,7 +13,7 @@ $managed_tests_total   = isset( $managed_tests_total ) ? (int) $managed_tests_to
 $active_managed_tests = isset( $active_managed_tests ) ? (int) $active_managed_tests : 0;
 $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total : 0;
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--overview">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--overview">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

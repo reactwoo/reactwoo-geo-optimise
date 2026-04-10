@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help';
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--help">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--help">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

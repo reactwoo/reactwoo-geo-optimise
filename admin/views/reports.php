@@ -62,7 +62,7 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 	return $out;
 };
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--reports">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--reports">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

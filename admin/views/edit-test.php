@@ -147,7 +147,7 @@ if ( $src_id > 0 && $var_b_id > 0 && class_exists( 'RWGO_Page_Naming_Service', f
 
 $rwgo_form_mode = 'edit';
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--edit-test">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--edit-test">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

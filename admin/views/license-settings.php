@@ -20,7 +20,7 @@ $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (
 $import_sources   = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::get_manual_import_sources() : array();
 
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--license">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--license">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

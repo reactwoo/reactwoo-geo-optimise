@@ -24,7 +24,7 @@ $tabs = array(
 	'support'     => __( 'Support & troubleshooting', 'reactwoo-geo-optimise' ),
 );
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--developer">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--developer">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

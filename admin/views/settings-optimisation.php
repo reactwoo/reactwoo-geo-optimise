@@ -15,7 +15,7 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-setti
 
 $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $settings['builder_mode'] ) : 'recommended';
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--settings">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--settings">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(

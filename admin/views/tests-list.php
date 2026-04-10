@@ -77,7 +77,7 @@ $rwgo_status_pill_class = static function ( $st ) {
 };
 
 ?>
-<div class="wrap rwgc-wrap rwgo-wrap rwgo-wrap--tests">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--tests">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(
