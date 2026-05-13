@@ -1,0 +1,19 @@
+---
+description: Geo Optimise satellite — build parity, Geo Core integration, release hygiene
+alwaysApply: true
+---
+
+# ReactWoo Geo Optimise (satellite)
+
+## Product boundary
+
+- Requires **ReactWoo Geo Core**. Do not reimplement geo detection or page-variant routing owned by Core / Elementor.
+- Experiments, assignments, goals, and reporting UIs belong here; keep integration **thin** (hooks, REST, filters).
+
+## Repo structure
+
+- `includes/`, `admin/`, `assets/`, `reactwoo-geo-optimise.php`, `readme.txt`, `scripts/package_zip.py`, `package.json` → `reactwooBuild.*`.
+
+## After implementation
+
+When a change is **complete and validated**, unless the user opts out: **commit**, bump **`RWGO_VERSION`** + plugin header + readme **Stable tag** if shipping, **annotated tag** `v*`, `npm run package:zip` or `git archive` with `--prefix=reactwoo-geo-optimise/`, **push** branch and tag. Do **not** commit generated `.zip` files.

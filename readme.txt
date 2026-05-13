@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.50
+Stable tag: 0.4.53
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.53 =
+* **Repo:** Add `AGENTS.md` and `.cursor/rules` for satellite build/release alignment with Geo Commerce; ignore `.phpunit.result.cache` in `.gitignore`.
 
 = 0.4.50 =
 * **License login:** `RWGO_Platform_Client::get_access_token()` now applies `rwgc_auth_login_body` (same as Geo Core / Geo AI); `RWGO_Settings::filter_auth_login_body` registers on init so the license server and api.reactwoo.com proxy receive a consistent product body.
