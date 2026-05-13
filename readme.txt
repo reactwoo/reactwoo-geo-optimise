@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.53
+Stable tag: 0.4.54
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.54 =
+* **Admin:** Register Geo Optimise under **Geo Core** (`rwgc-dashboard`) instead of a separate top-level menu; submenu CSS that hides Edit Test / Promote Winner targets `#toplevel_page_rwgc-dashboard`. `?page=rwgo-*` URLs unchanged.
 
 = 0.4.53 =
 * **Repo:** Add `AGENTS.md` and `.cursor/rules` for satellite build/release alignment with Geo Commerce; ignore `.phpunit.result.cache` in `.gitignore`.

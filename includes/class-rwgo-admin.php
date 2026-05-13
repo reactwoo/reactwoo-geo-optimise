@@ -1,6 +1,6 @@
 <?php
 /**
- * Geo Optimise — wp-admin (top-level menu; summary on Geo Core dashboard).
+ * Geo Optimise — wp-admin (submenus under ReactWoo Geo Core; summary on Geo Core dashboard).
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -13,9 +13,18 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RWGO_Admin {
 
 	/**
-	 * Parent admin page slug.
+	 * Parent admin page slug (dashboard).
 	 */
 	const MENU_PARENT = 'rwgo-dashboard';
+
+	/**
+	 * WordPress admin menu parent (Geo Core hub).
+	 *
+	 * @return string
+	 */
+	private static function admin_menu_parent() {
+		return 'rwgc-dashboard';
+	}
 
 	/**
 	 * Tracking Tools — GTM / GA4 / dataLayer (operator + agency).
@@ -583,29 +592,20 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function register_menu() {
-		$cap = self::required_capability();
-
-		add_menu_page(
-			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
-			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
-			$cap,
-			self::MENU_PARENT,
-			array( __CLASS__, 'render_dashboard' ),
-			'dashicons-chart-line',
-			59
-		);
+		$cap    = self::required_capability();
+		$parent = self::admin_menu_parent();
 
 		add_submenu_page(
-			self::MENU_PARENT,
-			__( 'Dashboard', 'reactwoo-geo-optimise' ),
-			__( 'Dashboard', 'reactwoo-geo-optimise' ),
+			$parent,
+			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
+			__( 'Optimise', 'reactwoo-geo-optimise' ),
 			$cap,
 			self::MENU_PARENT,
 			array( __CLASS__, 'render_dashboard' )
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -614,7 +614,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Tests', 'reactwoo-geo-optimise' ),
 			__( 'Tests', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -623,7 +623,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Reports', 'reactwoo-geo-optimise' ),
 			__( 'Reports', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -632,7 +632,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -641,7 +641,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Developer', 'reactwoo-geo-optimise' ),
 			__( 'Developer', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -650,7 +650,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Geo Optimise — Help', 'reactwoo-geo-optimise' ),
 			__( 'Help', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -659,7 +659,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Geo Optimise — Settings', 'reactwoo-geo-optimise' ),
 			__( 'Settings', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -668,7 +668,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Geo Optimise — License', 'reactwoo-geo-optimise' ),
 			__( 'License', 'reactwoo-geo-optimise' ),
 			$cap,
@@ -677,7 +677,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Edit Test', 'reactwoo-geo-optimise' ),
 			' ',
 			$cap,
@@ -686,7 +686,7 @@ class RWGO_Admin {
 		);
 
 		add_submenu_page(
-			self::MENU_PARENT,
+			$parent,
 			__( 'Promote Winner', 'reactwoo-geo-optimise' ),
 			' ',
 			$cap,
@@ -706,10 +706,10 @@ class RWGO_Admin {
 		}
 		?>
 		<style id="rwgo-hide-promote-winner-submenu">
-		#toplevel_page_rwgo-dashboard .wp-submenu li:has(> a[href*="page=rwgo-promote-winner"]) {
+		#toplevel_page_rwgc-dashboard .wp-submenu li:has(> a[href*="page=rwgo-promote-winner"]) {
 			display: none !important;
 		}
-		#toplevel_page_rwgo-dashboard .wp-submenu a[href*="page=rwgo-promote-winner"] {
+		#toplevel_page_rwgc-dashboard .wp-submenu a[href*="page=rwgo-promote-winner"] {
 			display: none !important;
 		}
 		</style>
@@ -729,10 +729,10 @@ class RWGO_Admin {
 		}
 		?>
 		<style id="rwgo-hide-edit-test-submenu">
-		#toplevel_page_rwgo-dashboard .wp-submenu li:has(> a[href*="page=rwgo-edit-test"]) {
+		#toplevel_page_rwgc-dashboard .wp-submenu li:has(> a[href*="page=rwgo-edit-test"]) {
 			display: none !important;
 		}
-		#toplevel_page_rwgo-dashboard .wp-submenu a[href*="page=rwgo-edit-test"] {
+		#toplevel_page_rwgc-dashboard .wp-submenu a[href*="page=rwgo-edit-test"] {
 			display: none !important;
 		}
 		</style>
