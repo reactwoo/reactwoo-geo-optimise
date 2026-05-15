@@ -23,6 +23,9 @@ class RWGO_Admin {
 	 * @return string
 	 */
 	private static function admin_menu_parent() {
+		if ( function_exists( 'rwgc_admin_menu_parent' ) ) {
+			return rwgc_admin_menu_parent();
+		}
 		return 'rwgc-dashboard';
 	}
 
