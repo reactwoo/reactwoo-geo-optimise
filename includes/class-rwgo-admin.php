@@ -268,6 +268,7 @@ class RWGO_Admin {
 	public static function init() {
 		add_action( 'admin_init', array( __CLASS__, 'maybe_redirect_legacy_tools' ) );
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 26 );
+		add_action( 'admin_head', array( __CLASS__, 'hide_detail_submenu_css' ) );
 		add_action( 'admin_head', array( __CLASS__, 'hide_edit_test_submenu_css' ) );
 		add_action( 'admin_head', array( __CLASS__, 'hide_promote_winner_submenu_css' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
@@ -431,12 +432,89 @@ class RWGO_Admin {
 			'rwgo-settings'       => __( 'Settings', 'reactwoo-geo-optimise' ),
 			'rwgo-license'        => __( 'License', 'reactwoo-geo-optimise' ),
 		);
+
+		if ( function_exists( 'rw_geo_render_inner_nav' ) ) {
+			rw_geo_render_inner_nav(
+				$items,
+				(string) $current,
+				array(
+					'filter'              => 'rwgo_inner_nav_items',
+					'aria_label'          => __( 'Geo Optimise section navigation', 'reactwoo-geo-optimise' ),
+					'show_hub_breadcrumb' => 'rwgc-dashboard' === self::admin_menu_parent(),
+					'hub_extension_label' => __( 'Geo Optimise', 'reactwoo-geo-optimise' ),
+				)
+			);
+			return;
+		}
+
 		echo '<nav class="rwgc-inner-nav rwgo-inner-nav" aria-label="' . esc_attr__( 'Geo Optimise section navigation', 'reactwoo-geo-optimise' ) . '">';
 		foreach ( $items as $slug => $label ) {
 			$class = 'rwgc-inner-nav__link' . ( $slug === $current ? ' is-active' : '' );
 			echo '<a class="' . esc_attr( $class ) . '" href="' . esc_url( admin_url( 'admin.php?page=' . $slug ) ) . '">' . esc_html( $label ) . '</a>';
 		}
 		echo '</nav>';
+	}
+
+	/**
+	 * Register one submenu under the Geo Core hub.
+	 *
+	 * @param string   $page_title Screen title.
+	 * @param string   $menu_title Sidebar label.
+	 * @param string   $slug       Page slug.
+	 * @param callable $callback   Render callback.
+	 * @return string|false
+	 */
+	private static function register_hub_submenu( $page_title, $menu_title, $slug, $callback ) {
+		$cap = self::required_capability();
+		$args = array(
+			'page_title' => $page_title,
+			'menu_title' => $menu_title,
+			'capability' => $cap,
+			'menu_slug'  => $slug,
+			'callback'   => $callback,
+		);
+		if ( function_exists( 'rw_geo_register_admin_submenu' ) ) {
+			return rw_geo_register_admin_submenu( $args );
+		}
+		return add_submenu_page(
+			self::admin_menu_parent(),
+			$page_title,
+			$menu_title,
+			$cap,
+			$slug,
+			$callback
+		);
+	}
+
+	/**
+	 * Hide detail Optimise links from wp-admin sidebar when under Geo Core.
+	 *
+	 * @return void
+	 */
+	public static function hide_detail_submenu_css() {
+		if ( 'rwgc-dashboard' !== self::admin_menu_parent() || ! self::can_manage() ) {
+			return;
+		}
+		$hide = array(
+			'rwgo-create-test',
+			'rwgo-tests',
+			'rwgo-reports',
+			'rwgo-tracking-tools',
+			'rwgo-developer',
+			'rwgo-help',
+			'rwgo-settings',
+			'rwgo-license',
+			'rwgo-edit-test',
+			'rwgo-promote-winner',
+		);
+		echo '<style id="rwgo-hide-detail-submenus">';
+		foreach ( $hide as $slug ) {
+			printf(
+				'#toplevel_page_rwgc-dashboard .wp-submenu li:has(> a[href*="page=%1$s"]) { display: none !important; }',
+				esc_attr( $slug )
+			);
+		}
+		echo '</style>';
 	}
 
 	/**
@@ -595,104 +673,79 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function register_menu() {
-		$cap    = self::required_capability();
-		$parent = self::admin_menu_parent();
-
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
 			__( 'Optimise', 'reactwoo-geo-optimise' ),
-			$cap,
 			self::MENU_PARENT,
 			array( __CLASS__, 'render_dashboard' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
 			__( 'Create Test', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-create-test',
 			array( __CLASS__, 'render_create_test' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Tests', 'reactwoo-geo-optimise' ),
 			__( 'Tests', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-tests',
 			array( __CLASS__, 'render_tests' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Reports', 'reactwoo-geo-optimise' ),
 			__( 'Reports', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-reports',
 			array( __CLASS__, 'render_reports' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
 			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-tracking-tools',
 			array( __CLASS__, 'render_tracking_tools' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Developer', 'reactwoo-geo-optimise' ),
 			__( 'Developer', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-developer',
 			array( __CLASS__, 'render_developer' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Geo Optimise — Help', 'reactwoo-geo-optimise' ),
 			__( 'Help', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-help',
 			array( __CLASS__, 'render_help' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Geo Optimise — Settings', 'reactwoo-geo-optimise' ),
 			__( 'Settings', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-settings',
 			array( __CLASS__, 'render_settings' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Geo Optimise — License', 'reactwoo-geo-optimise' ),
 			__( 'License', 'reactwoo-geo-optimise' ),
-			$cap,
 			'rwgo-license',
 			array( __CLASS__, 'render_license' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Edit Test', 'reactwoo-geo-optimise' ),
 			' ',
-			$cap,
 			'rwgo-edit-test',
 			array( __CLASS__, 'render_edit_test' )
 		);
 
-		add_submenu_page(
-			$parent,
+		self::register_hub_submenu(
 			__( 'Promote Winner', 'reactwoo-geo-optimise' ),
 			' ',
-			$cap,
 			'rwgo-promote-winner',
 			array( __CLASS__, 'render_promote_winner' )
 		);
