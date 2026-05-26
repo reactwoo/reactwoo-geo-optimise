@@ -360,6 +360,7 @@ class RWGO_Admin {
 			'managed_tests_total'       => $managed_tests_total,
 			'active_managed_tests'      => $active_managed_tests,
 			'goal_events_total'         => $goal_events_total,
+			'rwgo_use_platform_shell'   => self::uses_platform_shell(),
 		);
 	}
 
@@ -417,11 +418,18 @@ class RWGO_Admin {
 	}
 
 	/**
+	 * @return bool
+	 */
+	public static function uses_platform_shell() {
+		return function_exists( 'rwgc_uses_platform_shell' ) && rwgc_uses_platform_shell();
+	}
+
+	/**
 	 * @param string $current Current page slug.
 	 * @return void
 	 */
 	public static function render_inner_nav( $current ) {
-		if ( function_exists( 'rwgc_uses_platform_shell' ) && rwgc_uses_platform_shell() ) {
+		if ( self::uses_platform_shell() ) {
 			return;
 		}
 
@@ -686,13 +694,15 @@ class RWGO_Admin {
 		$routes = array(
 			array(
 				'menu_slug' => self::MENU_PARENT,
+				'section'   => 'targeting',
 				'route'     => 'experiments',
 				'label'     => __( 'Experiments', 'reactwoo-geo-optimise' ),
-				'order'     => 10,
+				'order'     => 12,
 				'callback'  => array( __CLASS__, 'render_dashboard' ),
 			),
 			array(
 				'menu_slug' => 'rwgo-create-test',
+				'section'   => 'targeting',
 				'route'     => 'create-test',
 				'label'     => __( 'Create test', 'reactwoo-geo-optimise' ),
 				'order'     => 20,
@@ -700,6 +710,7 @@ class RWGO_Admin {
 			),
 			array(
 				'menu_slug' => 'rwgo-tests',
+				'section'   => 'targeting',
 				'route'     => 'tests',
 				'label'     => __( 'Tests', 'reactwoo-geo-optimise' ),
 				'order'     => 30,

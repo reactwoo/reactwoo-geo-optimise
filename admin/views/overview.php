@@ -8,7 +8,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-$rwgc_nav_current     = isset( $rwgc_nav_current ) ? $rwgc_nav_current : RWGO_Admin::MENU_PARENT;
+$rwgc_nav_current       = isset( $rwgc_nav_current ) ? $rwgc_nav_current : RWGO_Admin::MENU_PARENT;
+$rwgo_use_platform_shell = ! empty( $rwgo_use_platform_shell );
 $managed_tests_total   = isset( $managed_tests_total ) ? (int) $managed_tests_total : 0;
 $active_managed_tests = isset( $active_managed_tests ) ? (int) $active_managed_tests : 0;
 $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total : 0;
@@ -17,7 +18,9 @@ $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total :
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(
-			__( 'Geo Optimise', 'reactwoo-geo-optimise' ),
+			$rwgo_use_platform_shell
+				? __( 'Experiments', 'reactwoo-geo-optimise' )
+				: __( 'Geo Optimise', 'reactwoo-geo-optimise' ),
 			__( 'Create page tests, compare variants, and see which version is leading — without editing code.', 'reactwoo-geo-optimise' )
 		);
 		?>
@@ -26,7 +29,9 @@ $goal_events_total    = isset( $goal_events_total ) ? (int) $goal_events_total :
 		<p class="description"><?php esc_html_e( 'A/B tests and reports on top of Geo Core.', 'reactwoo-geo-optimise' ); ?></p>
 	<?php endif; ?>
 
-	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php if ( ! $rwgo_use_platform_shell ) : ?>
+		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php endif; ?>
 
 	<div class="rwgo-stack">
 	<?php RWGO_Admin::render_suite_handoff_panel(); ?>

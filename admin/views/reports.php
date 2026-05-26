@@ -37,7 +37,8 @@ $rwgo_variant_label = static function ( $cfg, $variant_slug ) {
 	return (string) $variant_slug;
 };
 
-$rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-reports';
+$rwgc_nav_current        = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-reports';
+$rwgo_use_platform_shell = ! empty( $rwgo_use_platform_shell );
 $rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) ? $rwgo_experiments : array();
 $exp_dist         = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : array();
 $exp_served       = isset( $exp_served ) && is_array( $exp_served ) ? $exp_served : array();
@@ -66,7 +67,9 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(
-			__( 'Reports', 'reactwoo-geo-optimise' ),
+			$rwgo_use_platform_shell
+				? __( 'Experiment reports', 'reactwoo-geo-optimise' )
+				: __( 'Reports', 'reactwoo-geo-optimise' ),
 			__( 'See which variant leads on total conversions across your selected success goals — with a per-target breakdown below.', 'reactwoo-geo-optimise' )
 		);
 		?>
@@ -74,7 +77,9 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 		<h1><?php esc_html_e( 'Reports', 'reactwoo-geo-optimise' ); ?></h1>
 	<?php endif; ?>
 
-	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php if ( ! $rwgo_use_platform_shell ) : ?>
+		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Variant B was copied into Control and this test was marked completed.', 'reactwoo-geo-optimise' ); ?></p></div>

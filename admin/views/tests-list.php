@@ -8,7 +8,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-$rwgc_nav_current  = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-tests';
+$rwgc_nav_current        = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-tests';
+$rwgo_use_platform_shell = ! empty( $rwgo_use_platform_shell );
 $rwgo_experiments  = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) ? $rwgo_experiments : array();
 $exp_dist          = isset( $exp_dist ) && is_array( $exp_dist ) ? $exp_dist : array();
 $rwgo_created_id   = isset( $_GET['rwgo_exp_id'] ) ? absint( wp_unslash( $_GET['rwgo_exp_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -89,7 +90,9 @@ $rwgo_status_pill_class = static function ( $st ) {
 		<h1><?php esc_html_e( 'Tests', 'reactwoo-geo-optimise' ); ?></h1>
 	<?php endif; ?>
 
-	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php if ( ! $rwgo_use_platform_shell ) : ?>
+		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="rwgo-page-notices">

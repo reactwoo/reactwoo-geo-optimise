@@ -8,7 +8,8 @@
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
-$rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-create-test';
+$rwgc_nav_current        = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-create-test';
+$rwgo_use_platform_shell = ! empty( $rwgo_use_platform_shell );
 
 $rwgo_test_types = array( 'page_ab', 'elementor_page', 'gutenberg_page', 'woo_product', 'custom_php' );
 $rwgo_catalog      = array();
@@ -31,7 +32,9 @@ $rwgo_form_mode = 'create';
 		<h1><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></h1>
 	<?php endif; ?>
 
-	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php if ( ! $rwgo_use_platform_shell ) : ?>
+		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+	<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php if ( 'confirm' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
