@@ -707,10 +707,10 @@ class RWGO_Admin {
 			),
 			array(
 				'menu_slug' => 'rwgo-reports',
-				'section'   => 'insights',
+				'section'   => 'targeting',
 				'route'     => 'experiment-reports',
 				'label'     => __( 'Experiment reports', 'reactwoo-geo-optimise' ),
-				'order'     => 40,
+				'order'     => 45,
 				'callback'  => array( __CLASS__, 'render_reports' ),
 			),
 			array(

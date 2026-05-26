@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.55
+Stable tag: 0.4.57
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.57 =
+* **Targeting:** Experiment reports route under Geo platform **Targeting** section (was Insights).
 
 = 0.4.55 =
 * **Admin hub:** Geo Optimise uses Geo Core shell helpers (`rw_geo_register_admin_submenu`, `rw_geo_render_inner_nav`, hub breadcrumb). Detail screens hidden from wp-admin sidebar under Geo Core. Filter: `rwgo_inner_nav_items`.
