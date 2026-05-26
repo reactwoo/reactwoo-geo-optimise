@@ -421,6 +421,10 @@ class RWGO_Admin {
 	 * @return void
 	 */
 	public static function render_inner_nav( $current ) {
+		if ( function_exists( 'rwgc_uses_platform_shell' ) && rwgc_uses_platform_shell() ) {
+			return;
+		}
+
 		$items = array(
 			self::MENU_PARENT     => __( 'Dashboard', 'reactwoo-geo-optimise' ),
 			'rwgo-create-test'    => __( 'Create Test', 'reactwoo-geo-optimise' ),
