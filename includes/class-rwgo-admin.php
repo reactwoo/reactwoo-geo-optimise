@@ -477,7 +477,7 @@ class RWGO_Admin {
 		$args = wp_parse_args(
 			$args,
 			array(
-				'section'    => 'targeting',
+				'section'    => 'experiences',
 				'provider'   => 'geo_optimise',
 				'module'     => 'optimise',
 				'capability' => self::required_capability(),
@@ -682,7 +682,7 @@ class RWGO_Admin {
 			'done'     => $done,
 			'url'      => admin_url( 'admin.php?page=rwgo-create-test' ),
 			'optional' => true,
-			'hint'     => __( 'Split tests live under Targeting → Experiments.', 'reactwoo-geo-optimise' ),
+			'hint'     => __( 'Split tests live under Experiences → Experiments.', 'reactwoo-geo-optimise' ),
 		);
 		return $steps;
 	}
@@ -694,7 +694,7 @@ class RWGO_Admin {
 		$routes = array(
 			array(
 				'menu_slug' => self::MENU_PARENT,
-				'section'   => 'targeting',
+				'section'   => 'experiences',
 				'route'     => 'experiments',
 				'label'     => __( 'Experiments', 'reactwoo-geo-optimise' ),
 				'order'     => 12,
@@ -702,25 +702,27 @@ class RWGO_Admin {
 			),
 			array(
 				'menu_slug' => 'rwgo-create-test',
-				'section'   => 'targeting',
+				'section'   => 'experiences',
 				'route'     => 'create-test',
 				'label'     => __( 'Create test', 'reactwoo-geo-optimise' ),
 				'order'     => 20,
+				'is_section_nav' => false,
 				'callback'  => array( __CLASS__, 'render_create_test' ),
 			),
 			array(
 				'menu_slug' => 'rwgo-tests',
-				'section'   => 'targeting',
+				'section'   => 'experiences',
 				'route'     => 'tests',
 				'label'     => __( 'Tests', 'reactwoo-geo-optimise' ),
 				'order'     => 30,
+				'is_section_nav' => false,
 				'callback'  => array( __CLASS__, 'render_tests' ),
 			),
 			array(
 				'menu_slug' => 'rwgo-reports',
-				'section'   => 'targeting',
-				'route'     => 'experiment-reports',
-				'label'     => __( 'Experiment reports', 'reactwoo-geo-optimise' ),
+				'section'   => 'experiences',
+				'route'     => 'reports',
+				'label'     => __( 'Reports', 'reactwoo-geo-optimise' ),
 				'order'     => 45,
 				'callback'  => array( __CLASS__, 'render_reports' ),
 			),

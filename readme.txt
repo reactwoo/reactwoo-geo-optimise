@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.58
+Stable tag: 0.4.59
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.59 =
+* **Admin IA:** Experiments and Reports under Experiences; Create test and legacy Tests hidden from section nav (`is_section_nav` false).
 
 = 0.4.58 =
 * **Platform shell:** Experiments screens use shell titles and skip duplicate inner nav when Geo Core platform UX is active.
