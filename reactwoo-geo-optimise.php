@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ReactWoo Geo Optimise
  * Description: Experiments, CRO, and analytics on top of ReactWoo Geo Core. Requires Geo Core.
- * Version: 0.4.60
+ * Version: 0.4.61
  * Author: ReactWoo
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'RWGO_VERSION' ) ) {
-	define( 'RWGO_VERSION', '0.4.60' );
+	define( 'RWGO_VERSION', '0.4.61' );
 }
 if ( ! defined( 'RWGO_TRACKING_DEBUG' ) ) {
 	define( 'RWGO_TRACKING_DEBUG', false );
@@ -36,17 +36,15 @@ if ( ! defined( 'RWGO_URL' ) ) {
 	define( 'RWGO_URL', plugin_dir_url( __FILE__ ) );
 }
 
-if ( class_exists( 'RWGC_I18n', false ) ) {
-	RWGC_I18n::bootstrap( RWGO_FILE, 'reactwoo-geo-optimise' );
-} else {
-	add_action(
-		'init',
-		static function () {
-			load_plugin_textdomain( 'reactwoo-geo-optimise', false, dirname( plugin_basename( RWGO_FILE ) ) . '/languages' );
-		},
-		0
-	);
-}
+add_action(
+	'plugins_loaded',
+	static function () {
+		if ( class_exists( 'RWGC_I18n', false ) ) {
+			RWGC_I18n::bootstrap( RWGO_FILE, 'reactwoo-geo-optimise' );
+		}
+	},
+	6
+);
 
 require_once RWGO_PATH . 'includes/class-rwgo-plugin.php';
 
