@@ -167,11 +167,7 @@ class RWGO_Elementor_Goals {
 	 * @return void
 	 */
 	public static function init() {
-		if ( did_action( 'elementor/init' ) ) {
-			self::register_hooks();
-		} else {
-			add_action( 'elementor/init', array( __CLASS__, 'register_hooks' ), 1 );
-		}
+		add_action( 'init', array( __CLASS__, 'register_hooks' ), 20 );
 	}
 
 	/**
