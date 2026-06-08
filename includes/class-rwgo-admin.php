@@ -525,12 +525,26 @@ class RWGO_Admin {
 		if ( empty( $ctx['active'] ) ) {
 			return;
 		}
-		$clean_url = remove_query_arg( array( 'rwgc_handoff', 'rwgc_from', 'rwgc_launcher', 'rwgc_variant_page_id' ) );
+		$clean_url = remove_query_arg(
+			array(
+				'rwgc_handoff',
+				'rwgc_from',
+				'rwgc_launcher',
+				'rwgc_variant_page_id',
+				'rwgo_prefill_name',
+				'rwgo_prefill_source',
+				'rwgo_prefill_variant_b',
+				'rwgo_prefill_test_type',
+				'rwgo_prefill_variant_mode',
+				'rwga_intel_run_id',
+			)
+		);
 		$launcher_labels = array(
-			'experiment'     => __( 'Geo split test', 'reactwoo-geo-optimise' ),
-			'ai_draft'       => __( 'AI draft', 'reactwoo-geo-optimise' ),
-			'create_variant' => __( 'Create page version', 'reactwoo-geo-optimise' ),
-			'commerce_rule'  => __( 'Commerce rule', 'reactwoo-geo-optimise' ),
+			'experiment'             => __( 'Geo split test', 'reactwoo-geo-optimise' ),
+			'ai_draft'               => __( 'AI draft', 'reactwoo-geo-optimise' ),
+			'create_variant'         => __( 'Create page version', 'reactwoo-geo-optimise' ),
+			'commerce_rule'          => __( 'Commerce rule', 'reactwoo-geo-optimise' ),
+			'intelligence_optimise'  => __( 'Geo AI intelligence', 'reactwoo-geo-optimise' ),
 		);
 		$launcher = isset( $ctx['launcher'] ) ? (string) $ctx['launcher'] : '';
 		$launcher_note = '';
@@ -552,6 +566,8 @@ class RWGO_Admin {
 				<?php
 				if ( isset( $ctx['from'] ) && 'suite' === $ctx['from'] ) {
 					esc_html_e( 'You arrived from Suite Home or Getting Started. Continue with Create Test, then open Reports.', 'reactwoo-geo-optimise' );
+				} elseif ( isset( $ctx['from'] ) && 'geo_ai' === $ctx['from'] && 'intelligence_optimise' === $launcher ) {
+					esc_html_e( 'Geo AI linked you here from a cloud intelligence recommendation. Review the prefilled test setup, then publish when ready.', 'reactwoo-geo-optimise' );
 				} else {
 					esc_html_e( 'Geo Core linked you here to continue your workflow.', 'reactwoo-geo-optimise' );
 				}
@@ -949,6 +965,64 @@ class RWGO_Admin {
 	/**
 	 * @return void
 	 */
+	/**
+	 * Parse Create Test prefill from Geo AI intelligence handoff query args.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function get_create_test_prefill_from_request() {
+		$out = array();
+		if ( ! is_admin() ) {
+			return $out;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only UX prefill.
+		if ( ! isset( $_GET['rwgc_handoff'] ) || '1' !== (string) wp_unslash( $_GET['rwgc_handoff'] ) ) {
+			return $out;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$from = isset( $_GET['rwgc_from'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwgc_from'] ) ) : '';
+		if ( 'geo_ai' !== $from ) {
+			return $out;
+		}
+
+		$allowed_types = array( 'page_ab', 'elementor_page', 'gutenberg_page', 'woo_product', 'custom_php' );
+		$allowed_modes = array( 'duplicate', 'existing', 'blank' );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['rwgo_prefill_name'] ) ) {
+			$out['name'] = sanitize_text_field( wp_unslash( (string) $_GET['rwgo_prefill_name'] ) );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['rwgo_prefill_source'] ) ) {
+			$out['source_id'] = absint( wp_unslash( $_GET['rwgo_prefill_source'] ) );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['rwgo_prefill_variant_b'] ) ) {
+			$out['variant_b_id'] = absint( wp_unslash( $_GET['rwgo_prefill_variant_b'] ) );
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['rwgo_prefill_test_type'] ) ) {
+			$tt = sanitize_key( wp_unslash( (string) $_GET['rwgo_prefill_test_type'] ) );
+			if ( in_array( $tt, $allowed_types, true ) ) {
+				$out['test_type'] = $tt;
+			}
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['rwgo_prefill_variant_mode'] ) ) {
+			$vm = sanitize_key( wp_unslash( (string) $_GET['rwgo_prefill_variant_mode'] ) );
+			if ( in_array( $vm, $allowed_modes, true ) ) {
+				$out['variant_mode'] = $vm;
+			}
+		}
+
+		/**
+		 * Filter Create Test prefill parsed from intelligence handoff query args.
+		 *
+		 * @param array<string, mixed> $out Parsed prefill values.
+		 */
+		return apply_filters( 'rwgo_create_test_prefill_from_request', $out );
+	}
+
 	public static function render_create_test() {
 		if ( ! self::can_manage() ) {
 			return;
@@ -957,6 +1031,7 @@ class RWGO_Admin {
 		foreach ( $data as $k => $v ) {
 			${$k} = $v;
 		}
+		$rwgo_prefill     = self::get_create_test_prefill_from_request();
 		$rwgc_nav_current = 'rwgo-create-test';
 		include RWGO_PATH . 'admin/views/wizard-create-test.php';
 	}

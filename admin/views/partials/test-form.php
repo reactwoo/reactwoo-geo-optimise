@@ -6,7 +6,7 @@
  * - $rwgo_form_mode 'create'|'edit'
  * - $rwgo_catalog (array) for create JS; edit uses same shape
  * - $rwgo_require_confirm (bool) create only
- * - $rwgo_prefill (array) edit: name, test_type, source_id, variant_b_id, targeting_mode, countries_csv, winner_mode, goal_type, status, experiment_key, return_context (tests|reports)
+ * - $rwgo_prefill (array) edit/create: name, test_type, source_id, variant_b_id, variant_mode, targeting_mode, countries_csv, winner_mode, goal_type, status, experiment_key, return_context (tests|reports)
  *
  * @package ReactWooGeoOptimise
  */
@@ -24,6 +24,10 @@ $pf_name            = isset( $rwgo_prefill['name'] ) ? (string) $rwgo_prefill['n
 $pf_test_type       = isset( $rwgo_prefill['test_type'] ) ? sanitize_key( (string) $rwgo_prefill['test_type'] ) : 'page_ab';
 $pf_source_id       = isset( $rwgo_prefill['source_id'] ) ? (int) $rwgo_prefill['source_id'] : 0;
 $pf_variant_b_id    = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_prefill['variant_b_id'] : 0;
+$pf_variant_mode    = isset( $rwgo_prefill['variant_mode'] ) ? sanitize_key( (string) $rwgo_prefill['variant_mode'] ) : 'duplicate';
+if ( ! in_array( $pf_variant_mode, array( 'duplicate', 'existing', 'blank' ), true ) ) {
+	$pf_variant_mode = 'duplicate';
+}
 $pf_targeting_mode  = isset( $rwgo_prefill['targeting_mode'] ) ? sanitize_key( (string) $rwgo_prefill['targeting_mode'] ) : 'everyone';
 $pf_countries       = isset( $rwgo_prefill['countries_csv'] ) ? (string) $rwgo_prefill['countries_csv'] : '';
 $pf_winner_mode     = isset( $rwgo_prefill['winner_mode'] ) ? sanitize_key( (string) $rwgo_prefill['winner_mode'] ) : 'goal';
@@ -64,7 +68,7 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 	?>
 	<input type="hidden" name="rwgo_return_context" value="<?php echo esc_attr( $rwgo_rc ); ?>" />
 <?php else : ?>
-<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>" data-rwgo-form-mode="create" data-rwgo-source-id="0" data-rwgo-variant-b-id="0">
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-create-form" id="<?php echo esc_attr( $form_id ); ?>" data-rwgo-form-mode="create" data-rwgo-source-id="<?php echo esc_attr( (string) $pf_source_id ); ?>" data-rwgo-variant-b-id="<?php echo esc_attr( (string) $pf_variant_b_id ); ?>">
 	<input type="hidden" name="action" value="rwgo_create_test" />
 	<?php wp_nonce_field( 'rwgo_create_test' ); ?>
 <?php endif; ?>
@@ -88,11 +92,11 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 			<div class="rwgo-field">
 				<label class="rwgo-field__label" for="rwgo_test_type"><?php esc_html_e( 'What are you testing?', 'reactwoo-geo-optimise' ); ?></label>
 				<select name="rwgo_test_type" id="rwgo_test_type" class="rwgo-input">
-					<option value="page_ab"><?php esc_html_e( 'Page A/B test', 'reactwoo-geo-optimise' ); ?></option>
-					<option value="elementor_page"><?php esc_html_e( 'Elementor page version', 'reactwoo-geo-optimise' ); ?></option>
-					<option value="gutenberg_page"><?php esc_html_e( 'Gutenberg page version', 'reactwoo-geo-optimise' ); ?></option>
-					<option value="woo_product"><?php esc_html_e( 'WooCommerce product page test', 'reactwoo-geo-optimise' ); ?></option>
-					<option value="custom_php"><?php esc_html_e( 'Advanced / custom', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="page_ab" <?php selected( $pf_test_type, 'page_ab' ); ?>><?php esc_html_e( 'Page A/B test', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="elementor_page" <?php selected( $pf_test_type, 'elementor_page' ); ?>><?php esc_html_e( 'Elementor page version', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="gutenberg_page" <?php selected( $pf_test_type, 'gutenberg_page' ); ?>><?php esc_html_e( 'Gutenberg page version', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="woo_product" <?php selected( $pf_test_type, 'woo_product' ); ?>><?php esc_html_e( 'WooCommerce product page test', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="custom_php" <?php selected( $pf_test_type, 'custom_php' ); ?>><?php esc_html_e( 'Advanced / custom', 'reactwoo-geo-optimise' ); ?></option>
 				</select>
 			</div>
 			<div id="rwgo-test-type-hint" class="rwgo-hint rwgo-hint--accent" role="status"></div>
@@ -206,21 +210,21 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 			<fieldset class="rwgo-fieldset">
 				<legend class="rwgo-field__label"><?php esc_html_e( 'How should Variant B be created?', 'reactwoo-geo-optimise' ); ?></legend>
 				<label class="rwgo-radio-card">
-					<input type="radio" name="rwgo_variant_mode" value="duplicate" checked="checked" class="rwgo-variant-mode" />
+					<input type="radio" name="rwgo_variant_mode" value="duplicate" <?php checked( $pf_variant_mode, 'duplicate' ); ?> class="rwgo-variant-mode" />
 					<span class="rwgo-radio-card__body">
 						<strong><?php esc_html_e( 'Duplicate source automatically (recommended)', 'reactwoo-geo-optimise' ); ?></strong>
 						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Geo Optimise will create a full editable duplicate of the source page, including supported builder data. If duplication fails, the variant will not be attached and you can choose another recovery option.', 'reactwoo-geo-optimise' ); ?></span>
 					</span>
 				</label>
 				<label class="rwgo-radio-card">
-					<input type="radio" name="rwgo_variant_mode" value="existing" class="rwgo-variant-mode" />
+					<input type="radio" name="rwgo_variant_mode" value="existing" <?php checked( $pf_variant_mode, 'existing' ); ?> class="rwgo-variant-mode" />
 					<span class="rwgo-radio-card__body">
 						<strong><?php esc_html_e( 'Use an existing page, post, or product', 'reactwoo-geo-optimise' ); ?></strong>
 						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Choose content you have already published as Variant B.', 'reactwoo-geo-optimise' ); ?></span>
 					</span>
 				</label>
 				<label class="rwgo-radio-card">
-					<input type="radio" name="rwgo_variant_mode" value="blank" class="rwgo-variant-mode" />
+					<input type="radio" name="rwgo_variant_mode" value="blank" <?php checked( $pf_variant_mode, 'blank' ); ?> class="rwgo-variant-mode" />
 					<span class="rwgo-radio-card__body">
 						<strong><?php esc_html_e( 'Create a new blank variant', 'reactwoo-geo-optimise' ); ?></strong>
 						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Create a new draft linked to this test and design Variant B after publishing.', 'reactwoo-geo-optimise' ); ?></span>
@@ -489,7 +493,32 @@ echo wp_json_encode(
 		countriesWrap.style.display = tm.value === 'countries' ? '' : 'none';
 	}
 	if (tm) { tm.addEventListener('change', syncCountries); syncCountries(); }
+	var prefillSource = <?php echo (int) $pf_source_id; ?>;
+	var prefillVariantB = <?php echo (int) $pf_variant_b_id; ?>;
+	var prefillType = <?php echo wp_json_encode( $pf_test_type ); ?>;
+	var prefillVariantMode = <?php echo wp_json_encode( $pf_variant_mode ); ?>;
+	var createForm = document.getElementById('<?php echo esc_js( $form_id ); ?>');
+	function applyCreatePrefill() {
+		if (!prefillSource && !prefillVariantB) { return; }
+		if (typeSelect && prefillType) { typeSelect.value = prefillType; }
+		refreshLists();
+		if (sourceSelect && prefillSource) { sourceSelect.value = String(prefillSource); }
+		if (prefillVariantMode) {
+			modeRadios.forEach(function (r) { r.checked = (r.value === prefillVariantMode); });
+		}
+		syncVariantUi();
+		if (variantSelect && prefillVariantB) { variantSelect.value = String(prefillVariantB); }
+		if (createForm) {
+			createForm.setAttribute('data-rwgo-source-id', String(prefillSource || 0));
+			createForm.setAttribute('data-rwgo-variant-b-id', String(prefillVariantB || 0));
+		}
+		if (sourceSelect && sourceSelect.value && sourceAfter) {
+			sourceAfter.hidden = false;
+			sourceAfter.textContent = <?php echo wp_json_encode( __( 'Selected content will be used as Control (A). Choose how Variant B is created in the next section.', 'reactwoo-geo-optimise' ) ); ?>;
+		}
+	}
 	refreshLists();
+	applyCreatePrefill();
 })();
 </script>
 <?php else : ?>

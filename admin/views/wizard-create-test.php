@@ -36,6 +36,8 @@ $rwgo_form_mode = 'create';
 		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 	<?php endif; ?>
 
+	<?php RWGO_Admin::render_suite_handoff_panel(); ?>
+
 	<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php if ( 'confirm' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'Confirm the test setup below before publishing — your site requires an extra confirmation step (see Settings).', 'reactwoo-geo-optimise' ); ?></p></div>
