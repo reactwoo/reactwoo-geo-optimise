@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import zipfile
 from pathlib import Path
 
@@ -16,6 +17,23 @@ INCLUDE_FILES = [
     "reactwoo-geo-optimise.php",
     "readme.txt",
 ]
+
+
+def _is_ci_environment() -> bool:
+    return os.environ.get("CI", "").lower() in ("1", "true", "yes")
+
+
+def _read_plugin_version(base: Path, cfg: dict, folder: str) -> str | None:
+    main_php = cfg.get("mainPhp") or f"{folder}.php"
+    php_path = base / str(main_php)
+    if not php_path.is_file():
+        return None
+    try:
+        text = php_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    match = re.search(r"^\s*\*\s*Version:\s*([^\s\r\n]+)", text, re.MULTILINE)
+    return match.group(1).strip() if match else None
 
 
 def _zip_paths(base: Path) -> tuple[str, str]:
@@ -32,6 +50,13 @@ def _zip_paths(base: Path) -> tuple[str, str]:
         return _DEFAULT_FOLDER, zip_name
     folder = cfg.get("pluginFolder") or _DEFAULT_FOLDER
     zfile = cfg.get("zipFile") or f"{folder}.zip"
+    version_in_zip = cfg.get("versionInZipFile", True)
+    if version_in_zip and not _is_ci_environment():
+        version = _read_plugin_version(base, cfg, folder)
+        if version:
+            stem = Path(zfile).stem
+            suffix = Path(zfile).suffix or ".zip"
+            zfile = f"{stem}-{version}{suffix}"
     return str(folder), str(zfile)
 
 
