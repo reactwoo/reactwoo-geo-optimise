@@ -107,6 +107,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-ai-snapshot.php';
+		RWGO_AI_Snapshot::init();
 		RWGO_Experiment_CPT::init();
 		RWGO_Event_Store::init();
 		RWGO_REST_Tracking::init();
