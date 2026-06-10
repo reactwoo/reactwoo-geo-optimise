@@ -986,7 +986,9 @@ class RWGO_Admin {
 		}
 
 		$allowed_types = array( 'page_ab', 'elementor_page', 'gutenberg_page', 'woo_product', 'custom_php' );
-		$allowed_modes = array( 'duplicate', 'existing', 'blank' );
+		$allowed_modes = class_exists( 'RWGO_Admin_Wizard', false )
+			? RWGO_Admin_Wizard::allowed_variant_modes()
+			: array( 'duplicate', 'existing', 'blank' );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		if ( isset( $_GET['rwgo_prefill_name'] ) ) {

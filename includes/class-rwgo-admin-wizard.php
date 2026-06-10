@@ -91,9 +91,19 @@ class RWGO_Admin_Wizard {
 		}
 
 		$variant_mode = isset( $_POST['rwgo_variant_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_variant_mode'] ) ) : 'duplicate'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$allowed_vm   = array( 'duplicate', 'existing', 'blank' );
+		$allowed_vm   = self::allowed_variant_modes();
 		if ( ! in_array( $variant_mode, $allowed_vm, true ) ) {
+			if ( 'ai_adapt' === $variant_mode ) {
+				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=ai_unlicensed' ) );
+				exit;
+			}
 			$variant_mode = 'duplicate';
+		}
+
+		$targeting = self::build_targeting_from_post();
+		if ( is_wp_error( $targeting ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-create-test&rwgo_error=' . rawurlencode( $targeting->get_error_code() ) ) );
+			exit;
 		}
 
 		$dup = 0;
@@ -126,15 +136,9 @@ class RWGO_Admin_Wizard {
 			$dup = (int) $dup_res;
 		}
 
-		$mode = isset( $_POST['rwgo_targeting_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_targeting_mode'] ) ) : 'everyone'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$targeting = array( 'mode' => 'everyone' );
-		if ( 'countries' === $mode ) {
-			$raw       = isset( $_POST['rwgo_countries'] ) ? sanitize_text_field( wp_unslash( $_POST['rwgo_countries'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			$parts     = array_filter( array_map( 'trim', explode( ',', $raw ) ) );
-			$targeting = array(
-				'mode'      => 'countries',
-				'countries' => array_map( 'strtoupper', $parts ),
-			);
+		$ai_handoff_url = '';
+		if ( 'ai_adapt' === $variant_mode && $dup > 0 ) {
+			$ai_handoff_url = self::maybe_run_ai_adapt_after_duplicate( $source, $dup, $targeting );
 		}
 
 		$detection = class_exists( 'RWGO_Builder_Detector', false )
@@ -274,6 +278,10 @@ class RWGO_Admin_Wizard {
 				$redirect_url = add_query_arg( 'rwgo_binding_warn', '1', $redirect_url );
 			}
 		}
+		if ( '' !== $ai_handoff_url ) {
+			wp_safe_redirect( $ai_handoff_url );
+			exit;
+		}
 		wp_safe_redirect( $redirect_url );
 		exit;
 	}
@@ -336,15 +344,10 @@ class RWGO_Admin_Wizard {
 			$goal_type = 'page_view';
 		}
 
-		$mode = isset( $_POST['rwgo_targeting_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_targeting_mode'] ) ) : 'everyone'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-		$targeting = array( 'mode' => 'everyone' );
-		if ( 'countries' === $mode ) {
-			$raw   = isset( $_POST['rwgo_countries'] ) ? sanitize_text_field( wp_unslash( $_POST['rwgo_countries'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
-			$parts = array_filter( array_map( 'trim', explode( ',', $raw ) ) );
-			$targeting = array(
-				'mode'      => 'countries',
-				'countries' => array_map( 'strtoupper', $parts ),
-			);
+		$targeting = self::build_targeting_from_post();
+		if ( is_wp_error( $targeting ) ) {
+			wp_safe_redirect( RWGO_Admin::edit_test_redirect_after_save( $exp_id, array( 'rwgo_error' => $targeting->get_error_code() ) ) );
+			exit;
 		}
 
 		$goal_selection_mode = isset( $_POST['rwgo_goal_selection_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_goal_selection_mode'] ) ) : 'automatic'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1129,6 +1132,126 @@ class RWGO_Admin_Wizard {
 			'source_type'         => isset( $pick['source_type'] ) ? sanitize_key( (string) $pick['source_type'] ) : '',
 			'destination_page_id' => (int) ( $pick['destination_page_id'] ?? 0 ),
 			'source_post_id'      => (int) ( $pick['source_post_id'] ?? 0 ),
+		);
+	}
+
+	/**
+	 * Variant modes allowed for the current site licenses.
+	 *
+	 * @return string[]
+	 */
+	public static function allowed_variant_modes() {
+		$modes = array( 'duplicate', 'existing', 'blank' );
+		if ( class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::can_use_ai_adapt_variant() ) {
+			$modes[] = 'ai_adapt';
+		}
+		return $modes;
+	}
+
+	/**
+	 * Build experiment targeting config from POST (with license gates).
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function build_targeting_from_post() {
+		$mode = isset( $_POST['rwgo_targeting_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_targeting_mode'] ) ) : 'everyone'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+		if ( 'create_rule' === $mode ) {
+			return new WP_Error( 'create_rule', __( 'Create a targeting rule first, then select it under “Use saved rule”.', 'reactwoo-geo-optimise' ) );
+		}
+
+		if ( 'saved_rule' === $mode ) {
+			if ( ! class_exists( 'RWGO_Suite_Features', false ) || ! RWGO_Suite_Features::can_use_saved_rule_targeting() ) {
+				return new WP_Error( 'targeting_rule', __( 'Saved targeting rules are not available on this site.', 'reactwoo-geo-optimise' ) );
+			}
+			$rule_id = isset( $_POST['rwgo_saved_rule_id'] ) ? absint( wp_unslash( $_POST['rwgo_saved_rule_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if ( $rule_id <= 0 || ! class_exists( 'RWGC_Visibility_Rule_Repository', false ) || ! RWGC_Visibility_Rule_Repository::get_post( $rule_id ) ) {
+				return new WP_Error( 'targeting_rule', __( 'Choose a saved targeting rule.', 'reactwoo-geo-optimise' ) );
+			}
+			return array(
+				'mode'               => 'saved_rule',
+				'visibility_rule_id' => $rule_id,
+			);
+		}
+
+		if ( 'countries' === $mode ) {
+			$codes = self::parse_countries_from_post();
+			if ( empty( $codes ) ) {
+				return new WP_Error( 'targeting_countries', __( 'Enter at least one country code for country targeting.', 'reactwoo-geo-optimise' ) );
+			}
+			return array(
+				'mode'      => 'countries',
+				'countries' => $codes,
+			);
+		}
+
+		return array( 'mode' => 'everyone' );
+	}
+
+	/**
+	 * @return string[]
+	 */
+	private static function parse_countries_from_post() {
+		$codes = array();
+		if ( isset( $_POST['rwgo_countries'] ) && is_array( $_POST['rwgo_countries'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			foreach ( wp_unslash( $_POST['rwgo_countries'] ) as $raw ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+				$iso = strtoupper( substr( sanitize_text_field( (string) $raw ), 0, 2 ) );
+				if ( preg_match( '/^[A-Z]{2}$/', $iso ) ) {
+					$codes[] = $iso;
+				}
+			}
+		} else {
+			$raw   = isset( $_POST['rwgo_countries'] ) ? sanitize_text_field( wp_unslash( $_POST['rwgo_countries'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$parts = array_filter( array_map( 'trim', explode( ',', $raw ) ) );
+			foreach ( $parts as $part ) {
+				$iso = strtoupper( substr( sanitize_text_field( (string) $part ), 0, 2 ) );
+				if ( preg_match( '/^[A-Z]{2}$/', $iso ) ) {
+					$codes[] = $iso;
+				}
+			}
+		}
+		return array_values( array_unique( $codes ) );
+	}
+
+	/**
+	 * Run Geo AI copy drafts after duplicating Variant B.
+	 *
+	 * @param int                  $source_page_id Control page ID.
+	 * @param int                  $variant_page_id Variant B page ID.
+	 * @param array<string, mixed> $targeting Targeting config.
+	 * @return string Handoff URL or empty.
+	 */
+	private static function maybe_run_ai_adapt_after_duplicate( $source_page_id, $variant_page_id, array $targeting ) {
+		if ( ! class_exists( 'RWGC_Experience_Workflow', false ) || ! class_exists( 'RWGO_Suite_Features', false ) ) {
+			return '';
+		}
+		if ( ! RWGO_Suite_Features::can_use_ai_adapt_variant() ) {
+			return '';
+		}
+		$visibility_rule_id = isset( $targeting['visibility_rule_id'] ) ? absint( $targeting['visibility_rule_id'] ) : 0;
+		$countries          = isset( $targeting['countries'] ) && is_array( $targeting['countries'] ) ? $targeting['countries'] : array();
+		$country_iso2       = '';
+		if ( $visibility_rule_id > 0 ) {
+			$country_iso2 = RWGC_Experience_Workflow::extract_primary_country_from_rule( $visibility_rule_id );
+		} elseif ( ! empty( $countries ) ) {
+			$country_iso2 = (string) $countries[0];
+		}
+		$copy_result = RWGC_Experience_Workflow::run_ai_adapt_copy_drafts(
+			(int) $variant_page_id,
+			$visibility_rule_id,
+			$country_iso2,
+			$countries
+		);
+		$draft_ids = array();
+		if ( is_array( $copy_result ) && ! empty( $copy_result['draft_ids'] ) && is_array( $copy_result['draft_ids'] ) ) {
+			$draft_ids = $copy_result['draft_ids'];
+		}
+		return RWGC_Experience_Workflow::build_ai_adapt_handoff_url(
+			(int) $source_page_id,
+			(int) $variant_page_id,
+			$country_iso2,
+			$visibility_rule_id,
+			$draft_ids
 		);
 	}
 }

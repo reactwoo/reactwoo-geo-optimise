@@ -35,6 +35,9 @@ class RWGO_Targeting {
 			}
 			return in_array( strtoupper( $cc ), $codes, true );
 		}
+		if ( 'saved_rule' === $mode ) {
+			return self::passes_saved_rule( $targeting );
+		}
 		/**
 		 * Filters whether targeting passes for custom modes.
 		 *
@@ -53,5 +56,28 @@ class RWGO_Targeting {
 			return is_string( $c ) ? strtoupper( trim( $c ) ) : '';
 		}
 		return '';
+	}
+
+	/**
+	 * @param array<string, mixed> $targeting Targeting config.
+	 * @return bool
+	 */
+	private static function passes_saved_rule( $targeting ) {
+		$rule_id = isset( $targeting['visibility_rule_id'] ) ? absint( $targeting['visibility_rule_id'] ) : 0;
+		if ( $rule_id <= 0 || ! class_exists( 'RWGC_Visibility_Rule_Repository', false ) ) {
+			return false;
+		}
+		if ( ! RWGC_Visibility_Rule_Repository::get_post( $rule_id ) ) {
+			return false;
+		}
+		$set = RWGC_Visibility_Rule_Repository::get_rule_set( $rule_id );
+		if ( ! is_array( $set ) || empty( $set['enabled'] ) ) {
+			return false;
+		}
+		if ( ! class_exists( 'RWGC_Rule_Evaluator', false ) || ! class_exists( 'RWGC_Context_Resolver', false ) ) {
+			return false;
+		}
+		$snapshot = RWGC_Context_Resolver::resolve_current();
+		return RWGC_Rule_Evaluator::matches( $set, $snapshot );
 	}
 }

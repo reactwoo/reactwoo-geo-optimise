@@ -53,6 +53,9 @@ $tgt_mode  = isset( $tgt['mode'] ) ? sanitize_key( (string) $tgt['mode'] ) : 'ev
 $countries = ( 'countries' === $tgt_mode && ! empty( $tgt['countries'] ) && is_array( $tgt['countries'] ) )
 	? implode( ', ', $tgt['countries'] )
 	: '';
+$saved_rule_id = ( 'saved_rule' === $tgt_mode && ! empty( $tgt['visibility_rule_id'] ) )
+	? absint( $tgt['visibility_rule_id'] )
+	: 0;
 
 $inferred_goal = class_exists( 'RWGO_Admin_Wizard', false )
 	? RWGO_Admin_Wizard::infer_goal_type_from_config( $rwgo_cfg )
@@ -81,6 +84,7 @@ $rwgo_prefill = array(
 	'variant_b_id'       => $var_b_id,
 	'targeting_mode'     => $tgt_mode,
 	'countries_csv'      => $countries,
+	'saved_rule_id'      => $saved_rule_id,
 	'winner_mode'        => $wm,
 	'goal_type'          => $goal_type,
 	'goal_selection_mode'=> $rwgo_goal_sel_mode,
@@ -308,6 +312,10 @@ $rwgo_form_mode = 'edit';
 					esc_html_e( 'Could not regenerate Variant B from Control.', 'reactwoo-geo-optimise' );
 				} elseif ( 'missing' === $err ) {
 					esc_html_e( 'Please enter a test name.', 'reactwoo-geo-optimise' );
+				} elseif ( in_array( $err, array( 'targeting_rule', 'create_rule' ), true ) ) {
+					esc_html_e( 'Choose a saved targeting rule, or create one in the rule library and return here.', 'reactwoo-geo-optimise' );
+				} elseif ( 'targeting_countries' === $err ) {
+					esc_html_e( 'Enter at least one country for country targeting.', 'reactwoo-geo-optimise' );
 				} else {
 					esc_html_e( 'Could not save changes. Try again.', 'reactwoo-geo-optimise' );
 				}

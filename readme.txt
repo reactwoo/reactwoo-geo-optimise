@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.63
+Stable tag: 0.4.64
 
 Experiments and CRO on ReactWoo Geo Core.
 
@@ -18,6 +18,9 @@ Consumes Geo Core hooks and REST `/capabilities` for A/B and optimisation workfl
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.64 =
+* **Create Test wizard:** Geo AI “adapt copy” variant mode and saved-rule / create-rule targeting (parity with Geo Core Create Geo Rule), gated by Geo AI license and Geo Core visibility rules; saved rules evaluated at runtime via Core portable evaluator.
 
 = 0.4.63 =
 * **Geo AI snapshot:** Append `geo_optimise` experiment metadata and experiment→page relationships to Geo Core site intelligence snapshots.

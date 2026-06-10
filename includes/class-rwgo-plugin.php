@@ -91,6 +91,7 @@ class RWGO_Plugin {
 		}
 		RWGO_Redirect_Store::init();
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-content-catalog.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-suite-features.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
