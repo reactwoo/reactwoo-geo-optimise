@@ -41,6 +41,9 @@ $rwgo_form_mode = 'create';
 	<?php if ( isset( $_GET['rwgc_rule_saved'] ) && '1' === (string) wp_unslash( $_GET['rwgc_rule_saved'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success rwgo-notice"><p><?php esc_html_e( 'Targeting rule saved. Select it below under “Use saved rule”.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>
+	<?php if ( isset( $_GET['rwgo_audience_rule_created'] ) && '1' === (string) wp_unslash( $_GET['rwgo_audience_rule_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success rwgo-notice"><p><?php esc_html_e( 'Audience-only rule saved to your library and selected below.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_error'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php if ( 'confirm' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
@@ -57,6 +60,14 @@ $rwgo_form_mode = 'create';
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Choose a saved targeting rule, or create one in the rule library and return here.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( 'targeting_countries' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Enter at least one country for country targeting.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php elseif ( 'targeting_weather' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Choose at least one shopping weather facet for weather targeting.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php elseif ( 'targeting_rule_page_bound' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Page URL rules cannot gate A/B test entry. Enable “visitor conditions only” or save an audience-only copy.', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php elseif ( 'targeting_rule_empty_audience' === $_GET['rwgo_error'] || 'rwgo_rule_copy_empty' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'The selected rule has no visitor conditions for tests. Create an audience rule (country, campaign, device, etc.).', 'reactwoo-geo-optimise' ); ?></p></div>
+		<?php elseif ( 'rwgo_rule_copy' === $_GET['rwgo_error'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Could not save an audience-only copy of that rule.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php else : ?>
 			<div class="notice notice-error rwgo-notice"><p><?php esc_html_e( 'Could not create the test. Check fields and permissions, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>

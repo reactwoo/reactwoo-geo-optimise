@@ -56,6 +56,12 @@ $countries = ( 'countries' === $tgt_mode && ! empty( $tgt['countries'] ) && is_a
 $saved_rule_id = ( 'saved_rule' === $tgt_mode && ! empty( $tgt['visibility_rule_id'] ) )
 	? absint( $tgt['visibility_rule_id'] )
 	: 0;
+$weather_facets = ( 'weather_facets' === $tgt_mode && ! empty( $tgt['weather_facets'] ) && is_array( $tgt['weather_facets'] ) )
+	? $tgt['weather_facets']
+	: array();
+$weather_match  = ( 'weather_facets' === $tgt_mode && ! empty( $tgt['weather_match'] ) )
+	? sanitize_key( (string) $tgt['weather_match'] )
+	: 'any';
 
 $inferred_goal = class_exists( 'RWGO_Admin_Wizard', false )
 	? RWGO_Admin_Wizard::infer_goal_type_from_config( $rwgo_cfg )
@@ -85,6 +91,9 @@ $rwgo_prefill = array(
 	'targeting_mode'     => $tgt_mode,
 	'countries_csv'      => $countries,
 	'saved_rule_id'      => $saved_rule_id,
+	'audience_only'      => ! isset( $tgt['audience_only'] ) || ! empty( $tgt['audience_only'] ),
+	'weather_facets'     => $weather_facets,
+	'weather_match'      => $weather_match,
 	'winner_mode'        => $wm,
 	'goal_type'          => $goal_type,
 	'goal_selection_mode'=> $rwgo_goal_sel_mode,
@@ -316,6 +325,14 @@ $rwgo_form_mode = 'edit';
 					esc_html_e( 'Choose a saved targeting rule, or create one in the rule library and return here.', 'reactwoo-geo-optimise' );
 				} elseif ( 'targeting_countries' === $err ) {
 					esc_html_e( 'Enter at least one country for country targeting.', 'reactwoo-geo-optimise' );
+				} elseif ( 'targeting_weather' === $err ) {
+					esc_html_e( 'Choose at least one shopping weather facet for weather targeting.', 'reactwoo-geo-optimise' );
+				} elseif ( 'targeting_rule_page_bound' === $err ) {
+					esc_html_e( 'Page URL rules cannot gate A/B test entry. Enable “visitor conditions only” or save an audience-only copy.', 'reactwoo-geo-optimise' );
+				} elseif ( 'targeting_rule_empty_audience' === $err || 'rwgo_rule_copy_empty' === $err ) {
+					esc_html_e( 'The selected rule has no visitor conditions for tests. Create an audience rule (country, campaign, device, etc.).', 'reactwoo-geo-optimise' );
+				} elseif ( 'rwgo_rule_copy' === $err ) {
+					esc_html_e( 'Could not save an audience-only copy of that rule.', 'reactwoo-geo-optimise' );
 				} else {
 					esc_html_e( 'Could not save changes. Try again.', 'reactwoo-geo-optimise' );
 				}

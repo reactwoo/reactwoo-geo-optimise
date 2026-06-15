@@ -35,6 +35,9 @@ class RWGO_Targeting {
 			}
 			return in_array( strtoupper( $cc ), $codes, true );
 		}
+		if ( 'weather_facets' === $mode ) {
+			return self::passes_weather_facets( $targeting );
+		}
 		if ( 'saved_rule' === $mode ) {
 			return self::passes_saved_rule( $targeting );
 		}
@@ -63,15 +66,13 @@ class RWGO_Targeting {
 	 * @return bool
 	 */
 	private static function passes_saved_rule( $targeting ) {
-		$rule_id = isset( $targeting['visibility_rule_id'] ) ? absint( $targeting['visibility_rule_id'] ) : 0;
-		if ( $rule_id <= 0 || ! class_exists( 'RWGC_Visibility_Rule_Repository', false ) ) {
+		if ( ! is_array( $targeting ) ) {
 			return false;
 		}
-		if ( ! RWGC_Visibility_Rule_Repository::get_post( $rule_id ) ) {
-			return false;
-		}
-		$set = RWGC_Visibility_Rule_Repository::get_rule_set( $rule_id );
-		if ( ! is_array( $set ) || empty( $set['enabled'] ) ) {
+		$set = class_exists( 'RWGO_Test_Rule_Adapter', false )
+			? RWGO_Test_Rule_Adapter::get_evaluation_rule_set( $targeting )
+			: null;
+		if ( null === $set ) {
 			return false;
 		}
 		if ( ! class_exists( 'RWGC_Rule_Evaluator', false ) || ! class_exists( 'RWGC_Context_Resolver', false ) ) {
@@ -79,5 +80,31 @@ class RWGO_Targeting {
 		}
 		$snapshot = RWGC_Context_Resolver::resolve_current();
 		return RWGC_Rule_Evaluator::matches( $set, $snapshot );
+	}
+
+	/**
+	 * @param array<string, mixed> $targeting Targeting config.
+	 * @return bool
+	 */
+	private static function passes_weather_facets( $targeting ) {
+		if ( ! class_exists( 'RWGCM_Weather_Affinity', false ) ) {
+			return false;
+		}
+		$required = isset( $targeting['weather_facets'] ) && is_array( $targeting['weather_facets'] )
+			? RWGCM_Weather_Affinity::sanitize_facet_list( $targeting['weather_facets'] )
+			: array();
+		if ( empty( $required ) ) {
+			return false;
+		}
+		$visitor = RWGCM_Weather_Affinity::get_visitor_facets();
+		if ( empty( $visitor ) ) {
+			return false;
+		}
+		$match_mode = isset( $targeting['weather_match'] ) ? sanitize_key( (string) $targeting['weather_match'] ) : 'any';
+		$overlap    = array_intersect( $required, $visitor );
+		if ( 'all' === $match_mode ) {
+			return count( $overlap ) === count( $required );
+		}
+		return ! empty( $overlap );
 	}
 }

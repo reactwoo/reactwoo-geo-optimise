@@ -32,13 +32,33 @@ if ( ! in_array( $pf_variant_mode, $rwgo_allowed_vm, true ) ) {
 $pf_targeting_mode  = isset( $rwgo_prefill['targeting_mode'] ) ? sanitize_key( (string) $rwgo_prefill['targeting_mode'] ) : 'everyone';
 $pf_countries       = isset( $rwgo_prefill['countries_csv'] ) ? (string) $rwgo_prefill['countries_csv'] : '';
 $pf_saved_rule_id   = isset( $rwgo_prefill['saved_rule_id'] ) ? absint( $rwgo_prefill['saved_rule_id'] ) : 0;
+// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only wizard prefill after audience copy.
+if ( isset( $_GET['rwgo_prefill_saved_rule'] ) ) {
+	$pf_saved_rule_id  = absint( wp_unslash( $_GET['rwgo_prefill_saved_rule'] ) );
+	$pf_targeting_mode = 'saved_rule';
+}
+$pf_audience_only   = ! isset( $rwgo_prefill['audience_only'] ) || ! empty( $rwgo_prefill['audience_only'] );
 $rwgo_can_ai_adapt  = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::can_use_ai_adapt_variant();
 $rwgo_ai_upsell     = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::geo_ai_installed_without_license();
 $rwgo_can_saved_rule = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::can_use_saved_rule_targeting();
 $rwgo_can_create_rule = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::can_use_create_rule_targeting();
+$rwgo_can_weather_tgt = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::can_use_weather_facet_targeting();
 $rwgo_library_rules = class_exists( 'RWGO_Suite_Features', false ) ? RWGO_Suite_Features::get_library_rule_options() : array();
 $rwgo_create_rule_url = class_exists( 'RWGO_Suite_Features', false ) ? RWGO_Suite_Features::get_create_rule_url() : '';
+$rwgo_create_audience_rule_url = class_exists( 'RWGO_Suite_Features', false ) ? RWGO_Suite_Features::get_create_audience_rule_url() : '';
 $rwgo_has_advanced_targeting = class_exists( 'RWGO_Suite_Features', false ) && RWGO_Suite_Features::has_advanced_targeting_license();
+$rwgo_saved_rule_meta = array();
+foreach ( $rwgo_library_rules as $rule_meta_row ) {
+	if ( ! is_array( $rule_meta_row ) || empty( $rule_meta_row['id'] ) ) {
+		continue;
+	}
+	$rwgo_saved_rule_meta[ (string) (int) $rule_meta_row['id'] ] = array(
+		'has_page_bound'    => ! empty( $rule_meta_row['has_page_bound'] ),
+		'audience_summary'  => isset( $rule_meta_row['audience_summary'] ) ? (string) $rule_meta_row['audience_summary'] : '',
+		'fit_for_test'      => ! empty( $rule_meta_row['fit_for_test'] ),
+		'page_bound_labels' => isset( $rule_meta_row['page_bound_labels'] ) && is_array( $rule_meta_row['page_bound_labels'] ) ? $rule_meta_row['page_bound_labels'] : array(),
+	);
+}
 $rwgo_country_selected = array();
 if ( '' !== $pf_countries ) {
 	foreach ( array_filter( array_map( 'trim', explode( ',', $pf_countries ) ) ) as $cc ) {
@@ -48,6 +68,11 @@ if ( '' !== $pf_countries ) {
 		}
 	}
 }
+$pf_weather_facets  = isset( $rwgo_prefill['weather_facets'] ) && is_array( $rwgo_prefill['weather_facets'] ) ? $rwgo_prefill['weather_facets'] : array();
+$pf_weather_match   = isset( $rwgo_prefill['weather_match'] ) ? sanitize_key( (string) $rwgo_prefill['weather_match'] ) : 'any';
+$rwgo_weather_defs  = ( $rwgo_can_weather_tgt && class_exists( 'RWGCM_Weather_Affinity', false ) )
+	? RWGCM_Weather_Affinity::get_facet_definitions()
+	: array();
 $pf_winner_mode     = isset( $rwgo_prefill['winner_mode'] ) ? sanitize_key( (string) $rwgo_prefill['winner_mode'] ) : 'goal';
 $pf_goal_type       = isset( $rwgo_prefill['goal_type'] ) ? sanitize_key( (string) $rwgo_prefill['goal_type'] ) : 'page_view';
 $pf_goal_sel_mode   = isset( $rwgo_prefill['goal_selection_mode'] ) ? sanitize_key( (string) $rwgo_prefill['goal_selection_mode'] ) : 'automatic';
@@ -289,6 +314,12 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 				<input type="radio" name="rwgo_targeting_mode" value="countries" class="rwgo-targeting-mode" <?php checked( $pf_targeting_mode, 'countries' ); ?> />
 				<span><?php esc_html_e( 'Selected countries', 'reactwoo-geo-optimise' ); ?></span>
 			</label>
+			<?php if ( $rwgo_can_weather_tgt ) : ?>
+			<label class="rwgo-radio-line">
+				<input type="radio" name="rwgo_targeting_mode" value="weather_facets" class="rwgo-targeting-mode" <?php checked( $pf_targeting_mode, 'weather_facets' ); ?> />
+				<span><?php esc_html_e( 'Shopping weather', 'reactwoo-geo-optimise' ); ?></span>
+			</label>
+			<?php endif; ?>
 			<?php if ( $rwgo_can_saved_rule ) : ?>
 			<label class="rwgo-radio-line">
 				<input type="radio" name="rwgo_targeting_mode" value="saved_rule" class="rwgo-targeting-mode" <?php checked( $pf_targeting_mode, 'saved_rule' ); ?> />
@@ -312,37 +343,78 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 				<p class="rwgo-hint"><?php esc_html_e( 'Only visitors from these countries will enter the test (ISO codes, comma-separated). Geo Core provides the visitor country when available.', 'reactwoo-geo-optimise' ); ?></p>
 			<?php endif; ?>
 		</div>
+		<?php if ( $rwgo_can_weather_tgt ) : ?>
+		<div id="rwgo-weather-wrap" class="rwgo-field rwgo-targeting-panel" data-rwgo-targeting-panel="weather_facets" <?php echo 'weather_facets' === $pf_targeting_mode ? '' : ' hidden'; ?>>
+			<p class="rwgo-hint"><?php esc_html_e( 'Only visitors whose current shopping weather matches enter the test. Requires GeoCore Pro weather for the visitor.', 'reactwoo-geo-optimise' ); ?></p>
+			<?php foreach ( $rwgo_weather_defs as $row ) : ?>
+				<?php if ( ! is_array( $row ) || empty( $row['slug'] ) ) { continue; } ?>
+				<label class="rwgo-checkbox-line" style="display:inline-block;margin:0 12px 8px 0;">
+					<input type="checkbox" name="rwgo_weather_facets[]" value="<?php echo esc_attr( (string) $row['slug'] ); ?>" <?php checked( in_array( (string) $row['slug'], $pf_weather_facets, true ) ); ?> />
+					<?php echo esc_html( isset( $row['label'] ) ? (string) $row['label'] : (string) $row['slug'] ); ?>
+				</label>
+			<?php endforeach; ?>
+			<p class="rwgo-field" style="margin-top:10px;">
+				<label for="rwgo_weather_match"><?php esc_html_e( 'Match mode', 'reactwoo-geo-optimise' ); ?></label>
+				<select name="rwgo_weather_match" id="rwgo_weather_match" class="rwgo-input">
+					<option value="any" <?php selected( $pf_weather_match, 'any' ); ?>><?php esc_html_e( 'Any selected facet', 'reactwoo-geo-optimise' ); ?></option>
+					<option value="all" <?php selected( $pf_weather_match, 'all' ); ?>><?php esc_html_e( 'All selected facets', 'reactwoo-geo-optimise' ); ?></option>
+				</select>
+			</p>
+		</div>
+		<?php endif; ?>
 		<?php if ( $rwgo_can_saved_rule ) : ?>
 		<div id="rwgo-saved-rule-wrap" class="rwgo-field rwgo-targeting-panel" data-rwgo-targeting-panel="saved_rule" <?php echo 'saved_rule' === $pf_targeting_mode ? '' : ' hidden'; ?>>
+			<p class="rwgo-hint"><?php esc_html_e( 'Tests match visitors when they reach Control’s URL. Use visitor conditions (country, campaign, device, etc.) — not page-version URL rules from Geo routing.', 'reactwoo-geo-optimise' ); ?></p>
 			<label class="rwgo-field__label" for="rwgo_saved_rule_id"><?php esc_html_e( 'Saved rule', 'reactwoo-geo-optimise' ); ?></label>
 			<?php if ( empty( $rwgo_library_rules ) ) : ?>
 				<p class="rwgo-hint"><?php esc_html_e( 'No targeting rules in your library yet.', 'reactwoo-geo-optimise' ); ?></p>
-				<?php if ( '' !== $rwgo_create_rule_url ) : ?>
-					<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_create_rule_url ); ?>"><?php esc_html_e( 'Create targeting rule', 'reactwoo-geo-optimise' ); ?></a></p>
-				<?php endif; ?>
+				<p class="rwgo-cta-row">
+					<?php if ( '' !== $rwgo_create_audience_rule_url ) : ?>
+						<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $rwgo_create_audience_rule_url ); ?>"><?php esc_html_e( 'Create audience rule', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+					<?php if ( '' !== $rwgo_create_rule_url ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_create_rule_url ); ?>"><?php esc_html_e( 'Create full targeting rule', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</p>
 			<?php else : ?>
 				<select name="rwgo_saved_rule_id" id="rwgo_saved_rule_id" class="rwgo-input">
 					<option value="0"><?php esc_html_e( '— Select rule —', 'reactwoo-geo-optimise' ); ?></option>
 					<?php foreach ( $rwgo_library_rules as $rule_row ) : ?>
-						<option value="<?php echo (int) $rule_row['id']; ?>" <?php selected( $pf_saved_rule_id, (int) $rule_row['id'] ); ?>>
-							<?php
-							echo esc_html( $rule_row['title'] );
-							if ( '' !== $rule_row['summary'] ) {
-								echo ' — ' . esc_html( $rule_row['summary'] );
-							}
-							?>
-						</option>
+						<?php
+						$rid = (int) $rule_row['id'];
+						$opt_label = $rule_row['title'];
+						if ( ! empty( $rule_row['has_page_bound'] ) ) {
+							$opt_label .= ' — ' . __( 'includes page URL', 'reactwoo-geo-optimise' );
+						} elseif ( '' !== ( $rule_row['audience_summary'] ?? '' ) ) {
+							$opt_label .= ' — ' . $rule_row['audience_summary'];
+						} elseif ( '' !== $rule_row['summary'] ) {
+							$opt_label .= ' — ' . $rule_row['summary'];
+						}
+						?>
+						<option value="<?php echo $rid; ?>" <?php selected( $pf_saved_rule_id, $rid ); ?>><?php echo esc_html( $opt_label ); ?></option>
 					<?php endforeach; ?>
 				</select>
-				<?php if ( '' !== $rwgo_create_rule_url ) : ?>
-					<p class="rwgo-hint"><a href="<?php echo esc_url( $rwgo_create_rule_url ); ?>"><?php esc_html_e( 'Create another rule', 'reactwoo-geo-optimise' ); ?></a></p>
-				<?php endif; ?>
+				<input type="hidden" name="rwgo_saved_rule_audience_only" value="0" />
+				<label class="rwgo-checkbox-line rwgo-field" id="rwgo-audience-only-wrap" style="margin-top:10px;">
+					<input type="checkbox" name="rwgo_saved_rule_audience_only" id="rwgo_saved_rule_audience_only" value="1" <?php checked( $pf_audience_only ); ?> />
+					<?php esc_html_e( 'Use visitor conditions only (ignore page URL rules)', 'reactwoo-geo-optimise' ); ?>
+				</label>
+				<div id="rwgo-saved-rule-notice" class="rwgo-callout rwgo-callout--info" hidden>
+					<p class="rwgo-callout__p" id="rwgo-saved-rule-notice-text"></p>
+				</div>
+				<div id="rwgo-saved-rule-actions" class="rwgo-cta-row rwgo-cta-row--wrap" hidden>
+					<button type="button" class="button rwgo-btn rwgo-btn--secondary" id="rwgo-save-audience-copy-btn"><?php esc_html_e( 'Save audience-only copy to library', 'reactwoo-geo-optimise' ); ?></button>
+					<?php if ( '' !== $rwgo_create_audience_rule_url ) : ?>
+						<a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( $rwgo_create_audience_rule_url ); ?>"><?php esc_html_e( 'Create new audience rule', 'reactwoo-geo-optimise' ); ?></a>
+					<?php endif; ?>
+				</div>
+				<p class="rwgo-hint"><a href="<?php echo esc_url( $rwgo_create_rule_url ); ?>"><?php esc_html_e( 'Create another rule in the library', 'reactwoo-geo-optimise' ); ?></a></p>
 			<?php endif; ?>
 		</div>
 		<?php endif; ?>
 		<?php if ( $rwgo_can_create_rule ) : ?>
 		<div id="rwgo-create-rule-wrap" class="rwgo-field rwgo-targeting-panel" data-rwgo-targeting-panel="create_rule" <?php echo 'create_rule' === $pf_targeting_mode ? '' : ' hidden'; ?>>
-			<p class="rwgo-hint"><?php esc_html_e( 'Open the rule library to build conditions (country, time, campaign, and more). When you save, return here and choose “Use saved rule”.', 'reactwoo-geo-optimise' ); ?></p>
+			<p class="rwgo-hint"><?php esc_html_e( 'For A/B tests, build visitor conditions only (country, campaign, device, time). Skip page version URL conditions — those belong in Create Geo Rule.', 'reactwoo-geo-optimise' ); ?></p>
 			<?php if ( ! $rwgo_has_advanced_targeting ) : ?>
 				<p class="rwgo-hint"><?php esc_html_e( 'Advanced conditions (device, campaign, weather, and more) require GeoCore Pro.', 'reactwoo-geo-optimise' ); ?>
 					<a href="<?php echo esc_url( RWGO_Suite_Features::get_geocore_pro_url() ); ?>"><?php esc_html_e( 'GeoCore Pro', 'reactwoo-geo-optimise' ); ?></a>
@@ -454,6 +526,79 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 		<?php endif; ?>
 	</section>
 </form>
+<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="rwgo-audience-copy-form" hidden>
+	<input type="hidden" name="action" value="rwgo_save_audience_rule_copy" />
+	<?php wp_nonce_field( 'rwgo_save_audience_rule_copy' ); ?>
+	<input type="hidden" name="rwgo_source_rule_id" id="rwgo_audience_copy_source_id" value="" />
+	<input type="hidden" name="rwgo_return_page" value="<?php echo esc_attr( $rwgo_is_edit ? 'edit' : 'create' ); ?>" />
+	<?php if ( $rwgo_is_edit ) : ?>
+		<input type="hidden" name="rwgo_experiment_id" value="<?php echo esc_attr( (string) (int) ( $rwgo_prefill['experiment_id'] ?? 0 ) ); ?>" />
+	<?php endif; ?>
+</form>
+<script type="application/json" id="rwgo-saved-rule-meta"><?php echo wp_json_encode( $rwgo_saved_rule_meta ); ?></script>
+<script type="text/javascript">
+(function () {
+	var metaEl = document.getElementById('rwgo-saved-rule-meta');
+	var sel = document.getElementById('rwgo_saved_rule_id');
+	var notice = document.getElementById('rwgo-saved-rule-notice');
+	var noticeText = document.getElementById('rwgo-saved-rule-notice-text');
+	var actions = document.getElementById('rwgo-saved-rule-actions');
+	var audienceCb = document.getElementById('rwgo_saved_rule_audience_only');
+	var audienceWrap = document.getElementById('rwgo-audience-only-wrap');
+	var copyBtn = document.getElementById('rwgo-save-audience-copy-btn');
+	var copyForm = document.getElementById('rwgo-audience-copy-form');
+	var copySource = document.getElementById('rwgo_audience_copy_source_id');
+	if (!metaEl || !sel) { return; }
+	var meta = {};
+	try { meta = JSON.parse(metaEl.textContent || '{}'); } catch (e) { meta = {}; }
+	var msgPageBound = <?php echo wp_json_encode( __( 'This rule includes page URL conditions meant for Geo routing. For this test, visitor-only conditions will be used when the box below is checked.', 'reactwoo-geo-optimise' ) ); ?>;
+	var msgNoAudience = <?php echo wp_json_encode( __( 'This rule only targets a page URL. Save an audience-only copy or create a new audience rule before publishing this test.', 'reactwoo-geo-optimise' ) ); ?>;
+	var msgAudience = <?php echo wp_json_encode( __( 'Visitor conditions for this test: %s', 'reactwoo-geo-optimise' ) ); ?>;
+	function syncSavedRulePanel() {
+		var id = sel.value;
+		var row = meta[id] || null;
+		if (!row || !notice || !noticeText) {
+			if (notice) notice.hidden = true;
+			if (actions) actions.hidden = true;
+			if (audienceWrap) audienceWrap.hidden = true;
+			return;
+		}
+		if (row.has_page_bound) {
+			if (audienceWrap) audienceWrap.hidden = false;
+			notice.hidden = false;
+			notice.className = 'rwgo-callout rwgo-callout--info';
+			if (!row.fit_for_test) {
+				notice.className = 'rwgo-callout rwgo-callout--warn';
+				noticeText.textContent = msgNoAudience;
+				if (audienceWrap) audienceWrap.hidden = true;
+			} else {
+				var labels = (row.page_bound_labels || []).join(', ');
+				noticeText.textContent = msgPageBound + (labels ? ' (' + labels + ')' : '');
+			}
+			if (actions) actions.hidden = false;
+		} else if (row.audience_summary) {
+			if (audienceWrap) audienceWrap.hidden = true;
+			notice.hidden = false;
+			notice.className = 'rwgo-callout rwgo-callout--info';
+			noticeText.textContent = msgAudience.replace('%s', row.audience_summary);
+			if (actions) actions.hidden = true;
+		} else {
+			if (audienceWrap) audienceWrap.hidden = true;
+			notice.hidden = true;
+			if (actions) actions.hidden = true;
+		}
+	}
+	sel.addEventListener('change', syncSavedRulePanel);
+	syncSavedRulePanel();
+	if (copyBtn && copyForm && copySource) {
+		copyBtn.addEventListener('click', function () {
+			if (!sel.value || sel.value === '0') { return; }
+			copySource.value = sel.value;
+			copyForm.submit();
+		});
+	}
+})();
+</script>
 <script type="application/json" id="rwgo-test-form-goals-config"><?php
 echo wp_json_encode(
 	array(

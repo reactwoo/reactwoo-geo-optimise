@@ -20,6 +20,7 @@ class RWGO_Admin_Wizard {
 	public static function init() {
 		add_action( 'admin_post_rwgo_create_test', array( __CLASS__, 'handle_create_test' ) );
 		add_action( 'admin_post_rwgo_update_test', array( __CLASS__, 'handle_update_test' ) );
+		add_action( 'admin_post_rwgo_save_audience_rule_copy', array( __CLASS__, 'handle_save_audience_rule_copy' ) );
 	}
 
 	/**
@@ -1168,9 +1169,26 @@ class RWGO_Admin_Wizard {
 			if ( $rule_id <= 0 || ! class_exists( 'RWGC_Visibility_Rule_Repository', false ) || ! RWGC_Visibility_Rule_Repository::get_post( $rule_id ) ) {
 				return new WP_Error( 'targeting_rule', __( 'Choose a saved targeting rule.', 'reactwoo-geo-optimise' ) );
 			}
+			$audience_only = ! isset( $_POST['rwgo_saved_rule_audience_only'] ) || '1' === (string) wp_unslash( $_POST['rwgo_saved_rule_audience_only'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if ( class_exists( 'RWGO_Test_Rule_Adapter', false ) ) {
+				$analysis = RWGO_Test_Rule_Adapter::analyze_rule( $rule_id );
+				if ( ! $audience_only && ! empty( $analysis['has_page_bound'] ) ) {
+					return new WP_Error(
+						'targeting_rule_page_bound',
+						__( 'Page URL conditions do not apply to A/B test entry. Use visitor conditions only, or save an audience-only copy of this rule.', 'reactwoo-geo-optimise' )
+					);
+				}
+				if ( $audience_only && empty( $analysis['has_audience'] ) && ! empty( $analysis['has_page_bound'] ) ) {
+					return new WP_Error(
+						'targeting_rule_empty_audience',
+						__( 'This rule only contains page URL conditions. Create an audience rule (country, campaign, device, etc.) for this test.', 'reactwoo-geo-optimise' )
+					);
+				}
+			}
 			return array(
 				'mode'               => 'saved_rule',
 				'visibility_rule_id' => $rule_id,
+				'audience_only'      => $audience_only,
 			);
 		}
 
@@ -1185,7 +1203,37 @@ class RWGO_Admin_Wizard {
 			);
 		}
 
+		if ( 'weather_facets' === $mode ) {
+			if ( ! class_exists( 'RWGO_Suite_Features', false ) || ! RWGO_Suite_Features::can_use_weather_facet_targeting() ) {
+				return new WP_Error( 'targeting_weather', __( 'Shopping weather targeting requires Geo Commerce and GeoCore Pro weather.', 'reactwoo-geo-optimise' ) );
+			}
+			$facets = self::parse_weather_facets_from_post();
+			if ( empty( $facets ) ) {
+				return new WP_Error( 'targeting_weather', __( 'Choose at least one shopping weather facet for weather targeting.', 'reactwoo-geo-optimise' ) );
+			}
+			$match = isset( $_POST['rwgo_weather_match'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_weather_match'] ) ) : 'any'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			if ( ! in_array( $match, array( 'any', 'all' ), true ) ) {
+				$match = 'any';
+			}
+			return array(
+				'mode'           => 'weather_facets',
+				'weather_facets' => $facets,
+				'weather_match'  => $match,
+			);
+		}
+
 		return array( 'mode' => 'everyone' );
+	}
+
+	/**
+	 * @return string[]
+	 */
+	private static function parse_weather_facets_from_post() {
+		if ( ! class_exists( 'RWGCM_Weather_Affinity', false ) ) {
+			return array();
+		}
+		$raw = isset( $_POST['rwgo_weather_facets'] ) ? wp_unslash( $_POST['rwgo_weather_facets'] ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		return RWGCM_Weather_Affinity::sanitize_facet_list( is_array( $raw ) ? $raw : array() );
 	}
 
 	/**
@@ -1236,12 +1284,40 @@ class RWGO_Admin_Wizard {
 		} elseif ( ! empty( $countries ) ) {
 			$country_iso2 = (string) $countries[0];
 		}
+
+		$copy_context_filter = null;
+		if (
+			$visibility_rule_id > 0
+			&& ! empty( $targeting['audience_only'] )
+			&& class_exists( 'RWGO_Test_Rule_Adapter', false )
+			&& class_exists( 'RWGC_Visibility_Rule_Copy_Context', false )
+			&& class_exists( 'RWGC_Visibility_Rule_Repository', false )
+		) {
+			$source_set = RWGC_Visibility_Rule_Repository::get_rule_set( $visibility_rule_id );
+			if ( RWGO_Test_Rule_Adapter::rule_set_has_page_bound( $source_set ) ) {
+				$copy_context_filter = static function ( $out, $set ) use ( $visibility_rule_id ) {
+					if ( ! is_array( $out ) || ! is_array( $set ) ) {
+						return $out;
+					}
+					if ( (int) ( $out['rule_id'] ?? 0 ) !== $visibility_rule_id ) {
+						return $out;
+					}
+					$audience = RWGO_Test_Rule_Adapter::to_audience_rule_set( $set );
+					return RWGC_Visibility_Rule_Copy_Context::from_rule_set( $audience );
+				};
+				add_filter( 'rwgc_visibility_rule_copy_context', $copy_context_filter, 10, 2 );
+			}
+		}
+
 		$copy_result = RWGC_Experience_Workflow::run_ai_adapt_copy_drafts(
 			(int) $variant_page_id,
 			$visibility_rule_id,
 			$country_iso2,
 			$countries
 		);
+		if ( is_callable( $copy_context_filter ) ) {
+			remove_filter( 'rwgc_visibility_rule_copy_context', $copy_context_filter, 10 );
+		}
 		$draft_ids = array();
 		if ( is_array( $copy_result ) && ! empty( $copy_result['draft_ids'] ) && is_array( $copy_result['draft_ids'] ) ) {
 			$draft_ids = $copy_result['draft_ids'];
@@ -1253,5 +1329,48 @@ class RWGO_Admin_Wizard {
 			$visibility_rule_id,
 			$draft_ids
 		);
+	}
+
+	/**
+	 * Save an audience-only copy of a library rule and return to the test wizard.
+	 *
+	 * @return void
+	 */
+	public static function handle_save_audience_rule_copy() {
+		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_save_audience_rule_copy' );
+
+		$source_rule_id = isset( $_POST['rwgo_source_rule_id'] ) ? absint( wp_unslash( $_POST['rwgo_source_rule_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$return_page    = isset( $_POST['rwgo_return_page'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_return_page'] ) ) : 'create'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$exp_id         = isset( $_POST['rwgo_experiment_id'] ) ? absint( wp_unslash( $_POST['rwgo_experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+		$redirect = admin_url( 'admin.php?page=rwgo-create-test' );
+		if ( 'edit' === $return_page && $exp_id > 0 ) {
+			$redirect = admin_url( 'admin.php?page=rwgo-edit-test&rwgo_experiment_id=' . $exp_id );
+		}
+
+		if ( $source_rule_id <= 0 || ! class_exists( 'RWGO_Test_Rule_Adapter', false ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', 'targeting_rule', $redirect ) );
+			exit;
+		}
+
+		$result = RWGO_Test_Rule_Adapter::save_audience_copy( $source_rule_id );
+		if ( is_wp_error( $result ) ) {
+			wp_safe_redirect( add_query_arg( 'rwgo_error', $result->get_error_code(), $redirect ) );
+			exit;
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'rwgo_audience_rule_created' => '1',
+					'rwgo_prefill_saved_rule'    => (int) $result,
+				),
+				$redirect
+			)
+		);
+		exit;
 	}
 }

@@ -68,13 +68,46 @@ class RWGO_Suite_Features {
 	}
 
 	/**
+	 * Whether shopping-weather facet targeting is available (Geo Commerce + Pro weather).
+	 *
+	 * @return bool
+	 */
+	public static function can_use_weather_facet_targeting() {
+		$allowed = class_exists( 'RWGCM_Weather_Affinity', false )
+			&& class_exists( 'RWGCM_Condition_Library', false )
+			&& RWGCM_Condition_Library::is_weather_available();
+		return (bool) apply_filters( 'rwgo_can_use_weather_facet_targeting', $allowed );
+	}
+
+	/**
 	 * @return array<int, array{id:int,title:string,summary:string}>
 	 */
 	public static function get_library_rule_options() {
 		if ( ! self::can_use_saved_rule_targeting() || ! class_exists( 'RWGC_Experience_Workflow', false ) ) {
 			return array();
 		}
-		return RWGC_Experience_Workflow::get_library_rule_options();
+		$rows = RWGC_Experience_Workflow::get_library_rule_options();
+		if ( class_exists( 'RWGO_Test_Rule_Adapter', false ) ) {
+			return RWGO_Test_Rule_Adapter::enrich_library_rows( $rows );
+		}
+		return $rows;
+	}
+
+	/**
+	 * Rule editor URL for a new audience-only rule (returns to Create Test).
+	 *
+	 * @return string
+	 */
+	public static function get_create_audience_rule_url() {
+		return add_query_arg(
+			array(
+				'page'           => 'rwgc-visibility-rules',
+				'rwgc_edit'      => 'new',
+				'rwgo_audience'  => '1',
+				'rwgc_return'    => rawurlencode( admin_url( 'admin.php?page=rwgo-create-test' ) ),
+			),
+			admin_url( 'admin.php' )
+		);
 	}
 
 	/**
