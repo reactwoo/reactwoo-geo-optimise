@@ -1,17 +1,64 @@
 # Git push on Windows (agents + Local Sites)
 
-Prevents hung pushes, HTTPS credential prompts, and segfault retries that waste agent time.
+Automated push with **structured diagnostics** — fix root causes, do not blind-retry.
 
-## Root causes we hit
+## Use this (agents)
 
-| Symptom | Cause | Fix |
-|---------|--------|-----|
-| `git push` hangs, no output | **HTTPS** remote waiting on Credential Manager GUI | Use **SSH** `origin` |
-| Exit `139` or `-1073741819` | Windows Git Bash **segfault** on chained or repeated push | **One command per shell**; retry once only |
-| `fork: retry: Resource temporarily unavailable` | Too many parallel git/bash children | **Sequential** pushes, one repo at a time |
-| Agent retries same push 3+ times | No stop condition | **Report failure** with repo + remote URL after one hang or two failures |
+From **repo root**:
 
-## Required: SSH remotes
+```bash
+python scripts/git_push.py
+```
+
+Release (branch + tag, one push):
+
+```bash
+python scripts/git_push.py --ref v1.2.3
+```
+
+Multi-repo (Geo family, stops on first failure):
+
+```bash
+python scripts/push_geo_family.py
+```
+
+Preflight only (no push):
+
+```bash
+python scripts/git_push.py --diagnose-only
+```
+
+## What the script does automatically
+
+1. Detects **HTTPS** `origin` → converts to **SSH** (`--fix-https-remote`, default on).
+2. Tests **SSH to GitHub** before push (fails fast with `SSH_AUTH` if keys missing).
+3. Skips push if **not ahead** of origin.
+4. Runs `git push` with **60s timeout** (classifies `GIT_HUNG` instead of hanging forever).
+5. On failure, prints **`=== GIT PUSH DIAGNOSTIC ===`** with:
+   - `failure_class` (e.g. `SSH_AUTH`, `HTTPS_REMOTE`, `GIT_SEGFAULT`, `FORK_EXHAUSTED`)
+   - `recommended_fix` (actionable next step)
+   - `push_output` / `push_stderr`
+
+## Agent rules on failure
+
+1. **Read the diagnostic block** — do not retry the same command until `recommended_fix` is applied.
+2. **Fix the root cause** (SSH key, remote URL, fork exhaustion, etc.), then run `git_push.py` again.
+3. **Do not** loop plain `git push`, background hung pushes, or `cmd.exe` workarounds.
+4. **One repo at a time** unless using `push_geo_family.py` (already sequential).
+
+## Failure classes
+
+| Class | Meaning | Typical fix |
+|-------|---------|-------------|
+| `HTTPS_REMOTE` | HTTPS origin (Credential Manager hang) | Auto-fixed to SSH; if not, `git remote set-url origin git@github.com:reactwoo/<repo>.git` |
+| `SSH_AUTH` | No SSH key for BatchMode | `ssh -T git@github.com`, `ssh-add`, start ssh-agent |
+| `SSH_NETWORK` | Timeout reaching GitHub | Network/VPN/firewall |
+| `GIT_HUNG` | Push exceeded 60s | Kill stuck git; ensure SSH remote |
+| `GIT_SEGFAULT` | Windows Git Bash crash (139 / -1073741819) | Fresh shell; close extra terminals |
+| `FORK_EXHAUSTED` | `fork: Resource temporarily unavailable` | Sequential pushes; close hung agents |
+| `PUSH_REJECTED` | Non-fast-forward | `git fetch`, pull/rebase, then push |
+
+## SSH remotes
 
 Every ReactWoo repo should use:
 
@@ -19,53 +66,8 @@ Every ReactWoo repo should use:
 git@github.com:reactwoo/<repo>.git
 ```
 
-Check:
-
-```bash
-git remote get-url origin
-```
-
-Fix (example — reactwoo-flow):
-
-```bash
-git remote set-url origin git@github.com:reactwoo/reactwoo-flow.git
-```
-
-**Do not** use plain `git push` over `https://github.com/...` in agent sessions.
-
-## Agent push command (use this)
-
-From the **repo root**, standalone command (never chain with `commit`, `tag`, or `&&`):
-
-```bash
-GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15" git push origin main
-```
-
-With tag (release — one push, branch + tag):
-
-```bash
-GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15" git push origin main "v1.2.3"
-```
-
-Or use the helper script (reactwoo-flow):
-
-```bash
-bash scripts/push-main.sh
-```
-
-## Stop rules (agents)
-
-1. If push produces **no output for 30 seconds** → **stop**. Report: repo name, `git remote get-url origin`, last command. Do not retry the same command in a loop.
-2. If exit **139** or **-1073741819** → retry **once** in a **new** standalone command. If it fails again → stop and report.
-3. **Never** chain on Windows: `git commit && git tag && git push`.
-4. Push **one repo at a time** across the Geo family.
-5. After push, verify: `git fetch origin && git status -sb` (should not show `[ahead N]`).
-
-## SSH key
-
-BatchMode fails fast if SSH keys are not loaded. On your machine, ensure `ssh -T git@github.com` works before asking an agent to push.
-
 ## Related
 
-- Geo Core releases: `docs/releases-and-git-tags.md`
 - Cursor rule: `.cursor/rules/git-push-windows.mdc`
+- Geo Core releases: `docs/releases-and-git-tags.md`
+- Wrapper: `bash scripts/push-main.sh` → calls `git_push.py`

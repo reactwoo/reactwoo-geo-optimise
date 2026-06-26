@@ -1,30 +1,31 @@
 ---
-description: Reliable git push on Windows — SSH only, no hung HTTPS retries
+description: Automated git push with diagnostics — fix root cause on failure, no blind retries
 alwaysApply: true
 ---
 
-# Git push on Windows (agents)
+# Git push (agents)
 
-Before `git push` in any ReactWoo repo:
-
-1. Run `git remote get-url origin`. If URL starts with `https://`, either:
-   - `git remote set-url origin git@github.com:reactwoo/<repo>.git`, or
-   - push explicitly: `git push git@github.com:reactwoo/<repo>.git main`
-2. **Never** chain `commit && tag && push` on Windows.
-3. Use **one standalone push command**:
+**Always** use the diagnostic push script — never bare `git push`:
 
 ```bash
-GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15" git push origin main
+python scripts/git_push.py
 ```
 
-Release (branch + tag, one push): append `"vVERSION"` to that command.
+Release: `python scripts/git_push.py --ref vVERSION`
 
-## Stop — do not waste tokens retrying
+Geo family (sequential): `python scripts/push_geo_family.py` from reactwoo-flow.
 
-- Push **hangs with no output** → stop after ~30s; report repo name + remote URL. Do not repeat the same push.
-- Exit **139** or **-1073741819** → retry **once** in a new shell only; then stop and report.
-- Push **multiple repos** → **sequentially**, not in parallel loops.
+## On failure
 
-Verify: `git fetch origin && git status -sb` (no `[ahead N]`).
+1. Read the **`=== GIT PUSH DIAGNOSTIC ===`** block in output.
+2. Apply **`recommended_fix`** for the **`failure_class`**.
+3. Re-run **`python scripts/git_push.py`** only after the fix.
+4. **Do not** retry plain `git push`, background hung commands, or loop without fixing the diagnosed cause.
+
+## Never
+
+- Chain `commit && tag && push` on Windows.
+- Push multiple repos in parallel shell loops.
+- Ignore diagnostic output and retry the same failing command.
 
 Full doc: `docs/git-push-windows.md`.
