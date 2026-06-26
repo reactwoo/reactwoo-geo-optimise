@@ -1,0 +1,30 @@
+---
+description: Reliable git push on Windows — SSH only, no hung HTTPS retries
+alwaysApply: true
+---
+
+# Git push on Windows (agents)
+
+Before `git push` in any ReactWoo repo:
+
+1. Run `git remote get-url origin`. If URL starts with `https://`, either:
+   - `git remote set-url origin git@github.com:reactwoo/<repo>.git`, or
+   - push explicitly: `git push git@github.com:reactwoo/<repo>.git main`
+2. **Never** chain `commit && tag && push` on Windows.
+3. Use **one standalone push command**:
+
+```bash
+GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=15" git push origin main
+```
+
+Release (branch + tag, one push): append `"vVERSION"` to that command.
+
+## Stop — do not waste tokens retrying
+
+- Push **hangs with no output** → stop after ~30s; report repo name + remote URL. Do not repeat the same push.
+- Exit **139** or **-1073741819** → retry **once** in a new shell only; then stop and report.
+- Push **multiple repos** → **sequentially**, not in parallel loops.
+
+Verify: `git fetch origin && git status -sb` (no `[ahead N]`).
+
+Full doc: `docs/git-push-windows.md`.
