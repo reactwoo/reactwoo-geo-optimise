@@ -25,9 +25,9 @@ Preflight only: `python scripts/git_push.py --diagnose-only`
 
 ## What the script does
 
-1. Detects **HTTPS** `origin` → converts to **SSH** (`--fix-https-remote`, default on).
-2. Tests **SSH to GitHub** before push (fails fast with `SSH_AUTH` if keys missing).
-3. Pushes if branch is **ahead** and/or **`--ref` tag is missing on origin**.
+1. Detects **HTTPS** `origin` → optional convert to SSH (`--fix-https-remote`, **off** by default).
+2. Optional SSH test with `--diagnose-only` only.
+3. Pushes if branch is **ahead** and/or **`--ref` tag is missing on origin** (plain `git push`, no SSH env overrides).
 4. Runs `git push` with **60s timeout** (classifies `GIT_HUNG` instead of hanging forever).
 5. On failure, prints **`=== GIT PUSH DIAGNOSTIC ===`** with `failure_class` and `recommended_fix`.
 

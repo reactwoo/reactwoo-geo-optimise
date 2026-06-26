@@ -49,8 +49,9 @@ def run(
     )
 
 
-def ssh_env() -> dict[str, str]:
-    return {"GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o ConnectTimeout=15"}
+def ssh_env() -> dict[str, str] | None:
+    """Plain git push — do not override SSH; avoids BatchMode key prompts."""
+    return None
 
 
 def repo_name(root: Path) -> str:
@@ -213,8 +214,8 @@ def main() -> int:
     parser.add_argument(
         "--fix-https-remote",
         action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Auto-convert HTTPS origin to SSH (default: on)",
+        default=False,
+        help="Convert HTTPS origin to SSH (default: off — use plain git)",
     )
     args = parser.parse_args()
 
@@ -264,21 +265,26 @@ def main() -> int:
             )
             return 2
 
-    ssh_ok, ssh_detail = test_ssh()
-    if not ssh_ok:
-        print_diagnostic(
-            root=root,
-            remote=remote,
-            status=status,
-            failure_class="SSH_AUTH",
-            exit_code=None,
-            ssh_ok=False,
-            ssh_detail=ssh_detail,
-            push_stdout="",
-            push_stderr="",
-            auto_actions=auto_actions,
-        )
-        return 2
+    if args.diagnose_only:
+        ssh_ok, ssh_detail = test_ssh()
+        if not ssh_ok:
+            print_diagnostic(
+                root=root,
+                remote=remote,
+                status=status,
+                failure_class="SSH_AUTH",
+                exit_code=None,
+                ssh_ok=False,
+                ssh_detail=ssh_detail,
+                push_stdout="",
+                push_stderr="",
+                auto_actions=auto_actions,
+            )
+            return 2
+        print(f"OK (diagnose): {repo_name(root)} ahead {ahead}, SSH OK, remote {remote}")
+        return 0
+
+    ssh_ok, ssh_detail = None, ""
 
     if ahead == 0 and not args.ref:
         print(f"OK: {repo_name(root)} — nothing to push ({status})")
@@ -287,10 +293,6 @@ def main() -> int:
     need_push, missing_refs = refs_need_push(root, args.branch, args.ref)
     if not need_push:
         print(f"OK: {repo_name(root)} — branch and tag(s) already on origin ({status})")
-        return 0
-
-    if args.diagnose_only:
-        print(f"OK (diagnose): {repo_name(root)} ahead {ahead}, SSH OK, remote {remote}")
         return 0
 
     push_cmd = ["git", "push", "origin", args.branch, *args.ref]

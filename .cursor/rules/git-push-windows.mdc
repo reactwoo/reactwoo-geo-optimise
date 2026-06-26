@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Git push (agents)
 
-**Default:** use normal git — remotes are already `git@github.com:…`. R2 publish only runs after the **tag is on GitHub**.
+**Default:** use normal git — normal `git push` — no `GIT_SSH_COMMAND`. R2 publish only runs after the **tag is on GitHub**.
 
 ```bash
 git push origin main "vVERSION"
