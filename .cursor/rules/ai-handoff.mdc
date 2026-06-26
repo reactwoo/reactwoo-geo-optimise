@@ -1,0 +1,44 @@
+---
+description: File-based handoff between planner (ChatGPT) and Cursor — read task, write cursor-output.md
+alwaysApply: true
+---
+
+# AI handoff (file bridge)
+
+When `ai-handoff/` exists in this repo:
+
+## Before coding
+
+1. Read `ai-handoff/current-task.md` if present.
+2. Read `ai-handoff/known-issues.md` — do **not** repeat entries under **Do not retry**.
+3. Identify root cause before editing; do not stack duplicate fallback logic.
+
+## While coding
+
+- Change only files required by the current task.
+- Preserve existing plugin architecture, namespaces, and conventions in `AGENTS.md`.
+- Run the **smallest** validation that matches the task’s acceptance test.
+
+## After every implementation pass
+
+Update `ai-handoff/cursor-output.md` with:
+
+- Status (done | blocked | needs-review)
+- Files changed and why
+- What was **not** changed
+- Commands run and results
+- Remaining errors (if any)
+
+## If the same issue remains after one fix attempt
+
+Stop guessing. Fill the blocked section in `cursor-output.md`:
+
+1. Suspected root cause
+2. Evidence
+3. Next file to inspect
+4. Exact log needed
+
+## Do not
+
+- Continue a long “fix it again” thread without refreshing from `current-task.md`.
+- Paste entire chat logs into files — use structured sections only.

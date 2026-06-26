@@ -22,4 +22,11 @@ Geo Optimise is a **Geo Core satellite** (experiments, CRO, assignment, reportin
 ## References
 
 - Geo Core: `docs/phases/phase-6.md`, `docs/geo-core-cursor-master-plan.md`, `docs/releases-and-git-tags.md`.
+- **AI handoff:** `ai-handoff/`, `reactwoo-geocore/docs/ai-handoff-workflow.md`, `.cursor/rules/ai-handoff.mdc`
 - **`RWGO_VERSION`** in `reactwoo-geo-optimise.php` must match the shipped release and readme **Stable tag**.
+
+## AI handoff (ChatGPT ↔ Cursor)
+
+Planner → **`ai-handoff/current-task.md`**; Cursor → **`cursor-output.md`**. Suite doc: **`reactwoo-geocore/docs/ai-handoff-workflow.md`**.
+
+**Optimise-specific:** consume Core assignment hooks and REST `/capabilities`; do not reimplement visitor detection or routing.
