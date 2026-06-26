@@ -1,48 +1,40 @@
 # Git push on Windows (agents + Local Sites)
 
-Automated push with **structured diagnostics** — fix root causes, do not blind-retry.
+## Default (releases)
 
-## Use this (agents)
-
-From **repo root**:
+Remotes are already SSH (`git@github.com:…`). Use normal git — **push is required** for R2 publish:
 
 ```bash
-python scripts/git_push.py
+git commit -m "…"
+git tag -a "vVERSION" -m "Release VERSION"
+git push origin main "vVERSION"
+git ls-remote --tags origin "vVERSION"
 ```
 
-Release (branch + tag, one push):
+A local tag without push does **not** run `publish-update.yml`.
+
+## Fallback: diagnostic script
+
+If plain `git push` fails or hangs, use **`scripts/git_push.py`** (60s timeout + structured diagnostics):
 
 ```bash
 python scripts/git_push.py --ref v1.2.3
 ```
 
-Multi-repo (Geo family, stops on first failure):
+Preflight only: `python scripts/git_push.py --diagnose-only`
 
-```bash
-python scripts/push_geo_family.py
-```
-
-Preflight only (no push):
-
-```bash
-python scripts/git_push.py --diagnose-only
-```
-
-## What the script does automatically
+## What the script does
 
 1. Detects **HTTPS** `origin` → converts to **SSH** (`--fix-https-remote`, default on).
 2. Tests **SSH to GitHub** before push (fails fast with `SSH_AUTH` if keys missing).
-3. Skips push if **not ahead** of origin.
+3. Pushes if branch is **ahead** and/or **`--ref` tag is missing on origin**.
 4. Runs `git push` with **60s timeout** (classifies `GIT_HUNG` instead of hanging forever).
-5. On failure, prints **`=== GIT PUSH DIAGNOSTIC ===`** with:
-   - `failure_class` (e.g. `SSH_AUTH`, `HTTPS_REMOTE`, `GIT_SEGFAULT`, `FORK_EXHAUSTED`)
-   - `recommended_fix` (actionable next step)
-   - `push_output` / `push_stderr`
+5. On failure, prints **`=== GIT PUSH DIAGNOSTIC ===`** with `failure_class` and `recommended_fix`.
 
 ## Agent rules on failure
 
 1. **Read the diagnostic block** — do not retry the same command until `recommended_fix` is applied.
-2. **Fix the root cause** (SSH key, remote URL, fork exhaustion, etc.), then run `git_push.py` again.
+2. **Fix the root cause** (SSH key, remote URL, fork exhaustion, etc.), then retry plain push or `git_push.py`.
 3. **Do not** loop plain `git push`, background hung pushes, or `cmd.exe` workarounds.
 4. **One repo at a time** unless using `push_geo_family.py` (already sequential).
 

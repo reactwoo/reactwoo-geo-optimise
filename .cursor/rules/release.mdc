@@ -1,0 +1,29 @@
+---
+description: Fast, reliable Geo Optimise git release (commit, tag, single push)
+globs:
+  - "**/*"
+---
+
+# Geo Optimise release (agents)
+
+When shipping **reactwoo-geo-optimise**, use the same tag/push pattern as Geo Core (`reactwoo-geocore/docs/releases-and-git-tags.md` §2).
+
+## Required pattern (all three — push is mandatory)
+
+1. `git commit` — standalone command.
+2. `git tag -a "vVERSION" -m "…"` — **standalone** command (never chained with push on Windows).
+3. `git push origin main "vVERSION"` — **one** push (branch + tag). **Without this step, `publish-update.yml` does not run and R2 is not updated.**
+
+4. Verify: `git ls-remote --tags origin "vVERSION"` must return a line. If missing, the release failed — fix and push again.
+
+Use plain git push (see `.cursor/rules/git-push-windows.mdc`). Do **not** wrap with `GIT_SSH_COMMAND` unless push failed and you are diagnosing SSH.
+
+## Do not
+
+- Mark a release complete after commit/tag only.
+- Chain `commit && tag && archive && push && push` in one line.
+- Run two pushes to origin unless the combined push failed and you are retrying only the missing ref.
+
+## If push/tag fails with exit 139 or fork errors
+
+Retry **only** the failed step in a new shell command (e.g. tag alone, then `git push origin main "vVERSION"`). Fallback: `python scripts/git_push.py --ref vVERSION`.

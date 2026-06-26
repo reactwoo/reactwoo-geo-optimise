@@ -16,4 +16,4 @@ alwaysApply: true
 
 ## After implementation
 
-When a change is **complete and validated**, unless the user opts out: **commit**, bump **`RWGO_VERSION`** + plugin header + readme **Stable tag** if shipping, **annotated tag** `v*`, `npm run package:zip` or `git archive` with `--prefix=reactwoo-geo-optimise/`, **push** branch and tag. Do **not** commit generated `.zip` files.
+When a change is **complete and validated**, unless the user opts out: **commit**, bump **`RWGO_VERSION`** + plugin header + readme **Stable tag** if shipping, **annotated tag** `v*`, **`git push origin main "vVERSION"`** (one push — required for R2), verify tag on origin, `npm run package:zip` or `git archive` with `--prefix=reactwoo-geo-optimise/`. Do **not** commit generated `.zip` files. See `.cursor/rules/release.mdc`.

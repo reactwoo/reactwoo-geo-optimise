@@ -1,31 +1,29 @@
 ---
-description: Automated git push with diagnostics — fix root cause on failure, no blind retries
+description: Plain git push for releases; diagnostic script only on failure
 alwaysApply: true
 ---
 
 # Git push (agents)
 
-**Always** use the diagnostic push script — never bare `git push`:
+**Default:** use normal git — remotes are already `git@github.com:…`. R2 publish only runs after the **tag is on GitHub**.
 
 ```bash
-python scripts/git_push.py
+git push origin main "vVERSION"
 ```
 
-Release: `python scripts/git_push.py --ref vVERSION`
+Run **commit**, **tag**, and **push** as **separate** commands (do not chain with `&&` on Windows). A release is **not done** until `git ls-remote --tags origin "vVERSION"` shows the tag.
 
-Geo family (sequential): `python scripts/push_geo_family.py` from reactwoo-flow.
+## If plain push fails or hangs
 
-## On failure
-
-1. Read the **`=== GIT PUSH DIAGNOSTIC ===`** block in output.
-2. Apply **`recommended_fix`** for the **`failure_class`**.
-3. Re-run **`python scripts/git_push.py`** only after the fix.
-4. **Do not** retry plain `git push`, background hung commands, or loop without fixing the diagnosed cause.
+1. Stop the hung command; open a fresh shell.
+2. Run `python scripts/git_push.py --ref vVERSION` for a timed push + diagnostic.
+3. Apply **`recommended_fix`** from the diagnostic output, then retry **one** step.
 
 ## Never
 
-- Chain `commit && tag && push` on Windows.
+- Stop after commit/tag without pushing (CI will not publish).
+- Set `GIT_SSH_COMMAND` unless diagnosing SSH auth (origin is already SSH).
+- Background a push and declare the release complete.
 - Push multiple repos in parallel shell loops.
-- Ignore diagnostic output and retry the same failing command.
 
 Full doc: `docs/git-push-windows.md`.

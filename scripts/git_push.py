@@ -78,9 +78,25 @@ def git_status_short(root: Path) -> str:
     return proc.stdout.strip().splitlines()[0] if proc.stdout.strip() else ""
 
 
-def ahead_count(status_line: str) -> int | None:
+def ahead_count(status_line: str) -> int:
     m = re.search(r"\[ahead (\d+)\]", status_line)
     return int(m.group(1)) if m else 0
+
+
+def tag_on_remote(root: Path, tag: str) -> bool:
+    proc = run(["git", "ls-remote", "--tags", "origin", tag], cwd=root, env=ssh_env())
+    return proc.returncode == 0 and proc.stdout.strip() != ""
+
+
+def refs_need_push(root: Path, branch: str, extra_refs: list[str]) -> tuple[bool, list[str]]:
+    missing: list[str] = []
+    status = git_status_short(root)
+    if ahead_count(status) > 0:
+        missing.append(branch)
+    for ref in extra_refs:
+        if not tag_on_remote(root, ref):
+            missing.append(ref)
+    return len(missing) > 0, missing
 
 
 def test_ssh() -> tuple[bool, str]:
@@ -264,8 +280,13 @@ def main() -> int:
         )
         return 2
 
-    if ahead == 0:
+    if ahead == 0 and not args.ref:
         print(f"OK: {repo_name(root)} — nothing to push ({status})")
+        return 0
+
+    need_push, missing_refs = refs_need_push(root, args.branch, args.ref)
+    if not need_push:
+        print(f"OK: {repo_name(root)} — branch and tag(s) already on origin ({status})")
         return 0
 
     if args.diagnose_only:
