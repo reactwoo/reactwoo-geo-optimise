@@ -168,26 +168,45 @@ class RWGA_Workflow_Intelligence extends RWGA_Workflow_Base {
 		}
 
 		$payload = $this->build_request_payload( $input );
-		$mode    = RWGA_Engine::get_mode();
+		$mode    = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
 
-		if ( ! RWGA_Engine::should_try_remote() ) {
+		// Cloud intelligence requires ReactWoo managed generation (snapshot + remote orchestration).
+		if ( in_array( $mode, array( 'local', 'wordpress_ai' ), true ) ) {
 			return new WP_Error(
 				'rwga_remote_required',
-				__( 'Intelligence workflows require remote engine mode in Geo AI Advanced settings.', 'reactwoo-geo-ai' )
+				__( 'Intelligence workflows require Automatic or ReactWoo managed AI in Advanced settings (not Local or WordPress AI alone).', 'reactwoo-geo-ai' )
 			);
 		}
 
-		$remote = RWGA_Remote_Client::dispatch( $this->get_key(), $payload );
-		if ( is_wp_error( $remote ) ) {
-			return $remote;
+		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
+			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
 
-		if ( empty( $remote['engine_response'] ) || ! is_array( $remote['engine_response'] ) ) {
+		// No local callback — managed-only (automatic / remote_fallback skip WP AI then require managed).
+		$envelope = RWGA_Generation_Router::generate(
+			$this->get_key(),
+			array(
+				'payload' => $payload,
+			)
+		);
+		if ( is_wp_error( $envelope ) ) {
+			return $envelope;
+		}
+
+		if ( empty( $envelope['engine_response'] ) || ! is_array( $envelope['engine_response'] ) ) {
 			return new WP_Error( 'rwga_remote_shape', __( 'Remote intelligence response was empty.', 'reactwoo-geo-ai' ) );
 		}
 
-		$norm = $this->normalise_response( $remote['engine_response'] );
-		return $this->persist( $payload, $norm, $remote );
+		$norm = $this->normalise_response( $envelope['engine_response'] );
+		return $this->persist(
+			$payload,
+			$norm,
+			array(
+				'remote_run_id'   => isset( $envelope['remote_run_id'] ) ? $envelope['remote_run_id'] : null,
+				'engine_response' => $envelope['engine_response'],
+				'transport'       => isset( $envelope['transport'] ) ? $envelope['transport'] : 'managed',
+			)
+		);
 	}
 
 	/**
@@ -294,7 +313,9 @@ class RWGA_Workflow_Intelligence extends RWGA_Workflow_Base {
 
 		$usage           = isset( $result['usage'] ) && is_array( $result['usage'] ) ? $result['usage'] : array();
 		$remote_run_id   = is_array( $remote ) && isset( $remote['remote_run_id'] ) ? (string) $remote['remote_run_id'] : '';
-		$telemetry       = class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta( $usage ) : array();
+		$telemetry       = class_exists( 'RWGA_Generation_Router', false )
+			? RWGA_Generation_Router::telemetry_meta()
+			: ( class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta( $usage ) : array() );
 
 		do_action(
 			'rwga_workflow_persisted',

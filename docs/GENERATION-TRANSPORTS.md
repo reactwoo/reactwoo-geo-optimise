@@ -22,9 +22,22 @@
 - Managed: platform JWT + **ReactWoo managed AI allowance** (`RWGA_AI_Usage_Guard::can_run_managed_generation`)
 - Cloud snapshot / intelligence graph: managed-only (`can_sync_snapshot`)
 
-## Migrated workflows (this pass)
+## Migrated workflows
+
+Bounded generation (may use WordPress AI when supported + available):
 
 - `ux_analysis`
 - `ux_recommend`
 
-Other workflows still call `RWGA_Remote_Client` / local stubs directly until a later pass.
+Routed via the same router (managed / local; WordPress AI only when a prompt spec exists):
+
+- `ux_opportunity_review`
+- `copy_implement`
+- `competitor_research`
+- `weather_facet_suggest`
+
+Cloud-only (managed required; Local / explicit WordPress AI modes rejected):
+
+- intelligence workflows (`RWGA_Workflow_Intelligence`)
+
+WordPress AI prompt specs remain limited to `ux_analysis` and `ux_recommend` in this pass.

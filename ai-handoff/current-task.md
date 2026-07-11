@@ -4,17 +4,17 @@
 
 ## Problem
 
-Agents need stable semantic targets across Control and Variant B. Physical `goal_id` / `handler_id` pairs differ per Elementor element ID, which complicates measurement contracts and GTM.
+Remaining Geo AI workflows still called `RWGA_Remote_Client::dispatch` directly after the first transport-router pass (ux_analysis / ux_recommend only).
 
 ## Expected (this pass)
 
-- Stamp `data-rwgo-element-key` on Elementor + Gutenberg goals
-- Pipe `element_key` through tracking JS, REST payload, and GTM dataLayer docs
-- Document contract in `docs/MEASUREMENT-CONTRACT.md`
+- Route competitor research, copy implement, opportunity review, intelligence, and weather facet suggest through `RWGA_Generation_Router`
+- Keep managed-only behaviour for intelligence
+- Leave WordPress AI prompt specs limited to ux_analysis / ux_recommend
+- Ship **0.4.70**
 
 ## Do not touch
 
-- Atomic Elementor write / mutation
-- GTM API provisioning
-- Winner auto-promotion
-- Replacing existing goal/handler storage matching
+- Standalone `reactwoo-geo-ai`
+- Expanding WP AI prompt registry beyond UX workflows
+- License / Core / API repos

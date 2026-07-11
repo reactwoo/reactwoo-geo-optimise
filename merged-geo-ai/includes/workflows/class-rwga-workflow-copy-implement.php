@@ -137,31 +137,38 @@ class RWGA_Workflow_Copy_Implement extends RWGA_Workflow_Base {
 			$page_context = RWGA_Page_Context::collect( (int) $in['page_id'] );
 		}
 
-		$mode   = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
-		$remote = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::should_try_remote()
-			? RWGA_Remote_Client::dispatch(
-				$this->get_key(),
-				array(
-					'page_id'            => isset( $in['page_id'] ) ? (int) $in['page_id'] : 0,
-					'geo_target'         => isset( $in['geo_target'] ) ? (string) $in['geo_target'] : '',
-					'page_context'       => $page_context,
-					'targeting_context'  => isset( $in['targeting_context'] ) ? $in['targeting_context'] : array(),
-					'recommendation_id'  => isset( $in['recommendation_id'] ) ? (int) $in['recommendation_id'] : 0,
-					'visibility_rule_id' => isset( $in['visibility_rule_id'] ) ? (int) $in['visibility_rule_id'] : 0,
-				)
-			)
-			: null;
-		$use_api = ! is_wp_error( $remote ) && is_array( $remote ) && ! empty( $remote['engine_response'] );
+		$payload = array(
+			'page_id'            => isset( $in['page_id'] ) ? (int) $in['page_id'] : 0,
+			'geo_target'         => isset( $in['geo_target'] ) ? (string) $in['geo_target'] : '',
+			'page_context'       => $page_context,
+			'targeting_context'  => isset( $in['targeting_context'] ) ? $in['targeting_context'] : array(),
+			'recommendation_id'  => isset( $in['recommendation_id'] ) ? (int) $in['recommendation_id'] : 0,
+			'visibility_rule_id' => isset( $in['visibility_rule_id'] ) ? (int) $in['visibility_rule_id'] : 0,
+		);
 
-		if ( $use_api ) {
-			$norm = $this->normalise_response( $remote['engine_response'] );
-		} else {
-			if ( is_wp_error( $remote ) && 'remote' === $mode ) {
-				return $remote;
-			}
-			$raw  = $this->produce_stub_drafts( $in, $page_context );
-			$norm = $this->normalise_response( $raw );
+		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
+			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
+
+		$envelope = RWGA_Generation_Router::generate(
+			$this->get_key(),
+			array(
+				'payload'        => $payload,
+				'local_callback' => function ( $workflow_key, array $request ) use ( $in, $page_context ) {
+					unset( $workflow_key, $request );
+					return $this->produce_stub_drafts( $in, $page_context );
+				},
+			)
+		);
+		if ( is_wp_error( $envelope ) ) {
+			return $envelope;
+		}
+
+		$norm = $this->normalise_response(
+			isset( $envelope['engine_response'] ) && is_array( $envelope['engine_response'] )
+				? $envelope['engine_response']
+				: array()
+		);
 
 		$persisted = $this->persist( $in, $norm );
 		if ( is_array( $persisted ) && empty( $persisted['success'] ) ) {

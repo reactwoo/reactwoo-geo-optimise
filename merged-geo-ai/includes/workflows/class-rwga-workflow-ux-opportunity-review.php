@@ -117,31 +117,49 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 
 		$payload      = $this->build_request_payload( $input );
 		$capabilities = isset( $payload['capabilities'] ) && is_array( $payload['capabilities'] ) ? $payload['capabilities'] : array();
-		$mode         = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
-		$engine_source = 'local_fallback';
 
-		$remote = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::should_try_remote()
-			? RWGA_Remote_Client::dispatch( $this->get_key(), $payload )
-			: null;
-		$use_api = ! is_wp_error( $remote ) && is_array( $remote ) && ! empty( $remote['engine_response'] );
-
-		if ( $use_api ) {
-			$norm          = $this->normalise_response( $remote['engine_response'] );
-			$engine_source = 'remote_ai';
-		} else {
-			if ( is_wp_error( $remote ) && 'remote' === $mode ) {
-				return $remote;
-			}
-			$raw           = $this->produce_local_cards( $payload, $capabilities );
-			$norm          = $this->normalise_response( $raw );
-			$engine_source = 'local_deterministic';
-			$remote        = null;
+		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
+			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
 
+		$envelope = RWGA_Generation_Router::generate(
+			$this->get_key(),
+			array(
+				'payload'        => $payload,
+				'local_callback' => function ( $workflow_key, array $request ) use ( $payload, $capabilities ) {
+					unset( $workflow_key, $request );
+					return $this->produce_local_cards( $payload, $capabilities );
+				},
+			)
+		);
+		if ( is_wp_error( $envelope ) ) {
+			return $envelope;
+		}
+
+		$transport = isset( $envelope['transport'] ) ? sanitize_key( (string) $envelope['transport'] ) : '';
+		if ( 'managed' === $transport ) {
+			$engine_source = 'remote_ai';
+		} elseif ( 'wordpress_ai' === $transport ) {
+			$engine_source = 'wordpress_ai';
+		} else {
+			$engine_source = 'local_deterministic';
+		}
+
+		$norm = $this->normalise_response(
+			isset( $envelope['engine_response'] ) && is_array( $envelope['engine_response'] )
+				? $envelope['engine_response']
+				: array()
+		);
 		$norm = $this->apply_capability_filter( $norm, $capabilities, $payload );
 		$norm['engine_source'] = $engine_source;
 
-		$persisted = $this->persist( $payload, $norm, is_array( $remote ) ? $remote : null );
+		$remote_meta = array(
+			'remote_run_id'   => isset( $envelope['remote_run_id'] ) ? $envelope['remote_run_id'] : null,
+			'engine_response' => isset( $envelope['engine_response'] ) ? $envelope['engine_response'] : array(),
+			'transport'       => $transport,
+		);
+
+		$persisted = $this->persist( $payload, $norm, $remote_meta );
 		if ( is_array( $persisted ) && isset( $persisted['success'] ) && ! $persisted['success'] ) {
 			$msg = isset( $persisted['error'] ) ? (string) $persisted['error'] : __( 'Could not save UX opportunity review.', 'reactwoo-geo-ai' );
 			return new WP_Error( 'rwga_persist', $msg );
@@ -571,7 +589,9 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 
 		$usage         = isset( $result['usage'] ) && is_array( $result['usage'] ) ? $result['usage'] : array();
 		$remote_run_id = is_array( $remote ) && isset( $remote['remote_run_id'] ) ? (string) $remote['remote_run_id'] : '';
-		$telemetry     = class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta( $usage ) : array();
+		$telemetry     = class_exists( 'RWGA_Generation_Router', false )
+			? RWGA_Generation_Router::telemetry_meta()
+			: ( class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta( $usage ) : array() );
 
 		do_action(
 			'rwga_workflow_persisted',

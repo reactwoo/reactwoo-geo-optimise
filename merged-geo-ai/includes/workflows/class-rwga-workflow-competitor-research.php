@@ -83,22 +83,40 @@ class RWGA_Workflow_Competitor_Research extends RWGA_Workflow_Base {
 		}
 		$in = $this->build_request_payload( $input );
 
-		$mode   = RWGA_Engine::get_mode();
-		$remote = RWGA_Engine::should_try_remote() ? RWGA_Remote_Client::dispatch( $this->get_key(), $in ) : null;
-		$use_api = ! is_wp_error( $remote ) && is_array( $remote ) && ! empty( $remote['engine_response'] );
-
-		if ( $use_api ) {
-			$norm = $this->normalise_response( $remote['engine_response'] );
-			return $this->finish_execute( $in, $norm );
+		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
+			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
 
-		if ( is_wp_error( $remote ) && 'remote' === $mode ) {
-			return $remote;
+		$envelope = RWGA_Generation_Router::generate(
+			$this->get_key(),
+			array(
+				'payload'        => $in,
+				'local_callback' => array( $this, 'local_generation_callback' ),
+			)
+		);
+		if ( is_wp_error( $envelope ) ) {
+			return $envelope;
 		}
 
-		$raw  = $this->produce_stub( $in );
-		$norm = $this->normalise_response( $raw );
+		$norm = $this->normalise_response(
+			isset( $envelope['engine_response'] ) && is_array( $envelope['engine_response'] )
+				? $envelope['engine_response']
+				: array()
+		);
 		return $this->finish_execute( $in, $norm );
+	}
+
+	/**
+	 * Local deterministic callback for the generation router.
+	 *
+	 * @param string               $workflow_key Workflow key.
+	 * @param array<string, mixed> $request      Request envelope.
+	 * @return array<string, mixed>
+	 */
+	public function local_generation_callback( $workflow_key, array $request ) {
+		unset( $workflow_key );
+		$payload = isset( $request['payload'] ) && is_array( $request['payload'] ) ? $request['payload'] : array();
+		return $this->produce_stub( $payload );
 	}
 
 	/**

@@ -1,35 +1,36 @@
-# Cursor output — measurement contract phase 1
+# Cursor output — generation router migration (remaining workflows)
 
 **Status:** done  
 **Date:** 2026-07-11
 
 ## Summary
 
-Added stable semantic `data-rwgo-element-key` end-to-end without changing physical goal/handler conversion matching.
+Migrated remaining workflows onto `RWGA_Generation_Router`. Only `RWGA_Managed_AI_Transport` still calls `RWGA_Remote_Client::dispatch` directly.
 
 ## Files changed
 
 | File | Why |
 |------|-----|
-| `includes/class-rwgo-element-key.php` | Sanitize / derive keys |
-| `includes/class-rwgo-plugin.php` | Load helper |
-| `includes/class-rwgo-elementor-goals.php` | Control + stamp |
-| `includes/class-rwgo-gutenberg-goals.php` | Attr + stamp |
-| `admin/js/rwgo-block-goals.js` | Editor field |
-| `includes/class-rwgo-defined-goal-service.php` | Collect `element_key` |
-| `assets/js/rwgo-tracking.js` | Fire + dataLayer |
-| `includes/class-rwgo-event-payload.php` | Payload field |
-| `includes/class-rwgo-rest-tracking.php` | REST accept |
-| `includes/class-rwgo-gtm-handoff.php` | DLV + examples |
-| `docs/MEASUREMENT-CONTRACT.md` | Contract doc |
-| `admin/views/partials/tools-section-tracking-advanced.php` | Hint |
+| `class-rwga-workflow-competitor-research.php` | Router + local stub |
+| `class-rwga-workflow-copy-implement.php` | Router + local stub |
+| `class-rwga-workflow-ux-opportunity-review.php` | Router + telemetry |
+| `class-rwga-workflow-intelligence.php` | Managed-only via router |
+| `class-rwga-weather-facet-suggester.php` | Router + keyword local |
+| `docs/GENERATION-TRANSPORTS.md` | Document migrated set |
+| Version / readme / README | **0.4.70** |
 
 ## Not changed
 
-- Exposure event store schema
-- Goal mapping / winner logic
-- Elementor write path
+- WP AI prompt registry (still ux_analysis / ux_recommend only)
+- Standalone Geo AI
+- License / Core / API
 
-## Next
+## Commands
 
-Exposure events + tracking manifest; then Atomic page executor stamping keys from blueprints.
+- `php -l` on migrated files — OK
+- PHPUnit generation suite via Geo Core vendor phpunit — (see session)
+- `npm run package:zip`
+
+## Remaining
+
+None for this routing pass.
