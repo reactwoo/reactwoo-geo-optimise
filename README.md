@@ -1,20 +1,21 @@
 # ReactWoo Geo Optimise
 
-**Version:** 0.4.63  
+**Version:** 0.4.68  
 **Plugin slug:** `reactwoo-geo-optimise`
 
 ## Overview
 
-Geo Optimise provides geo-aware A/B testing and conversion optimization on **ReactWoo Geo Core**. It manages experiments (`rwgo_experiment` CPT), sticky variant assignment, goal tracking via REST, and reports — integrating with Elementor and Gutenberg builder-defined goals. Licensing and updates use **react-license** and **reactwoo-api**.
+Geo Optimise is the **merged** conversion-optimisation satellite on **ReactWoo Geo Core**: AI review, recommendations, and drafts (embedded `merged-geo-ai/`) plus experiments (`rwgo_experiment` CPT), sticky assignment, goal tracking, and reports. Standalone Geo AI is deprecated.
+
+Licensing and updates use **react-license** and **reactwoo-api**. WordPress AI (BYOK) is the preferred on-site generation path when available; ReactWoo managed AI remains optional. Both require an Optimise licence; only managed calls consume the ReactWoo managed AI allowance.
 
 ## Position in family
 
 ```
 Geo Core (events, routing, evaluator context)
     ↓
-Geo Optimise — experiments, assignment, goals, REST tracking
-    ↓ optional
-Geo AI — variant drafts; Optimise measures outcomes
+Geo Optimise — AI review + experiments + goals + reports
+    (merged-geo-ai/ owns AI until a later prefix cleanup)
 ```
 
 Geo Optimise consumes Core hooks (`rwgc_emit_geo_event`, REST `/capabilities`) and does not duplicate visitor detection.
@@ -23,11 +24,14 @@ Geo Optimise consumes Core hooks (`rwgc_emit_geo_event`, REST `/capabilities`) a
 
 ### Available
 
+- **AI Review / Recommendations / Drafts** via embedded Geo AI (`merged-geo-ai/`)
+- **Generation modes:** Automatic, WordPress AI, ReactWoo managed, Local (`docs/GENERATION-TRANSPORTS.md`)
 - **Experiments CPT** with Create Test wizard, Tests list, Edit Test, Reports
 - Sticky **variant assignment** (`rwgo_get_variant`, cookie-based, weighted splits)
 - **REST goal tracking**: `POST /wp-json/rwgo/v1/goal`, tracking nonce endpoint
 - Front-end **`rwgo-tracking.js`** with defined-goal mapping across Control and Variant B
 - Elementor and Gutenberg **builder-defined goals** (CTA, form submit, destination goals)
+- Elementor Atomic V4 **read-only** normalized context (full Atomic page construction is a later pass)
 - **Canonical page bindings** with resync (front page, shop, relative paths)
 - **Promote winner** wizard (Mode A: replace primary content)
 - CSV export and stats snapshot (`rwgo_stats_snapshot`)

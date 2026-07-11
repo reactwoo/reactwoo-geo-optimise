@@ -95,8 +95,8 @@ class RWGA_Usage_Presenter {
 			'usage_percent'    => $pct,
 			'soft_quotas'      => $soft,
 			'messaging'        => array(
-				'headline' => __( 'Usage is measured by AI tokens.', 'reactwoo-geo-ai' ),
-				'note'     => __( 'Displayed workflow counts are estimates only and may vary by page size and workflow complexity. Some workflows may run locally or use hybrid processing.', 'reactwoo-geo-ai' ),
+				'headline' => __( 'This meter is the ReactWoo managed AI allowance.', 'reactwoo-geo-ai' ),
+				'note'     => __( 'WordPress AI / BYOK generation uses your connected WordPress provider and does not consume this allowance. Displayed workflow counts are estimates only and may vary by page size and workflow complexity.', 'reactwoo-geo-ai' ),
 			),
 		);
 	}

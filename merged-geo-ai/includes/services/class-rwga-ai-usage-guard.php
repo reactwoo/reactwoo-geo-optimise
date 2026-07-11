@@ -80,6 +80,52 @@ class RWGA_AI_Usage_Guard {
 	}
 
 	/**
+	 * Whether ReactWoo managed generation may run (auth + managed allowance).
+	 *
+	 * Does not require site-intelligence snapshot sync. WordPress AI / BYOK must not call this.
+	 *
+	 * @param string $workflow_key Workflow key.
+	 * @return array{allowed:bool,reason:string}
+	 */
+	public static function can_run_managed_generation( $workflow_key = '' ) {
+		unset( $workflow_key );
+
+		$license = self::check_license();
+		if ( is_wp_error( $license ) ) {
+			return array(
+				'allowed' => false,
+				'reason'  => $license->get_error_message(),
+			);
+		}
+
+		$usage = self::check_usage_headroom();
+		if ( is_wp_error( $usage ) ) {
+			return array(
+				'allowed' => false,
+				'reason'  => $usage->get_error_message(),
+			);
+		}
+
+		/**
+		 * Gate managed ReactWoo generation (separate from WordPress AI / BYOK).
+		 *
+		 * @param bool $allowed Default true when licence and managed quota checks passed.
+		 */
+		$allowed = (bool) apply_filters( 'rwga_ai_can_run_managed_generation', true );
+		if ( ! $allowed ) {
+			return array(
+				'allowed' => false,
+				'reason'  => __( 'ReactWoo managed AI is not enabled for this plan.', 'reactwoo-geo-ai' ),
+			);
+		}
+
+		return array(
+			'allowed' => true,
+			'reason'  => '',
+		);
+	}
+
+	/**
 	 * Whether a remote intelligence workflow may run.
 	 *
 	 * @param string $workflow_key Workflow key.
@@ -182,14 +228,14 @@ class RWGA_AI_Usage_Guard {
 		if ( ! empty( $cache['over_limit'] ) ) {
 			return new WP_Error(
 				'rwga_over_limit',
-				__( 'AI usage limit reached for this billing period. Sync will resume when quota resets or your plan is upgraded.', 'reactwoo-geo-ai' )
+				__( 'ReactWoo managed AI allowance reached for this billing period. Sync and managed generation resume when quota resets or your plan is upgraded. WordPress AI / BYOK is unaffected.', 'reactwoo-geo-ai' )
 			);
 		}
 		$remaining = isset( $cache['remaining'] ) ? (int) $cache['remaining'] : null;
 		if ( null !== $remaining && $remaining <= 0 && ! empty( $cache['limit'] ) ) {
 			return new WP_Error(
 				'rwga_no_headroom',
-				__( 'No AI usage remaining this period.', 'reactwoo-geo-ai' )
+				__( 'No ReactWoo managed AI allowance remaining this period.', 'reactwoo-geo-ai' )
 			);
 		}
 		return true;

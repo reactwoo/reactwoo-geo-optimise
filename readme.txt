@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.67
+Stable tag: 0.4.68
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -14,7 +14,9 @@ AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includ
 
 Standalone **ReactWoo Geo AI** is deprecated — deactivate it after verifying the Optimise hub (AI Review, Recommendations, Drafts, History tabs).
 
-See Geo Core `docs/phases/phase-6.md` for the author checklist and `docs/MERGE-GEO-AI-INTO-OPTIMISE.md` for merge notes.
+Generation modes: Automatic (WordPress AI → ReactWoo managed → local), WordPress AI (BYOK via WordPress 7 providers), ReactWoo managed AI, or local deterministic. Product licensing still applies; BYOK does not consume the ReactWoo managed AI allowance. Elementor Atomic support is read-only in this phase.
+
+See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-AI-INTO-OPTIMISE.md` for merge notes, and `docs/GENERATION-TRANSPORTS.md` for transport modes.
 
 == Installation ==
 
@@ -22,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist and `docs/MERGE-G
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.68 =
+* **Generation transports:** WordPress AI / managed / local router for UX analysis and recommendations; BYOK separated from ReactWoo managed allowance; Advanced settings transport status.
 
 = 0.4.67 =
 * **Geo AI merge:** Optimise hub with AI Review, Recommendations, Drafts, History; embedded Geo AI module; legacy redirects; unified activity timeline; Elementor Atomic V4 read support in merged builders.

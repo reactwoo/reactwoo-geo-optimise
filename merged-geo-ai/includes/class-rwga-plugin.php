@@ -180,6 +180,13 @@ class RWGA_Plugin {
 		require_once RWGA_PATH . 'includes/services/class-rwga-implementation-router.php';
 		require_once RWGA_PATH . 'includes/services/class-rwga-engine.php';
 		require_once RWGA_PATH . 'includes/services/class-rwga-remote-client.php';
+		require_once RWGA_PATH . 'includes/services/generation/interface-rwga-generation-transport.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-workflow-prompt-spec-registry.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-prompt-context-formatter.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-local-ai-transport.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-managed-ai-transport.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-wordpress-ai-transport.php';
+		require_once RWGA_PATH . 'includes/services/generation/class-rwga-generation-router.php';
 		require_once RWGA_PATH . 'includes/services/class-rwga-intelligence-response.php';
 		require_once RWGA_PATH . 'includes/services/class-rwga-ux-opportunity-action-filter.php';
 		require_once RWGA_PATH . 'includes/class-rwga-ux-reviewer-ui.php';

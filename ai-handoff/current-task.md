@@ -1,19 +1,32 @@
-# Current task — Elementor Atomic V4 read support
+# Current task
 
-**Phase:** Geo AI builder context — read-only Atomic Editor V4 support
+> Canonical repository: `reactwoo-geo-optimise`
+> Canonical AI implementation location: `reactwoo-geo-optimise/merged-geo-ai/`
+> Standalone `reactwoo-geo-ai` is deprecated and must not receive new feature development.
 
 ## Problem
 
-`RWGA_Elementor_Adapter` assumes legacy V3 widget types and flat settings. Elementor 4 Atomic documents use `e-heading`, typed `$$type`/`value` props, styles/classes outside flat settings. Mixed V3/V4 documents must be supported per element.
+Geo AI has now been merged into Geo Optimise, but the embedded AI execution layer still supports only the legacy `local`, `remote`, and `remote_fallback` modes.
+
+Current workflows call `RWGA_Remote_Client` directly, while `RWGA_AI_Usage_Guard` combines product licensing, ReactWoo API authentication, cloud snapshot requirements and managed AI quota into one gate.
+
+This prevents correctly adopting the WordPress 7 AI Client API:
+
+* WordPress-configured AI providers cannot currently execute Optimise workflows.
+* BYOK generation would incorrectly depend on ReactWoo platform authentication and managed quota.
+* Workflow code owns transport selection instead of relying on one stable routing contract.
 
 ## Expected
 
-Read-only normalized context from V3, V4, and mixed documents. No mutation/conversion.
+One transport-neutral generation layer with modes: `automatic`, `wordpress_ai`, `managed`, `local`.
 
-## Acceptance
-
-See planner brief: V3 regression, Atomic heading/button/image extraction, class/style summaries, mixed docs, fixtures/tests, package zip, cursor-output update.
+Prove with `ux_analysis` and `ux_recommend` only. Keep managed API as fallback/cloud. Do not change Core, API, or licensing. Do not modify standalone Geo AI.
 
 ## Do not touch
 
-Action planner/executor, Gutenberg, Geo Core, Optimise goals, WP AI transport, MCP internals, `_elementor_data` writes.
+* `reactwoo-geo-ai` production code
+* Geo Core / reactwoo-api / react-license
+* experiment assignment, goals, stats, promotion
+* mass `RWGA_*` renames
+* Elementor write path / Atomic page creation
+* provider API-key storage

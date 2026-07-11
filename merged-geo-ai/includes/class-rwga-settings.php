@@ -587,7 +587,9 @@ class RWGA_Settings {
 		}
 
 		if ( 'advanced' === $scope && isset( $settings['workflow_engine'] ) ) {
-			$allowed = array( 'local', 'remote', 'remote_fallback' );
+			$allowed = class_exists( 'RWGA_Engine', false )
+				? RWGA_Engine::allowed_modes()
+				: array( 'automatic', 'wordpress_ai', 'managed', 'local', 'remote', 'remote_fallback' );
 			$w       = sanitize_key( (string) $settings['workflow_engine'] );
 			$out['workflow_engine'] = in_array( $w, $allowed, true ) ? $w : ( isset( $prev['workflow_engine'] ) ? (string) $prev['workflow_engine'] : $defaults['workflow_engine'] );
 		}
@@ -640,7 +642,7 @@ class RWGA_Settings {
 			'reactwoo_license_key'                    => '',
 			/** When true (default), empty Geo AI key may use Geo Core’s license. False after Disconnect. */
 			'reactwoo_license_use_core_fallback'     => true,
-			'workflow_engine'                        => 'local',
+			'workflow_engine'                        => 'automatic',
 			'ux_analysis_focus'                      => 'messaging',
 			'guided_mode_enabled'                    => true,
 			'auto_site_audit_after_sync'             => true,

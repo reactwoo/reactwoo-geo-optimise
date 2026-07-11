@@ -1,80 +1,95 @@
-# Cursor output — Elementor Atomic V4 read support
+# Cursor output — WordPress AI generation transports
 
 **Status:** done
 
 **Date:** 2026-07-11
 
+**Version:** 0.4.68
+
 ## Root cause
 
-`RWGA_Elementor_Adapter` treated every node as legacy V3 and read flat `settings.title` / `settings.text` / `settings.header_size`. Atomic V4 widgets (`e-heading`, etc.) store typed `{ $$type, value }` props, plus `styles`, `classes`, and interactions outside flat settings — so content and design-system signals were lost.
+Transport selection, managed quota, and workflow execution were coupled: workflows called `RWGA_Remote_Client` directly and `RWGA_AI_Usage_Guard` mixed product licence, platform auth, snapshot sync, and managed quota. That blocked WordPress AI / BYOK without ReactWoo tokens.
 
-## Data shapes inspected
+## Architecture implemented
 
-- Legacy V3 fixture: `tests/fixtures/elementor-sample.json` (section/column/heading/button/form/image)
-- Atomic V4 fixture: `tests/fixtures/elementor-atomic-v4.json` (`e-flexbox`, `e-heading` html-v3 title, `e-paragraph`, `e-button` link, `e-image`, `e-grid`, unknown `e-custom-widget`)
-- Mixed fixture: `tests/fixtures/elementor-mixed-v3-v4.json` (V3 section + Atomic flexbox siblings)
+```text
+workflow (ux_analysis / ux_recommend)
+  → RWGA_Generation_Router
+      → WordPress AI transport (public WP 7 AI Client)
+      → managed ReactWoo transport (JWT + managed allowance)
+      → local deterministic callback
+```
+
+- Explicit modes never fall through after a started generation fails.
+- `remote` → managed; `remote_fallback` → managed then local (no WordPress AI preference).
+- New default: `automatic`.
+- `can_run_managed_generation()` separates managed auth/quota from snapshot sync and from WordPress AI.
 
 ## Files changed
 
-### reactwoo-geo-ai (canonical)
+### New
 
-| File | Why |
-|------|-----|
-| `includes/builders/elementor/class-rwga-elementor-node-version.php` | Per-node V3/V4 detection |
-| `includes/builders/elementor/class-rwga-elementor-atomic-prop-resolver.php` | Recursive `$$type`/`value` unwrap |
-| `includes/builders/elementor/class-rwga-elementor-style-summary.php` | Bounded breakpoint/state style summary + class scope |
-| `includes/builders/elementor/class-rwga-elementor-v3-node-reader.php` | Legacy reader boundary |
-| `includes/builders/elementor/class-rwga-elementor-v4-node-reader.php` | Atomic widget reader |
-| `includes/builders/class-rwga-elementor-adapter.php` | Version-aware walk; Atomic section roots; media/CTA |
-| `includes/builders/class-rwga-builder-loader.php` | Load new elementor helpers |
-| `includes/builders/class-rwga-builder-normalize.php` | `e-button` in CTA types |
-| `tests/fixtures/elementor-atomic-v4.json` | Atomic fixture |
-| `tests/fixtures/elementor-mixed-v3-v4.json` | Mixed fixture |
-| `tests/Builders/RWGAElementorAtomicV4Test.php` | Focused Atomic/mixed tests |
+- `merged-geo-ai/includes/services/generation/interface-rwga-generation-transport.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-generation-router.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-wordpress-ai-transport.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-managed-ai-transport.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-local-ai-transport.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-workflow-prompt-spec-registry.php`
+- `merged-geo-ai/includes/services/generation/class-rwga-prompt-context-formatter.php`
+- `docs/GENERATION-TRANSPORTS.md`
+- `tests/bootstrap.php`, `tests/Generation/RWGAGenerationRouterTest.php`, `phpunit.xml.dist`
 
-### reactwoo-geo-optimise
+### Updated
 
-| File | Why |
-|------|-----|
-| `merged-geo-ai/includes/builders/**` (synced) | Shipping embed of Geo AI builders |
-| `ai-handoff/current-task.md` | Task brief |
-| `ai-handoff/cursor-output.md` | This file |
+- `RWGA_Engine`, settings sanitize/defaults, Advanced UI, usage guard/presenter wording
+- `RWGA_Workflow_UX_Analysis`, `RWGA_Workflow_UX_Recommend`
+- `class-rwga-plugin.php` requires
+- `AGENTS.md`, `README.md`, `readme.txt`, `reactwoo-geo-optimise.php` (0.4.68)
+- `ai-handoff/current-task.md`
+
+## Workflows migrated
+
+- `ux_analysis`
+- `ux_recommend`
+
+## Remaining workflows (not migrated)
+
+Still use direct `RWGA_Remote_Client` / local stubs:
+
+- `ux_opportunity_review`
+- `copy_implement`
+- `competitor_research`
+- intelligence workflows
+- weather facet suggester
 
 ## What was NOT changed
 
-- Elementor action planner / mutation / executor
-- Gutenberg adapter
-- Geo Core / Optimise goals / GTM
-- WordPress AI transport
-- `_elementor_data` writes / V3→V4 conversion
-- Plugin minimum WordPress version
+- Standalone `reactwoo-geo-ai`
+- Geo Core / reactwoo-api / react-license
+- Experiments, goals, promotion, GTM
+- Elementor write path / Atomic page creation
+- Provider API-key storage
 
-## Commands run
+## WordPress AI API
 
-- `php vendor/phpunit/phpunit/phpunit -c phpunit.xml.dist --filter RWGAElementor` → **OK (14 tests, 55 assertions)**
-- `php -l` on new/changed Elementor PHP → OK
-- `npm run package:zip` (Optimise) → pending below
+Verified public contract matches the brief:
 
-## Unsupported Atomic element types (visible as `semantic_type: unknown`)
+- `wp_supports_ai()`, `wp_ai_client_prompt()`
+- Fluent: `using_system_instruction`, `using_temperature`, `using_max_tokens`, `as_json_response`, `is_supported_for_text_generation`, `generate_text`
+- No load-time WP 7 class type-hints; all calls behind `function_exists` / runtime checks
+- No live provider called in tests (`RWGA_WordPress_AI_Transport::$test_prompt_executor`)
 
-Any `e-*` widget not in the initial map (heading, paragraph, button, image, svg, divider, video, div-block, flexbox, grid, form, tabs, accordion). Example in fixture: `e-custom-widget` — still emitted with content/unknown_meta, not dropped.
+## Commands / tests
 
-## Recommended next file (write-path / measurement)
+- `phpunit -c phpunit.xml.dist` (Optimise generation) → **OK (9 tests, 29 assertions)**
+- `phpunit --filter RWGAElementor` (geo-ai Atomic suite) → **OK (14 tests, 55 assertions)**
+- `php -l` on added/edited PHP → OK
+- `npm run package:zip` → `reactwoo-geo-optimise-0.4.68.zip` (includes `merged-geo-ai/.../generation/*`)
 
-**Geo Optimise:** define canonical exposure/goal measurement contract + stable semantic element keys (`data-rwgo-element-key`) before Atomic write executor or GTM provisioning.
+## Package
 
-## Test checklist
+`reactwoo-geo-optimise-0.4.68.zip` (not committed)
 
-- [x] Existing V3 Elementor extraction tests pass
-- [x] V3 heading content + level
-- [x] Atomic `e-heading` typed title → plain text
-- [x] Atomic heading tag h1–h6
-- [x] Atomic button text + link
-- [x] Atomic image url/alt
-- [x] Class references + local/global scope
-- [x] Style summary by breakpoint/state
-- [x] Unknown typed values preserved
-- [x] Mixed V3/V4 coherent context
-- [x] Unsupported Atomic widgets visible
-- [x] No document mutation
-- [x] `npm run package:zip` (Optimise) → `reactwoo-geo-optimise-0.4.66.zip`
+## Licence deploy note (unchanged)
+
+Do not deploy licence-service `main` until default branch / ancestor reconciliation is resolved (`react-license` `master` vs `main`).

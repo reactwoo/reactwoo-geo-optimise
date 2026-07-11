@@ -76,7 +76,6 @@ class RWGA_Workflow_UX_Analysis extends RWGA_Workflow_Base {
 		$in                   = $this->sanitise_common( $input );
 		$in['analysis_focus'] = $this->normalise_analysis_focus( $input );
 
-		$mode           = RWGA_Engine::get_mode();
 		$remote_payload = class_exists( 'RWGA_Context_Builder', false )
 			? RWGA_Context_Builder::for_remote_api(
 				RWGA_Context_Builder::build(
@@ -91,23 +90,49 @@ class RWGA_Workflow_UX_Analysis extends RWGA_Workflow_Base {
 				)
 			)
 			: $in;
-		$remote = RWGA_Engine::should_try_remote() ? RWGA_Remote_Client::dispatch( $this->get_key(), $remote_payload ) : null;
-		$use_api = ! is_wp_error( $remote ) && is_array( $remote ) && ! empty( $remote['engine_response'] );
 
-		if ( $use_api ) {
-			$norm = $this->normalise_response( $remote['engine_response'] );
-			$rid  = isset( $remote['remote_run_id'] ) ? trim( (string) $remote['remote_run_id'] ) : '';
-			$rid  = '' !== $rid ? $rid : null;
-			return $this->finish_execute( $in, $norm, $rid );
+		$request = array(
+			'payload'        => $remote_payload,
+			'local_callback' => array( $this, 'local_generation_callback' ),
+		);
+
+		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
+			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
 
-		if ( is_wp_error( $remote ) && 'remote' === $mode ) {
-			return $remote;
+		$envelope = RWGA_Generation_Router::generate( $this->get_key(), $request );
+		if ( is_wp_error( $envelope ) ) {
+			return $envelope;
 		}
 
-		$raw  = $this->produce_stub_response( $in );
-		$norm = $this->normalise_response( $raw );
-		return $this->finish_execute( $in, $norm, null );
+		$norm = $this->normalise_response(
+			isset( $envelope['engine_response'] ) && is_array( $envelope['engine_response'] )
+				? $envelope['engine_response']
+				: array()
+		);
+		$rid  = isset( $envelope['remote_run_id'] ) ? $envelope['remote_run_id'] : null;
+		$rid  = is_string( $rid ) && '' !== trim( $rid ) ? trim( $rid ) : null;
+		return $this->finish_execute( $in, $norm, $rid );
+	}
+
+	/**
+	 * Local deterministic callback for the generation router.
+	 *
+	 * @param string               $workflow_key Workflow key.
+	 * @param array<string, mixed> $request      Request envelope.
+	 * @return array<string, mixed>
+	 */
+	public function local_generation_callback( $workflow_key, array $request ) {
+		unset( $workflow_key );
+		$payload = isset( $request['payload'] ) && is_array( $request['payload'] ) ? $request['payload'] : array();
+		$in      = array(
+			'page_id'         => isset( $payload['page_id'] ) ? (int) $payload['page_id'] : 0,
+			'page_url'        => isset( $payload['page_url'] ) ? (string) $payload['page_url'] : '',
+			'geo_target'      => isset( $payload['geo_target'] ) ? (string) $payload['geo_target'] : '',
+			'analysis_focus'  => isset( $payload['analysis_focus'] ) ? (string) $payload['analysis_focus'] : 'messaging',
+			'page_context'    => isset( $payload['builder_context'] ) && is_array( $payload['builder_context'] ) ? $payload['builder_context'] : array(),
+		);
+		return $this->produce_stub_response( $in );
 	}
 
 	/**
@@ -209,7 +234,9 @@ class RWGA_Workflow_UX_Analysis extends RWGA_Workflow_Base {
 		 * @param array<string, mixed> $result       Normalised result.
 		 * @param array<string, mixed> $meta         Telemetry metadata.
 		 */
-		$telemetry = class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta() : array();
+		$telemetry = class_exists( 'RWGA_Generation_Router', false )
+			? RWGA_Generation_Router::telemetry_meta()
+			: ( class_exists( 'RWGA_Remote_Client', false ) ? RWGA_Remote_Client::telemetry_meta() : array() );
 		do_action(
 			'rwga_workflow_persisted',
 			$this->get_key(),
