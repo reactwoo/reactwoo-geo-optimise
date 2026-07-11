@@ -632,30 +632,118 @@
 		return true;
 	}
 
+	function clearResultQueryParams() {
+		if ( ! window.history || ! window.history.replaceState ) {
+			return;
+		}
+		try {
+			var url = new URL( window.location.href );
+			[
+				'rwga_ux',
+				'rwga_engine',
+				'rwga_actions',
+				'page_id',
+				'product_id',
+				'variant_page_id',
+				'rule_id',
+			].forEach( function ( key ) {
+				url.searchParams.delete( key );
+			} );
+			window.history.replaceState( {}, '', url.toString() );
+		} catch ( err ) {
+			// Ignore URL cleanup failures.
+		}
+	}
+
+	function resetWorkspaceToFresh() {
+		var root = document.querySelector( '.rwga-ux-reviewer' );
+		var form = document.getElementById( 'rwga-ux-review-setup' );
+		var els = getFormEls();
+		var phraseInput = document.getElementById( 'rwga-ux-assistant-phrase' );
+		var currentReview = document.getElementById( 'rwga-ux-current-review' );
+		var resultsSummary = document.getElementById( 'rwga-ux-results-summary' );
+		var resultsLayout = document.getElementById( 'rwga-ux-results-layout' );
+
+		if ( root ) {
+			root.classList.remove( 'rwga-ux-reviewer--result' );
+			root.classList.add( 'rwga-ux-reviewer--fresh' );
+		}
+		if ( currentReview ) {
+			currentReview.hidden = true;
+		}
+		if ( resultsSummary ) {
+			resultsSummary.hidden = true;
+		}
+		if ( resultsLayout ) {
+			resultsLayout.hidden = true;
+		}
+		if ( form ) {
+			form.hidden = false;
+			form.classList.remove( 'rwga-ux-reviewer__setup--has-results' );
+			form.setAttribute( 'data-display-mode', 'fresh' );
+		}
+
+		if ( phraseInput ) {
+			phraseInput.value = '';
+		}
+		resetThread();
+		applyFullScope( true );
+		if ( els.targetType ) {
+			els.targetType.value = 'page';
+		}
+		if ( els.pageSelect ) {
+			els.pageSelect.value = '0';
+		}
+		if ( els.productSelect ) {
+			els.productSelect.value = '0';
+		}
+		if ( els.variantInput ) {
+			els.variantInput.value = '0';
+		}
+		if ( els.ruleInput ) {
+			els.ruleInput.value = '';
+		}
+		if ( els.audience ) {
+			els.audience.value = 'all';
+		}
+		if ( els.device ) {
+			els.device.value = 'desktop';
+		}
+		syncTargetFields();
+		closeRefine();
+		clearResultQueryParams();
+		updateSetupSummary();
+		if ( form ) {
+			form.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+		}
+	}
+
 	function initResultsControls() {
 		var runAnother = document.getElementById( 'rwga-ux-run-another' );
 		var adjustSetup = document.getElementById( 'rwga-ux-adjust-setup' );
 		var openRefineBtn = document.getElementById( 'rwga-ux-open-refine' );
 		var form = document.getElementById( 'rwga-ux-review-setup' );
 
-		function showSetup( openManual ) {
-			if ( form ) {
+		function showSetup( openManual, fullReset ) {
+			if ( fullReset ) {
+				resetWorkspaceToFresh();
+			} else if ( form ) {
 				form.hidden = false;
 				form.classList.remove( 'rwga-ux-reviewer__setup--has-results' );
 				form.scrollIntoView( { behavior: 'smooth', block: 'start' } );
 			}
 			if ( openManual ) {
 				openRefine();
-			} else {
+			} else if ( ! fullReset ) {
 				closeRefine();
 			}
 		}
 
 		runAnother && runAnother.addEventListener( 'click', function () {
-			showSetup( false );
+			showSetup( false, true );
 		} );
 		adjustSetup && adjustSetup.addEventListener( 'click', function () {
-			showSetup( true );
+			showSetup( true, false );
 		} );
 		openRefineBtn && openRefineBtn.addEventListener( 'click', function () {
 			var refine = document.getElementById( 'rwga-ux-refine-setup' );

@@ -3001,26 +3001,36 @@ class RWGA_Admin {
 			return;
 		}
 
-		$rwga_page_id    = isset( $_GET['page_id'] ) ? (int) $_GET['page_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwga_product_id = isset( $_GET['product_id'] ) ? (int) $_GET['product_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwga_variant_id = isset( $_GET['variant_page_id'] ) ? (int) $_GET['variant_page_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwga_rule_id    = isset( $_GET['rule_id'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['rule_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$flash       = isset( $_GET['rwga_ux'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_ux'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$show_result = ( 'ran' === $flash );
+
+		$rwga_page_id    = $show_result && isset( $_GET['page_id'] ) ? (int) $_GET['page_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_product_id = $show_result && isset( $_GET['product_id'] ) ? (int) $_GET['product_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_variant_id = $show_result && isset( $_GET['variant_page_id'] ) ? (int) $_GET['variant_page_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_rule_id    = $show_result && isset( $_GET['rule_id'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['rule_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$rwga_source     = isset( $_GET['source'] ) ? sanitize_key( wp_unslash( (string) $_GET['source'] ) ) : 'dashboard'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwga_engine_source = isset( $_GET['rwga_engine'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_engine'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rwga_action_count  = isset( $_GET['rwga_actions'] ) ? (int) $_GET['rwga_actions'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_engine_source = $show_result && isset( $_GET['rwga_engine'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_engine'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_action_count  = $show_result && isset( $_GET['rwga_actions'] ) ? (int) $_GET['rwga_actions'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
 		$rwga_capabilities = function_exists( 'rwgc_get_suite_capability_map' )
 			? rwgc_get_suite_capability_map()
 			: ( class_exists( 'RWGA_UX_Opportunity_Action_Filter', false ) ? RWGA_UX_Opportunity_Action_Filter::get_capabilities() : array() );
 
-		$rwga_cards = array();
-		$uid        = get_current_user_id();
-		if ( $uid > 0 ) {
-			$cached = get_transient( 'rwga_ux_review_' . $uid );
-			if ( is_array( $cached ) ) {
-				$rwga_cards = $cached;
+		$rwga_cards        = array();
+		$rwga_session_meta = array();
+		if ( $show_result ) {
+			$uid = get_current_user_id();
+			if ( $uid > 0 ) {
+				$cached = get_transient( 'rwga_ux_review_' . $uid );
+				if ( is_array( $cached ) ) {
+					$rwga_cards = $cached;
+				}
+			}
+			if ( class_exists( 'RWGA_UX_Reviewer_UI', false ) ) {
+				$rwga_session_meta = RWGA_UX_Reviewer_UI::get_session_meta();
 			}
 		}
+		$rwga_display_mode = $show_result && ! empty( $rwga_cards ) ? 'result' : 'fresh';
 
 		$rwgc_nav_current = 'rwga-ux-opportunity-review';
 		include RWGA_PATH . 'admin/views/ux-opportunity-review-page.php';

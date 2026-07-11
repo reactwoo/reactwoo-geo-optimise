@@ -65,35 +65,46 @@ class RWGO_AI_Hub_Views {
 	 */
 	public static function render_ai_review() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$page_id    = isset( $_GET['page_id'] ) ? (int) $_GET['page_id'] : 0;
+		$flash = isset( $_GET['rwga_ux'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_ux'] ) ) : '';
+		$show_result = ( 'ran' === $flash );
+
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$product_id = isset( $_GET['product_id'] ) ? (int) $_GET['product_id'] : 0;
+		$page_id    = $show_result && isset( $_GET['page_id'] ) ? (int) $_GET['page_id'] : 0;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$variant_id = isset( $_GET['variant_page_id'] ) ? (int) $_GET['variant_page_id'] : 0;
+		$product_id = $show_result && isset( $_GET['product_id'] ) ? (int) $_GET['product_id'] : 0;
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$rule_id    = isset( $_GET['rule_id'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['rule_id'] ) ) : '';
+		$variant_id = $show_result && isset( $_GET['variant_page_id'] ) ? (int) $_GET['variant_page_id'] : 0;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rule_id    = $show_result && isset( $_GET['rule_id'] ) ? sanitize_text_field( wp_unslash( (string) $_GET['rule_id'] ) ) : '';
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$source     = isset( $_GET['source'] ) ? sanitize_key( wp_unslash( (string) $_GET['source'] ) ) : 'optimise_hub';
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$engine     = isset( $_GET['rwga_engine'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_engine'] ) ) : '';
+		$engine     = $show_result && isset( $_GET['rwga_engine'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwga_engine'] ) ) : '';
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$actions    = isset( $_GET['rwga_actions'] ) ? (int) $_GET['rwga_actions'] : 0;
+		$actions    = $show_result && isset( $_GET['rwga_actions'] ) ? (int) $_GET['rwga_actions'] : 0;
 
 		$capabilities = function_exists( 'rwgc_get_suite_capability_map' )
 			? rwgc_get_suite_capability_map()
 			: array();
 
-		$cards = array();
-		$uid   = get_current_user_id();
-		if ( $uid > 0 ) {
-			$cached = get_transient( 'rwga_ux_review_' . $uid );
-			if ( is_array( $cached ) ) {
-				$cards = $cached;
+		$cards        = array();
+		$session_meta = array();
+		if ( $show_result ) {
+			$uid = get_current_user_id();
+			if ( $uid > 0 ) {
+				$cached = get_transient( 'rwga_ux_review_' . $uid );
+				if ( is_array( $cached ) ) {
+					$cards = $cached;
+				}
+			}
+			if ( class_exists( 'RWGA_UX_Reviewer_UI', false ) ) {
+				$session_meta = RWGA_UX_Reviewer_UI::get_session_meta();
 			}
 		}
 
 		RWGA_UX_Reviewer_UI::render_workspace(
 			array(
+				'display_mode'     => $show_result && ! empty( $cards ) ? 'result' : 'fresh',
 				'source'           => $source,
 				'page_id'          => $page_id,
 				'product_id'       => $product_id,
@@ -103,6 +114,7 @@ class RWGO_AI_Hub_Views {
 				'action_count'     => $actions,
 				'capabilities'     => $capabilities,
 				'cards'            => $cards,
+				'session_meta'     => $session_meta,
 				'show_inner_nav'   => false,
 				'embed'            => true,
 				'wrap_class'       => 'rwgo-optimise-hub__ai-review',

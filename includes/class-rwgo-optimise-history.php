@@ -15,6 +15,77 @@ if ( ! defined( 'ABSPATH' ) ) {
 class RWGO_Optimise_History {
 
 	/**
+	 * Recent AI analysis runs for AI Review sidebar (persisted history only).
+	 *
+	 * @param int $limit Max rows (capped at 3 for the sidebar by default callers).
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function recent_ai_runs( $limit = 3 ) {
+		$limit = max( 1, min( 10, (int) $limit ) );
+		if ( ! class_exists( 'RWGA_DB_Analysis_Runs', false ) ) {
+			return array();
+		}
+
+		$rows = RWGA_DB_Analysis_Runs::list_recent( $limit );
+		$out  = array();
+
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id = (int) ( $row['id'] ?? 0 );
+			if ( $id <= 0 ) {
+				continue;
+			}
+
+			$page_id = (int) ( $row['page_id'] ?? 0 );
+			$target  = '';
+			if ( $page_id > 0 ) {
+				$title = get_the_title( $page_id );
+				$target = is_string( $title ) && '' !== $title
+					? $title
+					: sprintf(
+						/* translators: %d: page ID */
+						__( 'Page #%d', 'reactwoo-geo-optimise' ),
+						$page_id
+					);
+			} elseif ( ! empty( $row['page_url'] ) ) {
+				$target = self::truncate( (string) $row['page_url'], 48 );
+			} else {
+				$target = __( 'Site', 'reactwoo-geo-optimise' );
+			}
+
+			$workflow = self::workflow_label( (string) ( $row['workflow_key'] ?? '' ) );
+			$ts       = self::mysql_gmt_to_ts( (string) ( $row['created_at'] ?? '' ) );
+			$score    = null;
+			if ( isset( $row['score'] ) && '' !== $row['score'] && null !== $row['score'] ) {
+				$score = (int) round( (float) $row['score'] );
+			}
+
+			$time_label = '';
+			if ( $ts > 0 ) {
+				$time_label = sprintf(
+					/* translators: %s: human time difference */
+					__( '%s ago', 'reactwoo-geo-optimise' ),
+					human_time_diff( $ts, time() )
+				);
+			}
+
+			$out[] = array(
+				'id'         => $id,
+				'title'      => $target . ' — ' . $workflow,
+				'detail'     => self::analysis_detail_line( $row ),
+				'score'      => $score,
+				'ts'         => $ts,
+				'time_label' => $time_label,
+				'url'        => RWGO_Optimise_Hub::tab_url( 'history', array( 'run_id' => $id ) ),
+			);
+		}
+
+		return $out;
+	}
+
+	/**
 	 * @param int $limit Max merged rows.
 	 * @return array<int, array<string, mixed>>
 	 */

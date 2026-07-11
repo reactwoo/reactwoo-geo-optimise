@@ -985,6 +985,7 @@ class RWGA_UX_Reviewer_UI {
 	 */
 	public static function render_workspace( array $args = array() ) {
 		$defaults = array(
+			'display_mode'      => 'fresh',
 			'source'            => 'dashboard',
 			'page_id'           => 0,
 			'product_id'        => 0,
@@ -993,7 +994,8 @@ class RWGA_UX_Reviewer_UI {
 			'engine_source'     => '',
 			'action_count'      => 0,
 			'capabilities'      => function_exists( 'rwgc_get_suite_capability_map' ) ? rwgc_get_suite_capability_map() : array(),
-			'cards'             => self::get_session_cards(),
+			'cards'             => array(),
+			'session_meta'      => array(),
 			'show_inner_nav'    => true,
 			'nav_current'       => 'rwga-ux-opportunity-review',
 			'form_action_page'  => 'rwga-ux-opportunity-review',
@@ -1002,9 +1004,33 @@ class RWGA_UX_Reviewer_UI {
 		);
 		$ctx = wp_parse_args( $args, $defaults );
 
+		$display_mode = sanitize_key( (string) ( $ctx['display_mode'] ?? 'fresh' ) );
+		if ( 'result' !== $display_mode ) {
+			$display_mode = 'fresh';
+		}
+
 		$capabilities = is_array( $ctx['capabilities'] ) ? $ctx['capabilities'] : array();
 		$cards        = is_array( $ctx['cards'] ) ? $ctx['cards'] : array();
+		$session_meta = isset( $ctx['session_meta'] ) && is_array( $ctx['session_meta'] ) ? $ctx['session_meta'] : array();
+
+		if ( 'result' === $display_mode ) {
+			if ( empty( $cards ) ) {
+				$cards = self::get_session_cards();
+			}
+			if ( empty( $session_meta ) ) {
+				$session_meta = self::get_session_meta();
+			}
+			if ( empty( $cards ) ) {
+				$display_mode = 'fresh';
+				$session_meta = array();
+			}
+		} else {
+			$cards        = array();
+			$session_meta = array();
+		}
+
 		$has_findings = ! empty( $cards );
+		$has_review   = ( 'result' === $display_mode ) && $has_findings;
 
 		foreach ( $cards as $i => $card ) {
 			if ( ! is_array( $card ) ) {
@@ -1015,14 +1041,12 @@ class RWGA_UX_Reviewer_UI {
 			}
 		}
 
-		$session_meta       = self::get_session_meta();
-		$selected_scopes    = isset( $session_meta['audit_scopes'] ) && is_array( $session_meta['audit_scopes'] )
+		$selected_scopes = ( $has_review && isset( $session_meta['audit_scopes'] ) && is_array( $session_meta['audit_scopes'] ) )
 			? self::parse_audit_scopes_from_input( $session_meta['audit_scopes'] )
 			: self::all_audit_scope_slugs();
-		$has_review         = $has_findings || ! empty( $session_meta['ran_at'] );
 		$category_summaries = self::compute_category_summaries( $cards, $selected_scopes, $has_review );
 		$audit_type_defs    = self::audit_type_definitions();
-		$score_delta        = isset( $session_meta['score_delta'] ) ? $session_meta['score_delta'] : null;
+		$score_delta        = $has_review && isset( $session_meta['score_delta'] ) ? $session_meta['score_delta'] : null;
 		$score_summary      = self::compute_score_summary( $cards );
 		$can_run       = current_user_can( RWGA_Capabilities::CAP_RUN_AI )
 			&& class_exists( 'RWGA_License', false )
@@ -1041,6 +1065,9 @@ class RWGA_UX_Reviewer_UI {
 		$export_url       = ( defined( 'RWGO_AI_EMBEDDED' ) && RWGO_AI_EMBEDDED && class_exists( 'RWGO_Optimise_Hub', false ) )
 			? RWGO_Optimise_Hub::tab_url( 'history' )
 			: admin_url( 'admin.php?page=rwga-analyses' );
+		$recent_activity  = class_exists( 'RWGO_Optimise_History', false )
+			? RWGO_Optimise_History::recent_ai_runs( 3 )
+			: array();
 
 		$engine_label = '';
 		if ( 'remote_ai' === $ctx['engine_source'] ) {
