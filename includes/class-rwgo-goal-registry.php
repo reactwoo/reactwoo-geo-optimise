@@ -76,6 +76,10 @@ class RWGO_Goal_Registry {
 
 			$mapping_active = class_exists( 'RWGO_Goal_Mapping', false ) && RWGO_Goal_Mapping::is_active( $cfg );
 
+			$manifest = class_exists( 'RWGO_Tracking_Manifest', false )
+				? RWGO_Tracking_Manifest::build( $cfg, (int) $post->ID )
+				: array();
+
 			$experiments[] = array(
 				'experimentId'         => (int) $post->ID,
 				'experimentKey'        => (string) $cfg['experiment_key'],
@@ -89,6 +93,7 @@ class RWGO_Goal_Registry {
 				'resolvedVariant'      => (string) $resolved_variant,
 				'logicalPrimaryGoalId' => (string) $logical_primary,
 				'mappingActive'        => $mapping_active,
+				'trackingManifest'     => $manifest,
 			);
 		}
 

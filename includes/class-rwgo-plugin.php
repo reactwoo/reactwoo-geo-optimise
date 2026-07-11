@@ -96,6 +96,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-targeting.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-payload.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-element-key.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-exposure.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-tracking-manifest.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';

@@ -50,6 +50,40 @@ class RWGO_Event_Payload {
 	}
 
 	/**
+	 * Normalize experiment exposure payload (rendered variant experience).
+	 *
+	 * @param array<string, mixed> $parts Partial payload.
+	 * @return array<string, mixed>
+	 */
+	public static function normalize_experiment_exposure( array $parts ) {
+		$defaults = array(
+			'event_instance_id'   => 'exp_' . strtolower( wp_generate_password( 12, false, false ) ),
+			'event_type'          => 'experiment_exposure',
+			'experiment_id'       => 0,
+			'experiment_key'      => '',
+			'variant_id'          => '',
+			'variant_label'       => '',
+			'goal_id'             => '',
+			'goal_type'           => '',
+			'handler_id'          => '',
+			'page_context_id'     => 0,
+			'page_variant_post_id'=> 0,
+			'element_fingerprint' => '',
+			'element_key'         => '',
+			'session_hash'        => '',
+			'source'              => 'geo_optimise_exposure',
+			'timestamp_utc'       => gmdate( 'c' ),
+		);
+		$payload = array_merge( $defaults, $parts );
+		$payload = self::attach_profile_context( $payload );
+		/**
+		 * @param array<string, mixed> $payload Canonical exposure payload.
+		 * @param array<string, mixed> $parts   Input parts.
+		 */
+		return apply_filters( 'rwgo_experiment_exposure_payload_normalized', $payload, $parts );
+	}
+
+	/**
 	 * @param array<string, mixed> $payload Event payload.
 	 * @return array<string, mixed>
 	 */

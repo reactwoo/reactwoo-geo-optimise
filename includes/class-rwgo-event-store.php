@@ -22,6 +22,7 @@ class RWGO_Event_Store {
 	 */
 	public static function init() {
 		add_action( 'rwgo_goal_fired', array( __CLASS__, 'on_goal_fired' ), 10, 1 );
+		add_action( 'rwgo_experiment_exposure', array( __CLASS__, 'on_experiment_exposure' ), 10, 1 );
 	}
 
 	/**
@@ -94,8 +95,8 @@ class RWGO_Event_Store {
 				'page_variant_post_id'   => (int) ( $payload['page_variant_post_id'] ?? 0 ),
 				'event_type'             => substr( (string) ( $payload['event_type'] ?? '' ), 0, 32 ),
 				'element_fingerprint'    => substr( (string) ( $payload['element_fingerprint'] ?? '' ), 0, 191 ),
-				'visitor_assignment_hash'=> '',
-				'session_hash'           => '',
+				'visitor_assignment_hash'=> substr( (string) ( $payload['visitor_assignment_hash'] ?? '' ), 0, 64 ),
+				'session_hash'           => substr( (string) ( $payload['session_hash'] ?? '' ), 0, 64 ),
 				'country_code'           => substr( (string) ( $payload['country'] ?? '' ), 0, 2 ),
 				'device_type'            => substr( (string) ( $payload['device_type'] ?? '' ), 0, 32 ),
 				'created_at_gmt'         => gmdate( 'Y-m-d H:i:s' ),
@@ -141,6 +142,55 @@ class RWGO_Event_Store {
 		 * @param array<string, mixed> $payload   Payload.
 		 */
 		do_action( 'rwgo_goal_event_recorded', $insert_id, $payload );
+	}
+
+	/**
+	 * Persist experiment exposure (same table; event_type = experiment_exposure).
+	 *
+	 * @param array<string, mixed> $payload From RWGO_Event_Payload::normalize_experiment_exposure.
+	 * @return void
+	 */
+	public static function on_experiment_exposure( $payload ) {
+		if ( ! is_array( $payload ) ) {
+			return;
+		}
+		if ( empty( $payload['event_type'] ) ) {
+			$payload['event_type'] = 'experiment_exposure';
+		}
+		self::on_goal_fired( $payload );
+	}
+
+	/**
+	 * Count exposure rows per variant for an experiment.
+	 *
+	 * @param string $experiment_key Key.
+	 * @return array<string, int> variant_id => count
+	 */
+	public static function count_exposures_by_variant( $experiment_key ) {
+		global $wpdb;
+		$table = self::table_name();
+		$key   = sanitize_text_field( (string) $experiment_key );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name.
+		$sql = $wpdb->prepare(
+			"SELECT variant_id, COUNT(*) AS c FROM {$table} WHERE experiment_key = %s AND event_type = %s GROUP BY variant_id",
+			$key,
+			'experiment_exposure'
+		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+		$rows = $wpdb->get_results( $sql, ARRAY_A );
+		$out  = array();
+		if ( is_array( $rows ) ) {
+			foreach ( $rows as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$vid = isset( $row['variant_id'] ) ? sanitize_key( (string) $row['variant_id'] ) : '';
+				if ( '' !== $vid ) {
+					$out[ $vid ] = (int) ( $row['c'] ?? 0 );
+				}
+			}
+		}
+		return $out;
 	}
 
 	/**

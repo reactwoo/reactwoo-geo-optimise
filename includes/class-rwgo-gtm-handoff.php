@@ -16,6 +16,8 @@ class RWGO_GTM_Handoff {
 
 	const EVENT_NAME = 'rwgo_goal_fired';
 
+	const EXPOSURE_EVENT_NAME = 'rwgo_experiment_exposure';
+
 	/**
 	 * Standard Data Layer Variable names (snake_case, match rwgo-tracking.js push).
 	 *
@@ -225,7 +227,29 @@ class RWGO_GTM_Handoff {
 	 * @return string
 	 */
 	public static function trigger_block_plain() {
-		return "Trigger Type: Custom Event\nEvent Name: " . self::EVENT_NAME;
+		return "Trigger Type: Custom Event\nEvent Name: " . self::EVENT_NAME
+			. "\n\nOptional exposure trigger:\nTrigger Type: Custom Event\nEvent Name: " . self::EXPOSURE_EVENT_NAME;
+	}
+
+	/**
+	 * Example dataLayer push for experiment exposure.
+	 *
+	 * @param \WP_Post             $exp_post Experiment post.
+	 * @param array<string, mixed> $cfg      Config.
+	 * @return string
+	 */
+	public static function exposure_example_datalayer_js( \WP_Post $exp_post, array $cfg ) {
+		$labels = self::variant_labels_map( $cfg );
+		$obj    = array(
+			'event'                => self::EXPOSURE_EVENT_NAME,
+			'rwgo_test_name'       => get_the_title( $exp_post ),
+			'rwgo_experiment_key'  => (string) ( $cfg['experiment_key'] ?? '' ),
+			'rwgo_variant_id'      => 'var_b',
+			'rwgo_variant_label'   => (string) ( $labels['var_b'] ?? 'Variant B' ),
+			'rwgo_page_context_id' => (int) ( $cfg['source_page_id'] ?? 0 ),
+			'rwgo_builder'         => self::builder_slug_for_datalayer( $cfg ),
+		);
+		return "window.dataLayer = window.dataLayer || [];\nwindow.dataLayer.push(" . wp_json_encode( $obj, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ) . ');';
 	}
 
 	/**
@@ -383,9 +407,14 @@ class RWGO_GTM_Handoff {
 					'body'  => $js,
 				),
 				array(
+					'id'    => 'exposure',
+					'label' => __( 'Exposure event (optional)', 'reactwoo-geo-optimise' ),
+					'body'  => self::exposure_example_datalayer_js( $exp_post, $cfg ),
+				),
+				array(
 					'id'    => 'hint',
 					'label' => __( 'Reporting hint', 'reactwoo-geo-optimise' ),
-					'body'  => __( 'Use GA4 explorations or reports filtered by rwgo_experiment_key and rwgo_variant_id to compare Control vs Variant B without creating separate events per test.', 'reactwoo-geo-optimise' ),
+					'body'  => __( 'Use GA4 explorations or reports filtered by rwgo_experiment_key and rwgo_variant_id to compare Control vs Variant B without creating separate events per test. Fire rwgo_experiment_exposure for denominator/exposure counts; rwgo_goal_fired remains the conversion event.', 'reactwoo-geo-optimise' ),
 				),
 			),
 			'copyAll' => self::copy_all_simple_pack( $js ),

@@ -390,6 +390,47 @@
 		}
 	}
 
+	/**
+	 * Client exposure signal for GTM/GA4. Server already persists experiment_exposure rows.
+	 * Session-deduped so refreshes do not spam dataLayer.
+	 */
+	function maybeFireExposures() {
+		if (!cfg.experiments || !cfg.experiments.length) {
+			return;
+		}
+		cfg.experiments.forEach(function (exp) {
+			if (!exp || !exp.experimentKey || !exp.resolvedVariant) {
+				return;
+			}
+			var sk = 'rwgo_exposure_' + exp.experimentKey + '_' + exp.resolvedVariant;
+			try {
+				if (window.sessionStorage) {
+					if (window.sessionStorage.getItem(sk)) {
+						return;
+					}
+					window.sessionStorage.setItem(sk, '1');
+				}
+			} catch (e0) {
+				/* continue without dedupe */
+			}
+			var variantLabel = '';
+			var vid = exp.resolvedVariant || '';
+			if (vid && exp.variantLabels && typeof exp.variantLabels === 'object') {
+				variantLabel = exp.variantLabels[vid] || '';
+			}
+			window.dataLayer = window.dataLayer || [];
+			window.dataLayer.push({
+				event: 'rwgo_experiment_exposure',
+				rwgo_test_name: exp.testName || '',
+				rwgo_experiment_key: exp.experimentKey || '',
+				rwgo_variant_id: vid,
+				rwgo_variant_label: variantLabel,
+				rwgo_page_context_id: exp.sourcePageId || pageContextId || 0,
+				rwgo_builder: exp.builder || ''
+			});
+		});
+	}
+
 	function maybeFirePageViews() {
 		if (strictBinding) {
 			return;
@@ -608,6 +649,7 @@
 		stampExperimentBindings();
 		stampMissingExperimentKeysFromDom();
 		bindElementorFormAjaxSuccess();
+		maybeFireExposures();
 		maybeFirePageViews();
 		document.addEventListener('click', onClick, true);
 		document.addEventListener('submit', onSubmit, true);

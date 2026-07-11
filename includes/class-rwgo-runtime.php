@@ -60,6 +60,16 @@ class RWGO_Runtime {
 				continue;
 			}
 			RWGO_Stats::record_variant_served( (string) $cfg['experiment_key'], $variant );
+			if ( class_exists( 'RWGO_Exposure', false ) ) {
+				$source = (int) ( $cfg['source_page_id'] ?? 0 );
+				RWGO_Exposure::record(
+					$cfg,
+					$variant,
+					$source > 0 ? $source : $pid,
+					$pid,
+					$exp_post ? (int) $exp_post->ID : 0
+				);
+			}
 		}
 	}
 

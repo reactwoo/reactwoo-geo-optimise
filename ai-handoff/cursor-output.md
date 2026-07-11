@@ -1,36 +1,36 @@
-# Cursor output — generation router migration (remaining workflows)
+# Cursor output
 
-**Status:** done  
-**Date:** 2026-07-11
+## Status
 
-## Summary
-
-Migrated remaining workflows onto `RWGA_Generation_Router`. Only `RWGA_Managed_AI_Transport` still calls `RWGA_Remote_Client::dispatch` directly.
+done
 
 ## Files changed
 
-| File | Why |
-|------|-----|
-| `class-rwga-workflow-competitor-research.php` | Router + local stub |
-| `class-rwga-workflow-copy-implement.php` | Router + local stub |
-| `class-rwga-workflow-ux-opportunity-review.php` | Router + telemetry |
-| `class-rwga-workflow-intelligence.php` | Managed-only via router |
-| `class-rwga-weather-facet-suggester.php` | Router + keyword local |
-| `docs/GENERATION-TRANSPORTS.md` | Document migrated set |
-| Version / readme / README | **0.4.70** |
+- `includes/class-rwgo-exposure.php` (new) — server exposure recording
+- `includes/class-rwgo-tracking-manifest.php` (new) — schema 1.0 manifest builder
+- `includes/class-rwgo-event-payload.php` — `normalize_experiment_exposure`
+- `includes/class-rwgo-event-store.php` — hook + counts; persist session_hash
+- `includes/class-rwgo-runtime.php` — call exposure after served
+- `includes/class-rwgo-plugin.php` — require new classes
+- `includes/class-rwgo-goal-registry.php` — `trackingManifest` on FE config
+- `includes/class-rwgo-gtm-handoff.php` — exposure event docs/example
+- `assets/js/rwgo-tracking.js` — dataLayer exposure push
+- `docs/MEASUREMENT-CONTRACT.md` — phase 2
+- Version → **0.4.71**
 
-## Not changed
+## What was not changed
 
-- WP AI prompt registry (still ux_analysis / ux_recommend only)
-- Standalone Geo AI
-- License / Core / API
+- Physical goal_id/handler_id matching
+- GTM API provisioning / Atomic write / winner policy
+- Unrelated UX reviewer workspace JS (left unstaged)
+- Standalone Geo AI repo
 
-## Commands
+## Commands / validation
 
-- `php -l` on migrated files — OK
-- PHPUnit generation suite via Geo Core vendor phpunit — (see session)
+- PHP syntax check on new classes
 - `npm run package:zip`
+- Tag `v0.4.71` push + `git ls-remote` verify
 
 ## Remaining
 
-None for this routing pass.
+- Next roadmap: Atomic write stamping keys from blueprint
