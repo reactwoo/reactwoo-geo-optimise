@@ -317,6 +317,16 @@ class RWGO_Elementor_Goals {
 			)
 		);
 		$element->add_control(
+			'rwgo_element_key',
+			array(
+				'label'       => __( 'Element key', 'reactwoo-geo-optimise' ),
+				'type'        => \Elementor\Controls_Manager::TEXT,
+				'placeholder' => __( 'e.g. hero.primary_cta', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Stable semantic key shared by Control and Variant B. Leave blank to derive from goal label + type.', 'reactwoo-geo-optimise' ),
+				'condition'   => array( 'rwgo_goal_enabled' => 'yes' ),
+			)
+		);
+		$element->add_control(
 			'rwgo_goal_note',
 			array(
 				'label'       => __( 'Goal note', 'reactwoo-geo-optimise' ),
@@ -363,17 +373,22 @@ class RWGO_Elementor_Goals {
 		if ( '' === $label ) {
 			$label = __( 'Elementor CTA', 'reactwoo-geo-optimise' );
 		}
-		$widget->add_render_attribute(
-			'_wrapper',
-			array(
-				'data-rwgo-goal-id'               => $ids['goal_id'],
-				'data-rwgo-goal-label'            => $label,
-				'data-rwgo-goal-type'             => $type,
-				'data-rwgo-handler-id'            => $ids['handler_id'],
-				'data-rwgo-builder'               => 'elementor',
-				'data-rwgo-element-fingerprint' => 'rwgo_defined',
-			)
+		$explicit_key = isset( $settings['rwgo_element_key'] ) ? (string) $settings['rwgo_element_key'] : '';
+		$element_key  = class_exists( 'RWGO_Element_Key', false )
+			? RWGO_Element_Key::resolve( $explicit_key, $label, $type )
+			: '';
+		$attrs = array(
+			'data-rwgo-goal-id'             => $ids['goal_id'],
+			'data-rwgo-goal-label'          => $label,
+			'data-rwgo-goal-type'           => $type,
+			'data-rwgo-handler-id'          => $ids['handler_id'],
+			'data-rwgo-builder'             => 'elementor',
+			'data-rwgo-element-fingerprint' => 'rwgo_defined',
 		);
+		if ( '' !== $element_key ) {
+			$attrs['data-rwgo-element-key'] = $element_key;
+		}
+		$widget->add_render_attribute( '_wrapper', $attrs );
 		self::debug_log(
 			'render_goal_stamp',
 			array(

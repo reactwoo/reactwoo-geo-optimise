@@ -85,6 +85,10 @@ class RWGO_Gutenberg_Goals {
 				'type'    => 'string',
 				'default' => '',
 			),
+			'rwgoElementKey'  => array(
+				'type'    => 'string',
+				'default' => '',
+			),
 			'rwgoGoalId'      => array(
 				'type'    => 'string',
 				'default' => '',
@@ -161,6 +165,10 @@ class RWGO_Gutenberg_Goals {
 		if ( '' === $label ) {
 			$label = __( 'Block goal', 'reactwoo-geo-optimise' );
 		}
+		$explicit_key = isset( $a['rwgoElementKey'] ) ? (string) $a['rwgoElementKey'] : '';
+		$element_key  = class_exists( 'RWGO_Element_Key', false )
+			? RWGO_Element_Key::resolve( $explicit_key, $label, $type )
+			: '';
 		$attr_pairs = array(
 			'data-rwgo-goal-id'             => $gid,
 			'data-rwgo-goal-label'          => $label,
@@ -169,6 +177,9 @@ class RWGO_Gutenberg_Goals {
 			'data-rwgo-builder'             => 'gutenberg',
 			'data-rwgo-element-fingerprint' => 'rwgo_defined',
 		);
+		if ( '' !== $element_key ) {
+			$attr_pairs['data-rwgo-element-key'] = $element_key;
+		}
 		$ui_t = $type;
 		if ( 'form_submit' === $ui_t ) {
 			return self::inject_first_tag( $block_content, array( 'form', 'FORM' ), $attr_pairs );

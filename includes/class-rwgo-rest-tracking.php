@@ -253,6 +253,11 @@ class RWGO_REST_Tracking {
 			'page_variant_post_id'   => (int) $page_variant_id,
 			'goal_type'              => isset( $params['goal_type'] ) ? sanitize_key( (string) $params['goal_type'] ) : '',
 			'element_fingerprint'    => isset( $params['element_fingerprint'] ) ? sanitize_text_field( (string) $params['element_fingerprint'] ) : '',
+			'element_key'            => isset( $params['element_key'] )
+				? ( class_exists( 'RWGO_Element_Key', false )
+					? RWGO_Element_Key::sanitize( (string) $params['element_key'] )
+					: sanitize_text_field( (string) $params['element_key'] ) )
+				: '',
 			'source'                 => 'geo_optimise_rest',
 		);
 

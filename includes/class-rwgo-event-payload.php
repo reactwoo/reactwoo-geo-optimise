@@ -32,10 +32,14 @@ class RWGO_Event_Payload {
 			'page_context_id'   => 0,
 			'page_variant_post_id' => 0,
 			'element_fingerprint' => '',
+			'element_key'       => '',
 			'source'            => 'geo_optimise',
 			'timestamp_utc'     => gmdate( 'c' ),
 		);
 		$payload = array_merge( $defaults, $parts );
+		if ( isset( $payload['element_key'] ) && class_exists( 'RWGO_Element_Key', false ) ) {
+			$payload['element_key'] = RWGO_Element_Key::sanitize( (string) $payload['element_key'] );
+		}
 		$payload = self::attach_profile_context( $payload );
 		/**
 		 * Filters a goal event payload before persistence or forwarding.

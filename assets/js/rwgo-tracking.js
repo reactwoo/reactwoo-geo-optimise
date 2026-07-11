@@ -97,6 +97,7 @@
 			rwgo_goal_id: pubGoalId,
 			rwgo_goal_label: goalLabel,
 			rwgo_handler_id: detail.handler_id || '',
+			rwgo_element_key: detail.element_key || '',
 			rwgo_page_context_id: detail.page_context_id || 0,
 			rwgo_builder: builder
 		});
@@ -234,6 +235,7 @@
 			goal_type: detail.goal_type || '',
 			goal_label: detail.goal_label || '',
 			element_fingerprint: detail.element_fingerprint || '',
+			element_key: detail.element_key || '',
 			event_instance_id: detail.event_instance_id || ''
 		};
 		var json = JSON.stringify(body);
@@ -493,9 +495,11 @@
 		var variantId = resolveVariantId(el, exp);
 		var fp = getAttr(el, 'data-rwgo-element-fingerprint') || '';
 		var gl = getAttr(el, 'data-rwgo-goal-label') || '';
+		var ek = getAttr(el, 'data-rwgo-element-key') || '';
 		window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
 			element_fingerprint: fp,
-			goal_label: gl
+			goal_label: gl,
+			element_key: ek
 		});
 	}
 
@@ -523,9 +527,11 @@
 		var variantId = resolveVariantId(form, exp);
 		var fp = getAttr(form, 'data-rwgo-element-fingerprint') || '';
 		var gl = getAttr(form, 'data-rwgo-goal-label') || '';
+		var ek = getAttr(form, 'data-rwgo-element-key') || '';
 		window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
 			element_fingerprint: fp,
-			goal_label: gl
+			goal_label: gl,
+			element_key: ek
 		});
 	}
 
@@ -544,7 +550,8 @@
 				'data-rwgo-goal-type',
 				'data-rwgo-handler-id',
 				'data-rwgo-builder',
-				'data-rwgo-element-fingerprint'
+				'data-rwgo-element-fingerprint',
+				'data-rwgo-element-key'
 			].forEach(function (a) {
 				var v = wrap.getAttribute(a);
 				if (v && !form.getAttribute(a)) {
@@ -586,9 +593,11 @@
 			var variantId = resolveVariantId(form, exp);
 			var fp = getAttr(form, 'data-rwgo-element-fingerprint') || '';
 			var gl = getAttr(form, 'data-rwgo-goal-label') || '';
+			var ek = getAttr(form, 'data-rwgo-element-key') || '';
 			window.rwgoFireGoal(expKey, goalId, handlerId, variantId, {
 				element_fingerprint: fp,
 				goal_label: gl,
+				element_key: ek,
 				source: 'elementor_form_success'
 			});
 		});

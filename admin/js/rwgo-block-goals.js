@@ -170,6 +170,20 @@
 							  })
 							: null,
 						attrs.rwgoGoalEnabled
+							? createElement(TextControl, {
+									label: __('Element key', 'reactwoo-geo-optimise'),
+									placeholder: __('e.g. hero.primary_cta', 'reactwoo-geo-optimise'),
+									value: attrs.rwgoElementKey || '',
+									onChange: function (v) {
+										setAttributes({ rwgoElementKey: v });
+									},
+									help: __(
+										'Stable semantic key shared by Control and Variant B. Leave blank to derive from goal label + type.',
+										'reactwoo-geo-optimise'
+									)
+							  })
+							: null,
+						attrs.rwgoGoalEnabled
 							? createElement(TextareaControl, {
 									label: __('Goal note', 'reactwoo-geo-optimise'),
 									value: attrs.rwgoGoalNote || '',

@@ -59,6 +59,11 @@ class RWGO_GTM_Handoff {
 				'gtm_type'  => 'Data Layer Variable',
 			),
 			array(
+				'key'       => 'rwgo_element_key',
+				'label'     => 'DLV - rwgo_element_key',
+				'gtm_type'  => 'Data Layer Variable',
+			),
+			array(
 				'key'       => 'rwgo_page_context_id',
 				'label'     => 'DLV - rwgo_page_context_id',
 				'gtm_type'  => 'Data Layer Variable',
@@ -206,6 +211,9 @@ class RWGO_GTM_Handoff {
 			'rwgo_goal_id'          => $gid,
 			'rwgo_goal_label'       => $glabel,
 			'rwgo_handler_id'       => $hid,
+			'rwgo_element_key'      => isset( $handler['element_key'] )
+				? (string) $handler['element_key']
+				: ( isset( $goal['element_key'] ) ? (string) $goal['element_key'] : '' ),
 			'rwgo_page_context_id'  => $src,
 			'rwgo_builder'          => self::builder_slug_for_datalayer( $cfg ),
 		);
@@ -238,6 +246,7 @@ class RWGO_GTM_Handoff {
 			"rwgo_goal_id → {{DLV - rwgo_goal_id}}",
 			"rwgo_goal_label → {{DLV - rwgo_goal_label}}",
 			"rwgo_handler_id → {{DLV - rwgo_handler_id}}",
+			"rwgo_element_key → {{DLV - rwgo_element_key}}",
 			"rwgo_page_context_id → {{DLV - rwgo_page_context_id}}",
 			"rwgo_builder → {{DLV - rwgo_builder}}",
 		);
@@ -296,6 +305,7 @@ class RWGO_GTM_Handoff {
 			'rwgo_goal_id'         => 'goal_example',
 			'rwgo_goal_label'      => 'CTA click',
 			'rwgo_handler_id'      => 'hdl_example',
+			'rwgo_element_key'     => 'hero.primary_cta',
 			'rwgo_page_context_id' => 0,
 			'rwgo_builder'         => 'elementor',
 		);

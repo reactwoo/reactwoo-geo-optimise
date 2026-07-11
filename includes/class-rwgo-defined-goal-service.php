@@ -157,6 +157,10 @@ class RWGO_Defined_Goal_Service {
 						$label = __( 'Elementor CTA', 'reactwoo-geo-optimise' );
 					}
 					$note = isset( $settings['rwgo_goal_note'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_note'] ) : '';
+					$explicit_key = isset( $settings['rwgo_element_key'] ) ? (string) $settings['rwgo_element_key'] : '';
+					$element_key  = class_exists( 'RWGO_Element_Key', false )
+						? RWGO_Element_Key::resolve( $explicit_key, $label, $ui_t )
+						: '';
 					$out[] = array(
 						'goal_id'           => $ids['goal_id'],
 						'goal_label'        => $label,
@@ -171,6 +175,7 @@ class RWGO_Defined_Goal_Service {
 						'is_defined'      => true,
 						'elementor_id'    => $eid,
 						'goal_note'       => $note,
+						'element_key'     => $element_key,
 					);
 				}
 				if ( 'template' === $widget_type ) {
@@ -250,6 +255,10 @@ class RWGO_Defined_Goal_Service {
 					$label = self::default_label_for_block( $name );
 				}
 				$note = isset( $a['rwgoGoalNote'] ) ? sanitize_text_field( (string) $a['rwgoGoalNote'] ) : '';
+				$explicit_key = isset( $a['rwgoElementKey'] ) ? (string) $a['rwgoElementKey'] : '';
+				$element_key  = class_exists( 'RWGO_Element_Key', false )
+					? RWGO_Element_Key::resolve( $explicit_key, $label, $ui_t )
+					: '';
 				$out[] = array(
 					'goal_id'           => $gid,
 					'goal_label'        => $label,
@@ -264,6 +273,7 @@ class RWGO_Defined_Goal_Service {
 					'builder'           => 'gutenberg',
 					'is_defined'        => true,
 					'goal_note'         => $note,
+					'element_key'       => $element_key,
 				);
 			}
 			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
