@@ -148,16 +148,31 @@ class RWGO_Defined_Goal_Service {
 			if ( 'widget' === $el_type ) {
 				$widget_type = isset( $el['widgetType'] ) ? sanitize_key( (string) $el['widgetType'] ) : '';
 				$settings = isset( $el['settings'] ) && is_array( $el['settings'] ) ? $el['settings'] : array();
-				if ( ! empty( $settings['rwgo_goal_enabled'] ) && 'yes' === (string) $settings['rwgo_goal_enabled'] ) {
+				$enabled  = class_exists( 'RWGO_Measurement_Stamper', false )
+					? RWGO_Measurement_Stamper::setting_string( $settings, 'rwgo_goal_enabled' )
+					: ( isset( $settings['rwgo_goal_enabled'] ) ? (string) $settings['rwgo_goal_enabled'] : '' );
+				if ( 'yes' === $enabled || '1' === $enabled || 'true' === strtolower( $enabled ) ) {
 					$eid    = isset( $el['id'] ) ? (string) $el['id'] : '';
 					$ids    = self::elementor_element_ids( $root_post_id, $eid );
-					$label  = isset( $settings['rwgo_goal_label'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_label'] ) : '';
-					$ui_t   = isset( $settings['rwgo_goal_type'] ) ? sanitize_key( (string) $settings['rwgo_goal_type'] ) : 'cta_click';
+					$label  = class_exists( 'RWGO_Measurement_Stamper', false )
+						? RWGO_Measurement_Stamper::setting_string( $settings, 'rwgo_goal_label' )
+						: ( isset( $settings['rwgo_goal_label'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_label'] ) : '' );
+					$ui_t   = class_exists( 'RWGO_Measurement_Stamper', false )
+						? RWGO_Measurement_Stamper::setting_string( $settings, 'rwgo_goal_type', 'cta_click' )
+						: ( isset( $settings['rwgo_goal_type'] ) ? sanitize_key( (string) $settings['rwgo_goal_type'] ) : 'cta_click' );
+					$ui_t   = sanitize_key( (string) $ui_t );
+					if ( '' === $ui_t ) {
+						$ui_t = 'cta_click';
+					}
 					if ( '' === $label ) {
 						$label = __( 'Elementor CTA', 'reactwoo-geo-optimise' );
 					}
-					$note = isset( $settings['rwgo_goal_note'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_note'] ) : '';
-					$explicit_key = isset( $settings['rwgo_element_key'] ) ? (string) $settings['rwgo_element_key'] : '';
+					$note = class_exists( 'RWGO_Measurement_Stamper', false )
+						? RWGO_Measurement_Stamper::setting_string( $settings, 'rwgo_goal_note' )
+						: ( isset( $settings['rwgo_goal_note'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_note'] ) : '' );
+					$explicit_key = class_exists( 'RWGO_Measurement_Stamper', false )
+						? RWGO_Measurement_Stamper::setting_string( $settings, 'rwgo_element_key' )
+						: ( isset( $settings['rwgo_element_key'] ) ? (string) $settings['rwgo_element_key'] : '' );
 					$element_key  = class_exists( 'RWGO_Element_Key', false )
 						? RWGO_Element_Key::resolve( $explicit_key, $label, $ui_t )
 						: '';
@@ -174,6 +189,7 @@ class RWGO_Defined_Goal_Service {
 						'builder'         => 'elementor',
 						'is_defined'      => true,
 						'elementor_id'    => $eid,
+						'widget_type'     => $widget_type,
 						'goal_note'       => $note,
 						'element_key'     => $element_key,
 					);

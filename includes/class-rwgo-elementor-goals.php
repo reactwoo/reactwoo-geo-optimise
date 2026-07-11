@@ -45,6 +45,14 @@ class RWGO_Elementor_Goals {
 			'tabs',
 			'alert',
 			'social-icons',
+			// Elementor Atomic V4.
+			'e-button',
+			'e-heading',
+			'e-paragraph',
+			'e-form',
+			'e-tabs',
+			'e-accordion',
+			'e-video',
 		);
 		if ( defined( 'ELEMENTOR_PRO_VERSION' ) ) {
 			$widgets = array_merge(
@@ -359,7 +367,11 @@ class RWGO_Elementor_Goals {
 			return;
 		}
 		$settings = $widget->get_settings_for_display();
-		if ( empty( $settings['rwgo_goal_enabled'] ) || 'yes' !== $settings['rwgo_goal_enabled'] ) {
+		$enabled  = isset( $settings['rwgo_goal_enabled'] ) ? $settings['rwgo_goal_enabled'] : '';
+		if ( is_array( $enabled ) && isset( $enabled['value'] ) ) {
+			$enabled = $enabled['value'];
+		}
+		if ( empty( $enabled ) || ( 'yes' !== (string) $enabled && true !== $enabled && '1' !== (string) $enabled ) ) {
 			return;
 		}
 		$eid = method_exists( $widget, 'get_id' ) ? (string) $widget->get_id() : '';
@@ -368,12 +380,24 @@ class RWGO_Elementor_Goals {
 			return;
 		}
 		$ids   = RWGO_Defined_Goal_Service::elementor_element_ids( $pid, $eid );
-		$label = isset( $settings['rwgo_goal_label'] ) ? sanitize_text_field( (string) $settings['rwgo_goal_label'] ) : '';
-		$type  = isset( $settings['rwgo_goal_type'] ) ? sanitize_key( (string) $settings['rwgo_goal_type'] ) : 'cta_click';
+		$label = isset( $settings['rwgo_goal_label'] ) ? $settings['rwgo_goal_label'] : '';
+		if ( is_array( $label ) && isset( $label['value'] ) ) {
+			$label = $label['value'];
+		}
+		$label = sanitize_text_field( (string) $label );
+		$type  = isset( $settings['rwgo_goal_type'] ) ? $settings['rwgo_goal_type'] : 'cta_click';
+		if ( is_array( $type ) && isset( $type['value'] ) ) {
+			$type = $type['value'];
+		}
+		$type = sanitize_key( (string) $type );
 		if ( '' === $label ) {
 			$label = __( 'Elementor CTA', 'reactwoo-geo-optimise' );
 		}
-		$explicit_key = isset( $settings['rwgo_element_key'] ) ? (string) $settings['rwgo_element_key'] : '';
+		$explicit_key = isset( $settings['rwgo_element_key'] ) ? $settings['rwgo_element_key'] : '';
+		if ( is_array( $explicit_key ) && isset( $explicit_key['value'] ) ) {
+			$explicit_key = $explicit_key['value'];
+		}
+		$explicit_key = (string) $explicit_key;
 		$element_key  = class_exists( 'RWGO_Element_Key', false )
 			? RWGO_Element_Key::resolve( $explicit_key, $label, $type )
 			: '';

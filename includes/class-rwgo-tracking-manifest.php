@@ -56,6 +56,8 @@ class RWGO_Tracking_Manifest {
 					'handler_id'   => (string) ( $row['handler_id'] ?? '' ),
 					'goal_label'   => (string) ( $row['goal_label'] ?? '' ),
 					'builder'      => (string) ( $row['builder'] ?? '' ),
+					'elementor_id' => (string) ( $row['elementor_id'] ?? '' ),
+					'ui_goal_type' => (string) ( $row['ui_goal_type'] ?? '' ),
 				);
 			}
 		}
@@ -131,6 +133,8 @@ class RWGO_Tracking_Manifest {
 					'goal_label'   => $label,
 					'goal_type'    => (string) ( $g['goal_type'] ?? '' ),
 					'builder'      => (string) ( $g['builder'] ?? '' ),
+					'elementor_id' => isset( $g['elementor_id'] ) ? (string) $g['elementor_id'] : '',
+					'ui_goal_type' => (string) ( $g['ui_goal_type'] ?? '' ),
 				);
 				continue;
 			}
@@ -150,6 +154,8 @@ class RWGO_Tracking_Manifest {
 					'goal_label'   => $hl,
 					'goal_type'    => (string) ( $g['goal_type'] ?? '' ),
 					'builder'      => (string) ( $g['builder'] ?? '' ),
+					'elementor_id' => isset( $h['elementor_id'] ) ? (string) $h['elementor_id'] : ( isset( $g['elementor_id'] ) ? (string) $g['elementor_id'] : '' ),
+					'ui_goal_type' => (string) ( $g['ui_goal_type'] ?? '' ),
 				);
 			}
 		}

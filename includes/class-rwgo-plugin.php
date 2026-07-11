@@ -98,6 +98,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-element-key.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-exposure.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-manifest.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-measurement-stamper.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';
@@ -134,6 +135,9 @@ class RWGO_Plugin {
 		RWGO_Page_Goal_Meta::init();
 		RWGO_Elementor_Page_Goal::init();
 		RWGO_Runtime::init();
+		if ( class_exists( 'RWGO_Measurement_Stamper', false ) ) {
+			add_action( 'rwgo_post_duplicate_variant', array( 'RWGO_Measurement_Stamper', 'on_post_duplicate_variant' ), 20, 2 );
+		}
 		RWGO_Admin_Wizard::init();
 		RWGO_Core_Event_Bridge::init();
 		RWGO_Events::init();

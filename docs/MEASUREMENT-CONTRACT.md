@@ -1,6 +1,6 @@
 # Geo Optimise measurement contract
 
-**Status:** Phase 2 implemented (element keys + exposure + tracking manifest)  
+**Status:** Phase 3 implemented (element keys + exposure + manifest + Atomic write stamp)  
 **Owner:** `reactwoo-geo-optimise`
 
 ## Purpose
@@ -51,53 +51,45 @@ Helper: `RWGO_Exposure::record()` from `RWGO_Runtime::maybe_record_variant_serve
 
 ### Client dataLayer
 
-On page load (sessionStorage-deduped), `rwgo-tracking.js` pushes:
-
-```js
-{
-  event: "rwgo_experiment_exposure",
-  rwgo_test_name: "...",
-  rwgo_experiment_key: "...",
-  rwgo_variant_id: "var_b",
-  rwgo_variant_label: "Variant B",
-  rwgo_page_context_id: 123,
-  rwgo_builder: "elementor"
-}
-```
-
-Server owns DB insert; the client push is for GTM/GA4 only.
+On page load (sessionStorage-deduped), `rwgo-tracking.js` pushes `rwgo_experiment_exposure`.
 
 ### Tracking manifest
 
-`RWGO_Tracking_Manifest::build()` (schema `1.0`) is attached to each experiment in the front-end config as `trackingManifest`:
+`RWGO_Tracking_Manifest::build()` (schema `1.0`) is attached to each experiment in the front-end config as `trackingManifest`, including `tracked_elements[].elementor_id` when known.
 
-```json
-{
-  "schema_version": "1.0",
-  "experiment_key": "...",
-  "hypothesis": "",
-  "primary_goal": { "id": "...", "type": "click", "semantic_key": "hero.primary_cta" },
-  "secondary_goals": [],
-  "tracked_elements": [
-    {
-      "semantic_key": "hero.primary_cta",
-      "goal_id": "hero_cta_click",
-      "handler_id": "..."
-    }
-  ],
-  "guardrails": ["bounce_rate", "form_error_rate", "page_performance"]
-}
-```
+## Phase 3 — Atomic / Elementor write path (stamp from blueprint)
 
-Use the same `semantic_key` on Control and Variant B widgets.
+### Writer
+
+`RWGA_Elementor_Document_Writer` patches existing `_elementor_data` nodes:
+
+- Loads / saves Elementor JSON
+- `patch_widget_settings` / `patch_many` by element id
+- Measurement keys (`rwgo_*`) stored as **plain** strings (compatible with Advanced controls)
+- Other Atomic V4 content props can use `{ $$type, value }` wrappers when the node is detected as V4
+
+Does **not** construct full Atomic pages.
+
+### Stamper
+
+`RWGO_Measurement_Stamper`:
+
+- `apply_tracked_elements` / `apply_manifest` — write keys onto widgets by `elementor_id`
+- `sync_keys_source_to_target` — pair Control → Variant B widgets of the same `widgetType` in document order
+- Runs automatically on `rwgo_post_duplicate_variant`
+- Developer Tools: **Sync Control → Variant B keys**
+
+### Atomic goal support
+
+Supported Elementor widget list includes Atomic types (`e-button`, `e-form`, …). Defined-goal collection and render stamping unwrap typed `{ $$type, value }` settings when present.
 
 ## Not in this phase
 
 - Tracking preflight / GTM API provisioning
 - Winner policy statistical gates
 - Replacing physical goal/handler mapping with element-key-only matching
-- Atomic V4 write that stamps keys from the blueprint
+- Full Atomic page construction from blueprints
 
 ## Next
 
-Atomic write path that stamps keys from the blueprint, then GTM provisioning + winner policy.
+GTM provisioning + winner policy.

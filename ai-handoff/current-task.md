@@ -4,19 +4,19 @@
 
 ## Problem
 
-Measurement contract phase 2: exposure events + experiment tracking manifest (after element keys in 0.4.69).
+Atomic write path that stamps measurement element keys from the blueprint/manifest onto Elementor V3/V4 documents.
 
 ## Expected (this pass)
 
-- `RWGO_Exposure` rows in `wp_rwgo_events` (`experiment_exposure`), session/day-deduped
-- `RWGO_Tracking_Manifest` on front-end experiment config
-- Client `rwgo_experiment_exposure` dataLayer (sessionStorage-deduped)
-- GTM handoff documents exposure event
-- Ship **0.4.71**
+- `RWGA_Elementor_Document_Writer` patch/save `_elementor_data`
+- `RWGO_Measurement_Stamper` apply manifest + sync Control→Variant B
+- Hook on variant duplicate; Developer Tools sync action
+- Atomic widget goal support + typed setting unwrap
+- Ship **0.4.73**
 
 ## Do not touch
 
+- Full Atomic page construction
+- GTM API provisioning / winner policy
 - Standalone `reactwoo-geo-ai`
-- GTM API provisioning / Atomic write / winner policy (next phases)
-- License / Core / API repos
-- Unrelated UX reviewer workspace WIP
+- Unrelated UX reviewer WIP

@@ -51,6 +51,26 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php endif; ?>
 	</div>
 
+	<div class="rwgc-card rwgo-resync-card">
+		<h2><?php esc_html_e( 'Sync measurement element keys', 'reactwoo-geo-optimise' ); ?></h2>
+		<p><?php esc_html_e( 'Copy stable element keys (and goal flags) from each test’s Control page onto Variant B by matching Elementor widgets of the same type in document order. Works for legacy V3 and Atomic V4 documents. Run after regenerating Variant B or when keys drifted.', 'reactwoo-geo-optimise' ); ?></p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-cta-row">
+			<input type="hidden" name="action" value="rwgo_sync_measurement_keys" />
+			<?php wp_nonce_field( 'rwgo_sync_measurement_keys' ); ?>
+			<?php submit_button( __( 'Sync Control → Variant B keys', 'reactwoo-geo-optimise' ), 'secondary', 'submit', false, array( 'class' => 'button rwgo-btn' ) ); ?>
+		</form>
+		<?php if ( isset( $_GET['rwgo_keys_sync'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<?php
+			$rwgo_ks_sc = isset( $_GET['rwgo_keys_scanned'] ) ? (int) $_GET['rwgo_keys_scanned'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_ks_ok = isset( $_GET['rwgo_keys_ok'] ) ? (int) $_GET['rwgo_keys_ok'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_ks_pt = isset( $_GET['rwgo_keys_patched'] ) ? (int) $_GET['rwgo_keys_patched'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			?>
+			<div class="rwgo-hint rwgo-hint--accent">
+				<p><?php echo esc_html( sprintf( /* translators: 1: tests scanned, 2: tests synced, 3: widgets patched */ __( 'Scanned %1$d test(s), synced %2$d, widgets patched: %3$d.', 'reactwoo-geo-optimise' ), $rwgo_ks_sc, $rwgo_ks_ok, $rwgo_ks_pt ) ); ?></p>
+			</div>
+		<?php endif; ?>
+	</div>
+
 	<div class="rwgc-card">
 		<h2><?php esc_html_e( 'Manual PHP variant resolution', 'reactwoo-geo-optimise' ); ?></h2>
 		<p><?php esc_html_e( 'Use this only when you implement a custom template or bespoke PHP outside the wizard — for example, conditional output in a theme file.', 'reactwoo-geo-optimise' ); ?></p>

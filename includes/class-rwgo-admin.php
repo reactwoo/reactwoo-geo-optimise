@@ -305,6 +305,7 @@ class RWGO_Admin {
 		add_action( 'admin_post_rwgo_resync_goal_physical_ids', array( __CLASS__, 'handle_resync_goal_physical_ids' ) );
 		add_filter( 'rwgc_onboarding_platform_steps', array( __CLASS__, 'filter_onboarding_platform_steps' ), 20, 2 );
 		add_action( 'admin_post_rwgo_resync_all_safe', array( __CLASS__, 'handle_resync_all_safe' ) );
+		add_action( 'admin_post_rwgo_sync_measurement_keys', array( __CLASS__, 'handle_sync_measurement_keys' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -1295,6 +1296,53 @@ class RWGO_Admin {
 				'rwgo_goal_resync' => (string) (int) ( $goal_stats['updated'] ?? 0 ),
 				'rwgo_gr_scanned'  => (string) (int) ( $goal_stats['scanned'] ?? 0 ),
 				'rwgo_gr_patched'  => (string) (int) ( $goal_stats['goals_patched'] ?? 0 ),
+			),
+			self::developer_url( 'developer' )
+		);
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Sync semantic element keys from Control → Variant B for all Elementor tests.
+	 *
+	 * @return void
+	 */
+	public static function handle_sync_measurement_keys() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_sync_measurement_keys' );
+		$scanned = 0;
+		$ok      = 0;
+		$patched = 0;
+		if ( class_exists( 'RWGO_Experiment_Repository', false ) && class_exists( 'RWGO_Measurement_Stamper', false ) ) {
+			$posts = RWGO_Experiment_Repository::query_experiments( array( 'posts_per_page' => 500 ) );
+			if ( is_array( $posts ) ) {
+				foreach ( $posts as $post ) {
+					if ( ! ( $post instanceof WP_Post ) ) {
+						continue;
+					}
+					++$scanned;
+					$cfg = RWGO_Experiment_Repository::get_config( (int) $post->ID );
+					if ( ! is_array( $cfg ) ) {
+						continue;
+					}
+					$result = RWGO_Measurement_Stamper::sync_experiment_config( $cfg );
+					if ( is_wp_error( $result ) ) {
+						continue;
+					}
+					++$ok;
+					$patched += (int) ( $result['patched'] ?? 0 );
+				}
+			}
+		}
+		$url = add_query_arg(
+			array(
+				'rwgo_keys_sync'    => '1',
+				'rwgo_keys_scanned' => (string) $scanned,
+				'rwgo_keys_ok'      => (string) $ok,
+				'rwgo_keys_patched' => (string) $patched,
 			),
 			self::developer_url( 'developer' )
 		);

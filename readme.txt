@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.72
+Stable tag: 0.4.73
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -14,7 +14,7 @@ AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includ
 
 Standalone **ReactWoo Geo AI** is deprecated — deactivate it after verifying the Optimise hub (AI Review, Recommendations, Drafts, History tabs).
 
-Generation modes: Automatic (WordPress AI → ReactWoo managed → local), WordPress AI (BYOK via WordPress 7 providers), ReactWoo managed AI, or local deterministic. Product licensing still applies; BYOK does not consume the ReactWoo managed AI allowance. Elementor Atomic support is read-only in this phase.
+Generation modes: Automatic (WordPress AI → ReactWoo managed → local), WordPress AI (BYOK via WordPress 7 providers), ReactWoo managed AI, or local deterministic. Product licensing still applies; BYOK does not consume the ReactWoo managed AI allowance. Elementor Atomic support includes read context plus measurement-key write stamps (full Atomic page construction is a later pass).
 
 See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-AI-INTO-OPTIMISE.md` for merge notes, `docs/GENERATION-TRANSPORTS.md` for transport modes, and `docs/MEASUREMENT-CONTRACT.md` for semantic element keys.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.73 =
+* **Measurement / Atomic write:** Elementor document writer + measurement stamper sync Control→Variant B element keys (V3/V4); auto on variant duplicate; Developer Tools sync action; Atomic widget goal support.
 
 = 0.4.72 =
 * **AI Review UX:** Chat-first hierarchy — review types before target controls, Refine setup collapsed by default, Full review as select-all, compact results summary, hidden target-field CSS fix, legacy Experiments/Reports removed from Experiences section strip.
