@@ -116,12 +116,30 @@ Interactive CTAs (`primary_cta`, `button`) receive plain `rwgo_*` measurement se
 
 `RWGO_Blueprint_Page_Writer::create_draft_page()` / `apply_to_post()` persist via `RWGA_Elementor_Document_Writer::write_document()`. Developer Tools: **Create page from blueprint**.
 
+## Phase 6 — Winner policy + promotion automation
+
+`RWGO_Winner_Policy` gates promotion readiness:
+
+| Gate | Default |
+|------|---------|
+| Min sample per variant | 100 (assignments, or exposures when both sides have exposure rows) |
+| Min total conversions | 10 |
+| Two-proportion z-test | α = 0.05 |
+| Leader | Control or Variant B |
+
+Config: `$cfg['winner_policy']` + filters (`rwgo_winner_min_sample`, `rwgo_winner_min_conversions`, `rwgo_winner_alpha`, `rwgo_winner_use_exposures`, `rwgo_winner_policy_enforce`).
+
+- `ready_to_promote` — Variant B leads and all gates pass.
+- `enforce` (off by default) — Promote Winner blocks unless “Promote anyway”.
+- `RWGO_Promotion_Automation` — optional auto-promote via `rwgo_auto_promote_when_ready` (default false) on `rwgo_winner_policy_evaluated`.
+
+Rates in `RWGO_Winner_Service::analyze()` prefer exposure denominators when available.
+
 ## Not in this phase
 
 - Live GTM Tag Manager API push
-- Winner policy statistical gates
 - Replacing physical goal/handler mapping with element-key-only matching
 
 ## Next
 
-Winner policy (sample size / significance gates) + promotion automation.
+Live GTM API OAuth push (optional); refine auto-promote / scheduled evaluation.

@@ -132,6 +132,8 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 			$goal_breakdown   = isset( $analysis['goal_breakdown'] ) && is_array( $analysis['goal_breakdown'] ) ? $analysis['goal_breakdown'] : array();
 			$fired_touchpoints = isset( $analysis['fired_touchpoints'] ) && is_array( $analysis['fired_touchpoints'] ) ? $analysis['fired_touchpoints'] : array();
 			$insight_line     = isset( $analysis['insight_line'] ) ? (string) $analysis['insight_line'] : '';
+			$winner_policy    = isset( $analysis['winner_policy'] ) && is_array( $analysis['winner_policy'] ) ? $analysis['winner_policy'] : array();
+			$policy_summary   = isset( $winner_policy['summary'] ) ? (string) $winner_policy['summary'] : '';
 
 			$total_assign = 0;
 			foreach ( $variants_rows as $vr ) {
@@ -145,6 +147,8 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 				$summary = __( 'This test has ended.', 'reactwoo-geo-optimise' );
 			} elseif ( $assignment_only ) {
 				$summary = __( 'Assignment-only mode: traffic split is tracked; no conversion winner is declared.', 'reactwoo-geo-optimise' );
+			} elseif ( '' !== $policy_summary ) {
+				$summary = $policy_summary;
 			} elseif ( $total_assign < 5 ) {
 				$summary = __( 'Not enough visitors yet for a confident read — check back after more traffic.', 'reactwoo-geo-optimise' );
 			} elseif ( $conversion_mode && $lead_label ) {

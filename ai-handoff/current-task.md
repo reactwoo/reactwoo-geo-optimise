@@ -4,15 +4,16 @@
 
 ## Problem
 
-User asked for both: (1) Atomic Elementor goals and (2) full Atomic/page write from blueprints — sequentially.
+Winner policy + promotion automation (measurement contract Phase 6).
 
 ## Expected
 
-- **0.4.73** already shipped Atomic goals + stamp-on-existing write
-- **0.4.75** blueprint page construction (V3 + Atomic) with CTA element keys
-- Developer Tools create-draft action
+- Statistical gates (sample, conversions, two-proportion z-test, exposures)
+- Promote UI shows gates; enforce soft-block + override
+- Optional auto-promote via filter (default off)
+- Release **0.4.77**
 
 ## Do not touch
 
-- Live GTM API push / winner policy
+- Live GTM API push
 - Standalone Geo AI

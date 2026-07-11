@@ -306,6 +306,26 @@ class RWGO_Winner_Service {
 			unset( $r );
 		}
 
+		// Prefer exposure denominators for rates when available (before leader pick).
+		$denom_source = 'assignments';
+		$policy_settings = class_exists( 'RWGO_Winner_Policy', false ) ? RWGO_Winner_Policy::settings( $config ) : array( 'use_exposures' => true );
+		if ( $conversion_mode && ! empty( $policy_settings['use_exposures'] ) && class_exists( 'RWGO_Event_Store', false ) && '' !== $key ) {
+			$exp_counts = RWGO_Event_Store::count_exposures_by_variant( $key );
+			$e_c        = isset( $exp_counts['control'] ) ? (int) $exp_counts['control'] : 0;
+			$e_b        = isset( $exp_counts['var_b'] ) ? (int) $exp_counts['var_b'] : 0;
+			if ( $e_c > 0 && $e_b > 0 ) {
+				$denom_source = 'exposures';
+				foreach ( array( 'control', 'var_b' ) as $slug ) {
+					if ( ! isset( $rows[ $slug ] ) ) {
+						continue;
+					}
+					$n = isset( $exp_counts[ $slug ] ) ? (int) $exp_counts[ $slug ] : 0;
+					$rows[ $slug ]['exposures'] = $n;
+					$rows[ $slug ]['rate']      = $n > 0 ? ( (int) $rows[ $slug ]['completions'] / $n ) : 0.0;
+				}
+			}
+		}
+
 		$lead_slug = null;
 		$best_rate = -1.0;
 		if ( $conversion_mode ) {
@@ -350,22 +370,63 @@ class RWGO_Winner_Service {
 			? self::top_fired_touchpoint( $fired_touchpoints, $lead_slug ? $lead_slug : '' )
 			: null;
 
-		return array(
-			'assignment_only'     => $assignment_only,
-			'conversion_mode'     => $conversion_mode,
+		$out = array(
+			'assignment_only'      => $assignment_only,
+			'conversion_mode'      => $conversion_mode,
 			'has_measurement_pairs'=> $has_pairs,
-			'primary_goal_id'     => $primary_gid,
-			'primary_goal_label'  => $primary_label,
-			'metric_label'        => __( 'Total conversions', 'reactwoo-geo-optimise' ),
-			'metric_description'  => __( 'Sum of mapped success goals (goal + handler) per variant.', 'reactwoo-geo-optimise' ),
-			'variants'            => $rows,
-			'leading_variant'     => $lead_slug,
-			'best_rate'           => $best_rate >= 0 ? $best_rate : null,
-			'goal_breakdown'      => $breakdown,
-			'fired_touchpoints'   => $fired_touchpoints,
-			'top_fired_touchpoint'=> $top_touchpoint,
-			'insight_line'        => $insight_line,
+			'primary_goal_id'      => $primary_gid,
+			'primary_goal_label'   => $primary_label,
+			'metric_label'         => __( 'Total conversions', 'reactwoo-geo-optimise' ),
+			'metric_description'   => 'exposures' === $denom_source
+				? __( 'Sum of mapped success goals per variant ÷ exposures.', 'reactwoo-geo-optimise' )
+				: __( 'Sum of mapped success goals (goal + handler) per variant ÷ assignments.', 'reactwoo-geo-optimise' ),
+			'denominator_source'   => $denom_source,
+			'variants'             => $rows,
+			'leading_variant'      => $lead_slug,
+			'best_rate'            => $best_rate >= 0 ? $best_rate : null,
+			'goal_breakdown'       => $breakdown,
+			'fired_touchpoints'    => $fired_touchpoints,
+			'top_fired_touchpoint' => $top_touchpoint,
+			'insight_line'         => $insight_line,
 		);
+
+		if ( class_exists( 'RWGO_Winner_Policy', false ) ) {
+			$out['winner_policy'] = RWGO_Winner_Policy::evaluate( $out, $config, $key );
+			$exp_id = self::find_experiment_post_id_by_key( $key );
+			if ( $exp_id > 0 ) {
+				/**
+				 * After winner policy is evaluated for an experiment.
+				 *
+				 * @param int                  $exp_id Experiment CPT id.
+				 * @param array<string, mixed> $out    Analysis.
+				 * @param array<string, mixed> $config Config.
+				 */
+				do_action( 'rwgo_winner_policy_evaluated', $exp_id, $out, $config );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param string $experiment_key Key.
+	 * @return int
+	 */
+	private static function find_experiment_post_id_by_key( $experiment_key ) {
+		$key = sanitize_text_field( (string) $experiment_key );
+		if ( '' === $key || ! class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			return 0;
+		}
+		foreach ( RWGO_Experiment_Repository::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
+			if ( ! ( $post instanceof \WP_Post ) ) {
+				continue;
+			}
+			$cfg = RWGO_Experiment_Repository::get_config( (int) $post->ID );
+			if ( is_array( $cfg ) && isset( $cfg['experiment_key'] ) && (string) $cfg['experiment_key'] === $key ) {
+				return (int) $post->ID;
+			}
+		}
+		return 0;
 	}
 
 	/**

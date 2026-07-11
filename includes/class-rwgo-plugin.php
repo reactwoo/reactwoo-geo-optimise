@@ -74,12 +74,14 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-mapping.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-experiment-measurements.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-winner-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-winner-policy.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-woocommerce-goals.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-db-schema.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-redirect-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-log.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-slug-scaffold.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-promotion-service.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-promotion-automation.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-naming-service.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-duplicator.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-variant-lifecycle.php';
@@ -144,6 +146,7 @@ class RWGO_Plugin {
 		RWGO_Admin_Wizard::init();
 		RWGO_Core_Event_Bridge::init();
 		RWGO_Events::init();
+		RWGO_Promotion_Automation::init();
 		RWGO_Admin::init();
 
 		add_action(

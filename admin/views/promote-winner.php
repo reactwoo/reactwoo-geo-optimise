@@ -42,6 +42,12 @@ $analysis    = class_exists( 'RWGO_Winner_Service', false ) && '' !== $key_stats
 $lead_slug   = isset( $analysis['leading_variant'] ) ? (string) $analysis['leading_variant'] : '';
 $assign_only = ! empty( $analysis['assignment_only'] );
 $conv_mode   = ! empty( $analysis['conversion_mode'] );
+$policy      = isset( $analysis['winner_policy'] ) && is_array( $analysis['winner_policy'] ) ? $analysis['winner_policy'] : array();
+$policy_ready = ! empty( $policy['ready_to_promote'] );
+$policy_enforce = ! empty( $policy['enforce'] );
+$policy_summary = isset( $policy['summary'] ) ? (string) $policy['summary'] : '';
+$policy_gates = isset( $policy['gates'] ) && is_array( $policy['gates'] ) ? $policy['gates'] : array();
+$rwgo_policy_blocked = isset( $_GET['rwgo_error'] ) && 'policy' === sanitize_key( wp_unslash( $_GET['rwgo_error'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $lead_promo_label = '';
 if ( $lead_slug && isset( $rwgo_cfg['variants'] ) && is_array( $rwgo_cfg['variants'] ) ) {
 	foreach ( $rwgo_cfg['variants'] as $row ) {
@@ -187,6 +193,36 @@ $rwgc_nav_current = 'rwgo-tests';
 
 			<?php if ( $conv_mode && $lead_slug ) : ?>
 				<p class="rwgo-hint"><?php echo esc_html( sprintf( /* translators: %s: variant label */ __( 'Current leading variant by total conversions: %s', 'reactwoo-geo-optimise' ), $lead_promo_label ) ); ?></p>
+			<?php endif; ?>
+
+			<?php if ( $rwgo_policy_blocked ) : ?>
+				<div class="notice notice-error inline"><p><?php esc_html_e( 'Promotion blocked: winner policy gates are not met. Enable “Promote anyway” below, or wait until Variant B is significant.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $policy ) ) : ?>
+				<div class="rwgo-winner-policy">
+					<p class="rwgo-hint"><strong><?php echo esc_html( $policy_summary ? $policy_summary : __( 'Winner policy', 'reactwoo-geo-optimise' ) ); ?></strong></p>
+					<?php if ( ! empty( $policy_gates ) ) : ?>
+						<ul class="rwgo-checklist">
+							<?php foreach ( $policy_gates as $gate ) : ?>
+								<?php
+								if ( ! is_array( $gate ) ) {
+									continue;
+								}
+								$ok = ! empty( $gate['ok'] );
+								$detail = isset( $gate['detail'] ) ? (string) $gate['detail'] : '';
+								?>
+								<li><?php echo $ok ? '✓ ' : '✗ '; ?><?php echo esc_html( $detail ); ?></li>
+							<?php endforeach; ?>
+						</ul>
+					<?php endif; ?>
+					<?php if ( $policy_enforce && ! $policy_ready ) : ?>
+						<label class="rwgo-checkbox-line">
+							<input type="checkbox" name="rwgo_promote_anyway" value="1" />
+							<?php esc_html_e( 'Promote anyway (override winner policy)', 'reactwoo-geo-optimise' ); ?>
+						</label>
+					<?php endif; ?>
+				</div>
 			<?php endif; ?>
 
 			<fieldset class="rwgo-fieldset">

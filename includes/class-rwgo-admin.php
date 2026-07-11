@@ -1581,6 +1581,23 @@ class RWGO_Admin {
 			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-reports&rwgo_error=promote' ) );
 			exit;
 		}
+		$fallback = self::promote_winner_url( $exp_id );
+		$target   = self::safe_admin_redirect_target( $fallback );
+
+		// Soft-block when winner policy enforce is on and Variant B is not ready (unless override).
+		$cfg = class_exists( 'RWGO_Experiment_Repository', false ) ? RWGO_Experiment_Repository::get_config( $exp_id ) : array();
+		$key = isset( $cfg['experiment_key'] ) ? (string) $cfg['experiment_key'] : '';
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing
+		$force = ! empty( $_POST['rwgo_promote_anyway'] );
+		if ( ! $force && '' !== $key && class_exists( 'RWGO_Winner_Service', false ) && class_exists( 'RWGO_Winner_Policy', false ) ) {
+			$analysis = RWGO_Winner_Service::analyze( $key, is_array( $cfg ) ? $cfg : array(), array() );
+			$policy   = isset( $analysis['winner_policy'] ) && is_array( $analysis['winner_policy'] ) ? $analysis['winner_policy'] : array();
+			if ( ! empty( $policy['enforce'] ) && empty( $policy['ready_to_promote'] ) ) {
+				wp_safe_redirect( add_query_arg( 'rwgo_error', 'policy', $target ) );
+				exit;
+			}
+		}
+
 		$va = isset( $_POST['rwgo_variant_disposal'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_variant_disposal'] ) ) : RWGO_Promotion_Service::VARIANT_ARCHIVE_REDIRECT; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$allowed_va = array(
 			RWGO_Promotion_Service::VARIANT_ARCHIVE_REDIRECT,
@@ -1593,8 +1610,6 @@ class RWGO_Admin {
 		}
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing
 		$copy_title = ! isset( $_POST['rwgo_copy_post_title'] ) || (int) $_POST['rwgo_copy_post_title'] === 1;
-		$fallback   = self::promote_winner_url( $exp_id );
-		$target     = self::safe_admin_redirect_target( $fallback );
 		$r          = RWGO_Promotion_Service::run(
 			$exp_id,
 			array(

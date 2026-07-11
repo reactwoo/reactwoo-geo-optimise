@@ -4,44 +4,28 @@
 
 done
 
-## Task
-
-AI Review workspace state contract: fresh vs result (Optimise 0.4.76).
-
-## State contract
-
-| Mode | Trigger | Main area | Sidebar |
-|------|---------|-----------|---------|
-| **fresh** | Clean tab URL (`page=rwgo-optimise&tab=ai-review`) or error redirect | New assistant + review types + Run review; Refine collapsed; no findings | Recent activity from persisted `RWGA_DB_Analysis_Runs` (max 3) |
-| **result** | Only `rwga_ux=ran` after successful POST redirect | Transient cards + score/categories/findings | Same Recent activity rail |
-
-Do **not** infer result mode from an existing `rwga_ux_review_{uid}` transient alone.
-
 ## Files changed
 
-- `includes/class-rwgo-ai-hub-views.php` — explicit fresh/result from `rwga_ux=ran`
-- `includes/class-rwgo-optimise-history.php` — `recent_ai_runs( $limit = 3 )`
-- `merged-geo-ai/includes/class-rwga-ux-reviewer-ui.php` — display_mode; no implicit session load in fresh
-- `merged-geo-ai/includes/class-rwga-admin.php` — same gate for standalone reviewer route
-- `merged-geo-ai/admin/views/ux-opportunity-review-page.php` — pass display_mode / session_meta
-- `merged-geo-ai/admin/views/partials/ux-reviewer-workspace.php` — Recent activity sidebar; findings only in result mode
-- `merged-geo-ai/admin/js/rwga-ux-reviewer-assistant.js` — Run another review full reset + `history.replaceState` URL cleanup
-- `merged-geo-ai/admin/css/rwga-ux-reviewer.css` — workspace grid + recent rail
-- Version → **0.4.76**
+- `includes/class-rwgo-winner-policy.php` — sample/significance/exposure gates
+- `includes/class-rwgo-promotion-automation.php` — optional auto-promote hook
+- `includes/class-rwgo-winner-service.php` — exposure rates + attach policy + fire action
+- `includes/class-rwgo-plugin.php` — require + `Promotion_Automation::init()`
+- `includes/class-rwgo-admin.php` — enforce gate on promote (override flag)
+- `admin/views/promote-winner.php` — policy gates UI + promote anyway
+- `admin/views/reports.php` — policy summary in report headline
+- `docs/MEASUREMENT-CONTRACT.md` — Phase 6
+- Version bump → **0.4.77**
 
 ## Not changed
 
-- Generation transports, experiment assignment, goals, promotion, analysis DB schema, transient write path on POST
+- Live GTM API OAuth push
+- Standalone Geo AI
 
-## Commands / validation
+## Commands
 
-- PHP syntax on changed files — OK
-- `node --check` assistant JS — OK
-- `npm run package:zip` — OK → `reactwoo-geo-optimise-0.4.76.zip`
+- `php -l` on changed PHP files — OK
 
-## Manual acceptance
+## Remaining
 
-- [ ] Complete review → see results on `rwga_ux=ran`
-- [ ] Leave tab and return → fresh assistant, no sticky findings
-- [ ] Previous run in Recent activity + History
-- [ ] Run another review resets chat/choices and cleans result query params
+- Enable `rwgo_auto_promote_when_ready` / `winner_policy.enforce` only when product wants it
+- Live GTM API later
