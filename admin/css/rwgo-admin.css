@@ -2065,6 +2065,57 @@ select.rwgo-input {
   font-size: 14px;
 }
 
+.rwgo-gtm-preflight {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #e2e4e7;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.rwgo-gtm-preflight__title {
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.rwgo-gtm-preflight__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rwgo-gtm-preflight__list li {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 4px 0;
+  border-top: 1px solid #eef2f7;
+}
+
+.rwgo-gtm-preflight__list li.is-ok .rwgo-gtm-preflight__label::before {
+  content: "✓ ";
+  color: #15803d;
+}
+
+.rwgo-gtm-preflight__list li.is-fail .rwgo-gtm-preflight__label::before {
+  content: "✗ ";
+  color: #b32d2e;
+}
+
+.rwgo-gtm-preflight__label {
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.rwgo-gtm-preflight__detail {
+  color: #64748b;
+}
+
 .rwgo-tracking-technical-details {
   margin-top: 8px;
   border: 1px solid #e2e4e7;

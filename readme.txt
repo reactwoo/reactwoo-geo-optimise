@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.73
+Stable tag: 0.4.74
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.74 =
+* **GTM provisioning:** Tracking preflight checklist + downloadable offline GTM provision pack (variables, triggers, GA4 tags, manifest) per test.
 
 = 0.4.73 =
 * **Measurement / Atomic write:** Elementor document writer + measurement stamper sync Control→Variant B element keys (V3/V4); auto on variant duplicate; Developer Tools sync action; Atomic widget goal support.

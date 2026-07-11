@@ -306,6 +306,7 @@ class RWGO_Admin {
 		add_filter( 'rwgc_onboarding_platform_steps', array( __CLASS__, 'filter_onboarding_platform_steps' ), 20, 2 );
 		add_action( 'admin_post_rwgo_resync_all_safe', array( __CLASS__, 'handle_resync_all_safe' ) );
 		add_action( 'admin_post_rwgo_sync_measurement_keys', array( __CLASS__, 'handle_sync_measurement_keys' ) );
+		add_action( 'admin_post_rwgo_download_gtm_pack', array( __CLASS__, 'handle_download_gtm_pack' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
 
@@ -1347,6 +1348,36 @@ class RWGO_Admin {
 			self::developer_url( 'developer' )
 		);
 		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Download offline GTM provision JSON for one experiment.
+	 *
+	 * @return void
+	 */
+	public static function handle_download_gtm_pack() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		$exp_id = isset( $_GET['experiment_id'] ) ? absint( wp_unslash( $_GET['experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		check_admin_referer( 'rwgo_download_gtm_pack_' . $exp_id );
+		$post = get_post( $exp_id );
+		if ( ! ( $post instanceof WP_Post ) || ! class_exists( 'RWGO_Experiment_Repository', false ) || ! class_exists( 'RWGO_GTM_Provisioner', false ) ) {
+			wp_die( esc_html__( 'Experiment not found.', 'reactwoo-geo-optimise' ) );
+		}
+		$cfg  = RWGO_Experiment_Repository::get_config( $exp_id );
+		$pack = RWGO_GTM_Provisioner::build_pack( $post, is_array( $cfg ) ? $cfg : array() );
+		$json = wp_json_encode( $pack, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( ! is_string( $json ) || '' === $json ) {
+			wp_die( esc_html__( 'Could not build GTM pack.', 'reactwoo-geo-optimise' ) );
+		}
+		$filename = RWGO_GTM_Provisioner::filename_for_config( is_array( $cfg ) ? $cfg : array() );
+		nocache_headers();
+		header( 'Content-Type: application/json; charset=utf-8' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+		header( 'Content-Length: ' . (string) strlen( $json ) );
+		echo $json; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- JSON download body.
 		exit;
 	}
 

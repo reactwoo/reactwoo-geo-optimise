@@ -4,19 +4,17 @@
 
 ## Problem
 
-Atomic write path that stamps measurement element keys from the blueprint/manifest onto Elementor V3/V4 documents.
+GTM provisioning after Atomic write: tracking preflight + offline provision pack (no live Google API yet).
 
 ## Expected (this pass)
 
-- `RWGA_Elementor_Document_Writer` patch/save `_elementor_data`
-- `RWGO_Measurement_Stamper` apply manifest + sync Control→Variant B
-- Hook on variant duplicate; Developer Tools sync action
-- Atomic widget goal support + typed setting unwrap
-- Ship **0.4.73**
+- `RWGO_Tracking_Preflight` checklist per experiment
+- `RWGO_GTM_Provisioner` downloadable JSON pack
+- Tracking Tools UI: preflight + Download GTM pack
+- Ship **0.4.74**
 
 ## Do not touch
 
-- Full Atomic page construction
-- GTM API provisioning / winner policy
+- Live GTM Tag Manager API OAuth push
+- Winner policy statistical gates (next)
 - Standalone `reactwoo-geo-ai`
-- Unrelated UX reviewer WIP

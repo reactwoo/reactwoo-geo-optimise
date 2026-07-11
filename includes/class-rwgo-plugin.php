@@ -100,6 +100,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-manifest.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-measurement-stamper.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-tracking-preflight.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-gtm-provisioner.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-defined-goal-service.php';

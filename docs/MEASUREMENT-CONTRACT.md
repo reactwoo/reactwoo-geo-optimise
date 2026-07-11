@@ -1,6 +1,6 @@
 # Geo Optimise measurement contract
 
-**Status:** Phase 3 implemented (element keys + exposure + manifest + Atomic write stamp)  
+**Status:** Phase 4 implemented (element keys + exposure + manifest + Atomic write + GTM provision pack)  
 **Owner:** `reactwoo-geo-optimise`
 
 ## Purpose
@@ -83,13 +83,33 @@ Does **not** construct full Atomic pages.
 
 Supported Elementor widget list includes Atomic types (`e-button`, `e-form`, …). Defined-goal collection and render stamping unwrap typed `{ $$type, value }` settings when present.
 
+## Phase 4 — Tracking preflight + GTM provision pack
+
+### Preflight
+
+`RWGO_Tracking_Preflight::run()` checks Control/Variant pages, goal+handler, element keys, tracking JS, and status.
+
+Shown on Tracking Tools per-test cards.
+
+### Provision pack (offline)
+
+`RWGO_GTM_Provisioner::build_pack()` downloads JSON (`Download GTM pack`) containing:
+
+- Preflight summary + tracking manifest
+- Recommended DLV variables
+- Triggers for `rwgo_goal_fired` and `rwgo_experiment_exposure`
+- GA4 event tag blueprints with parameter maps
+- Example dataLayer object
+
+This is **agency offline provisioning** — not a live Google Tag Manager API push (OAuth / container write is a later phase).
+
 ## Not in this phase
 
-- Tracking preflight / GTM API provisioning
+- Live GTM Tag Manager API push
 - Winner policy statistical gates
 - Replacing physical goal/handler mapping with element-key-only matching
 - Full Atomic page construction from blueprints
 
 ## Next
 
-GTM provisioning + winner policy.
+Winner policy (sample size / significance gates) + promotion automation.

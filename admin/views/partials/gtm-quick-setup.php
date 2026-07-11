@@ -41,7 +41,7 @@ $vars_plain   = RWGO_GTM_Handoff::variables_plain();
 <section class="rwgo-panel rwgo-gtm-quick" aria-labelledby="rwgo-gtm-quick-title" data-rwgo-gtm-mode="simple">
 	<div class="rwgo-gtm-quick__head">
 		<h2 id="rwgo-gtm-quick-title" class="rwgo-section__title"><?php esc_html_e( 'GTM Quick Setup', 'reactwoo-geo-optimise' ); ?></h2>
-		<p class="rwgo-section__lead"><?php esc_html_e( 'Geo Optimise uses one shared event name and test-specific parameters so agencies can report on multiple tests safely without inventing a new event structure for every test.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="rwgo-section__lead"><?php esc_html_e( 'Geo Optimise uses one shared event name and test-specific parameters so agencies can report on multiple tests safely without inventing a new event structure for every test. Download a GTM provision pack per test for offline import (variables, triggers, GA4 tags) — live Google Tag Manager API push is a later phase.', 'reactwoo-geo-optimise' ); ?></p>
 		<div class="rwgo-btn-row rwgo-gtm-quick__toolbar">
 			<button type="button" class="button rwgo-btn rwgo-btn--primary rwgo-copy-btn" data-rwgo-copy-target="#rwgo-gtm-copy-all-pack"><?php esc_html_e( 'Copy all GTM setup', 'reactwoo-geo-optimise' ); ?></button>
 			<p class="rwgo-gtm-mode-toggle">
@@ -167,11 +167,50 @@ $vars_plain   = RWGO_GTM_Handoff::variables_plain();
 						<li><strong><?php esc_html_e( 'Variant B:', 'reactwoo-geo-optimise' ); ?></strong> <?php echo esc_html( $vtitle ); ?></li>
 						<li><strong><?php esc_html_e( 'Event:', 'reactwoo-geo-optimise' ); ?></strong> <code><?php echo esc_html( RWGO_GTM_Handoff::EVENT_NAME ); ?></code></li>
 					</ul>
+					<?php
+					$preflight = class_exists( 'RWGO_Tracking_Preflight', false )
+						? RWGO_Tracking_Preflight::run( $exp_post, $cfg )
+						: null;
+					if ( is_array( $preflight ) ) :
+						?>
+					<div class="rwgo-gtm-preflight">
+						<p class="rwgo-gtm-preflight__title">
+							<strong><?php esc_html_e( 'Tracking preflight', 'reactwoo-geo-optimise' ); ?></strong>
+							<?php if ( ! empty( $preflight['ready'] ) ) : ?>
+								<span class="rwgo-meta-pill rwgo-meta-pill--ok"><?php esc_html_e( 'Ready', 'reactwoo-geo-optimise' ); ?></span>
+							<?php else : ?>
+								<span class="rwgo-meta-pill"><?php esc_html_e( 'Needs attention', 'reactwoo-geo-optimise' ); ?></span>
+							<?php endif; ?>
+						</p>
+						<ul class="rwgo-gtm-preflight__list">
+							<?php foreach ( (array) ( $preflight['checks'] ?? array() ) as $chk ) : ?>
+								<?php if ( ! is_array( $chk ) ) { continue; } ?>
+								<li class="<?php echo ! empty( $chk['ok'] ) ? 'is-ok' : 'is-fail'; ?>">
+									<span class="rwgo-gtm-preflight__label"><?php echo esc_html( (string) ( $chk['label'] ?? '' ) ); ?></span>
+									<span class="rwgo-gtm-preflight__detail"><?php echo esc_html( (string) ( $chk['detail'] ?? '' ) ); ?></span>
+								</li>
+							<?php endforeach; ?>
+						</ul>
+					</div>
+					<?php endif; ?>
 					<pre class="rwgo-code-block rwgo-code-block--copy" id="rwgo-gtm-test-example-<?php echo (int) $exp_post->ID; ?>"><?php echo esc_html( $js ); ?></pre>
 					<div class="rwgo-btn-row rwgo-btn-row--wrap">
 						<button type="button" class="button rwgo-btn rwgo-btn--secondary rwgo-copy-btn" data-rwgo-copy-target="#rwgo-gtm-test-example-<?php echo (int) $exp_post->ID; ?>"><?php esc_html_e( 'Copy example', 'reactwoo-geo-optimise' ); ?></button>
 						<button type="button" class="button rwgo-btn rwgo-btn--secondary rwgo-copy-btn" data-rwgo-copy-target="#rwgo-gtm-store-vars"><?php esc_html_e( 'Copy variables', 'reactwoo-geo-optimise' ); ?></button>
 						<button type="button" class="button rwgo-btn rwgo-btn--secondary rwgo-copy-btn" data-rwgo-copy-target="#rwgo-gtm-store-ga4"><?php esc_html_e( 'Copy GA4 mapping', 'reactwoo-geo-optimise' ); ?></button>
+						<?php
+						$pack_url = wp_nonce_url(
+							add_query_arg(
+								array(
+									'action'        => 'rwgo_download_gtm_pack',
+									'experiment_id' => (int) $exp_post->ID,
+								),
+								admin_url( 'admin-post.php' )
+							),
+							'rwgo_download_gtm_pack_' . (int) $exp_post->ID
+						);
+						?>
+						<a class="button rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $pack_url ); ?>"><?php esc_html_e( 'Download GTM pack', 'reactwoo-geo-optimise' ); ?></a>
 					</div>
 				<?php endif; ?>
 			</div>
