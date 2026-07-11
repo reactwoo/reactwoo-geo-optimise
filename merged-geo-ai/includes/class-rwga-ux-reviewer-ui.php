@@ -80,7 +80,7 @@ class RWGA_UX_Reviewer_UI {
 	public static function audit_type_definitions() {
 		return array(
 			'copy_audit' => array(
-				'label'       => __( 'Copy audit', 'reactwoo-geo-ai' ),
+				'label'       => __( 'Copy & CTA', 'reactwoo-geo-ai' ),
 				'description' => __( 'Tone of voice, clarity, and CTA messaging.', 'reactwoo-geo-ai' ),
 				'ux_areas'    => array( 'copy', 'copy_cta', 'trust', 'conversion' ),
 				'keywords'    => array(
@@ -103,7 +103,7 @@ class RWGA_UX_Reviewer_UI {
 				),
 			),
 			'seo' => array(
-				'label'       => __( 'SEO optimization', 'reactwoo-geo-ai' ),
+				'label'       => __( 'SEO', 'reactwoo-geo-ai' ),
 				'description' => __( 'Geo-specific keywords, meta, and discoverability.', 'reactwoo-geo-ai' ),
 				'ux_areas'    => array( 'seo', 'targeting' ),
 				'keywords'    => array(
@@ -123,7 +123,7 @@ class RWGA_UX_Reviewer_UI {
 				),
 			),
 			'ui_accessibility' => array(
-				'label'       => __( 'UI & accessibility', 'reactwoo-geo-ai' ),
+				'label'       => __( 'UX & accessibility', 'reactwoo-geo-ai' ),
 				'description' => __( 'Visual hierarchy, contrast, and mobile layout.', 'reactwoo-geo-ai' ),
 				'ux_areas'    => array( 'accessibility', 'mobile' ),
 				'keywords'    => array(
@@ -148,7 +148,7 @@ class RWGA_UX_Reviewer_UI {
 				),
 			),
 			'site_architecture' => array(
-				'label'       => __( 'Site architecture', 'reactwoo-geo-ai' ),
+				'label'       => __( 'Site structure', 'reactwoo-geo-ai' ),
 				'description' => __( 'Linking, variants, experiments, and user flow.', 'reactwoo-geo-ai' ),
 				'ux_areas'    => array( 'variant', 'experiment', 'commerce', 'general' ),
 				'keywords'    => array(
@@ -292,46 +292,19 @@ class RWGA_UX_Reviewer_UI {
 	public static function get_assistant_keyword_hints() {
 		return array(
 			array(
-				'label' => __( 'Audit types', 'reactwoo-geo-ai' ),
-				'items' => array(
-					array( 'label' => __( 'copy', 'reactwoo-geo-ai' ), 'insert' => __( 'copy', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'CTA', 'reactwoo-geo-ai' ), 'insert' => __( 'CTA', 'reactwoo-geo-ai' ) ),
-					array( 'label' => 'SEO', 'insert' => 'SEO' ),
-					array( 'label' => 'UI', 'insert' => 'UI' ),
-					array( 'label' => __( 'accessibility', 'reactwoo-geo-ai' ), 'insert' => __( 'accessibility', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'site architecture', 'reactwoo-geo-ai' ), 'insert' => __( 'site architecture', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'full audit', 'reactwoo-geo-ai' ), 'insert' => __( 'full audit', 'reactwoo-geo-ai' ) ),
-				),
-			),
-			array(
-				'label' => __( 'Targets', 'reactwoo-geo-ai' ),
-				'items' => array(
-					array( 'label' => __( 'homepage', 'reactwoo-geo-ai' ), 'insert' => __( 'homepage', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'landing page', 'reactwoo-geo-ai' ), 'insert' => __( 'landing page', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'product', 'reactwoo-geo-ai' ), 'insert' => __( 'product page', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'variant', 'reactwoo-geo-ai' ), 'insert' => __( 'variant page', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'rule', 'reactwoo-geo-ai' ), 'insert' => __( 'targeting rule', 'reactwoo-geo-ai' ) ),
-					array( 'label' => __( 'site-wide', 'reactwoo-geo-ai' ), 'insert' => __( 'site-wide', 'reactwoo-geo-ai' ) ),
-				),
-			),
-			array(
 				'label' => __( 'Examples', 'reactwoo-geo-ai' ),
 				'items' => array(
 					array(
-						'label'  => __( 'homepage copy', 'reactwoo-geo-ai' ),
+						'label'  => __( 'Homepage copy', 'reactwoo-geo-ai' ),
 						'insert' => __( 'Run a UX review on the copy of the homepage', 'reactwoo-geo-ai' ),
 					),
 					array(
-						'label'  => __( 'landing page SEO', 'reactwoo-geo-ai' ),
+						'label'  => __( 'Landing page SEO', 'reactwoo-geo-ai' ),
 						'insert' => __( 'Check SEO on my landing page', 'reactwoo-geo-ai' ),
 					),
 					array(
-						'label'  => __( 'contact page UI', 'reactwoo-geo-ai' ),
-						'insert' => __( 'Accessibility and UI review of the contact page', 'reactwoo-geo-ai' ),
-					),
-					array(
-						'label'  => __( 'pricing architecture', 'reactwoo-geo-ai' ),
-						'insert' => __( 'Review site architecture on the pricing page', 'reactwoo-geo-ai' ),
+						'label'  => __( 'Contact page UX', 'reactwoo-geo-ai' ),
+						'insert' => __( 'Accessibility and UX review of the contact page', 'reactwoo-geo-ai' ),
 					),
 				),
 			),
@@ -947,13 +920,24 @@ class RWGA_UX_Reviewer_UI {
 			'keywordHints'    => self::get_assistant_keyword_hints(),
 			'i18n'            => array(
 				'detectedLabel'   => __( 'Detected:', 'reactwoo-geo-ai' ),
-				'welcome'         => __( 'Tell me what you want to review. I detect copy, SEO, UI, accessibility, and site architecture — plus homepage, product, variant, and rule targets. Use the glossary below or type naturally.', 'reactwoo-geo-ai' ),
+				'welcome'         => __( 'Tell me what you would like to improve, or choose a review type below.', 'reactwoo-geo-ai' ),
 				'externalBlocked' => __( 'UX reviews run on pages inside your WordPress site only — not external URLs.', 'reactwoo-geo-ai' ),
-				'applied'         => __( 'I updated the setup below. Adjust anything in Refine setup, then start the review.', 'reactwoo-geo-ai' ),
-				'noScopes'        => __( 'I could not detect audit types — try copy, SEO, UI, accessibility, site architecture, or full audit from the glossary.', 'reactwoo-geo-ai' ),
+				'applied'         => __( 'I updated the review types and detected setup. Run the review when you are ready, or adjust setup if needed.', 'reactwoo-geo-ai' ),
+				'noScopes'        => __( 'I could not detect a review type — choose one below, or try copy, SEO, UX, accessibility, site structure, or full review.', 'reactwoo-geo-ai' ),
 				'detecting'       => __( 'Detecting…', 'reactwoo-geo-ai' ),
 				'startOver'       => __( 'Start over', 'reactwoo-geo-ai' ),
 				'placeholder'     => __( 'Describe the UX review you want to run…', 'reactwoo-geo-ai' ),
+				'tryExample'      => __( 'Try an example', 'reactwoo-geo-ai' ),
+				'fullReview'      => __( 'Full review', 'reactwoo-geo-ai' ),
+				'homepage'        => __( 'Homepage', 'reactwoo-geo-ai' ),
+				'pageFallback'    => __( 'Page', 'reactwoo-geo-ai' ),
+				'productFallback' => __( 'Product', 'reactwoo-geo-ai' ),
+				'variantFallback' => __( 'Variant', 'reactwoo-geo-ai' ),
+				'ruleFallback'    => __( 'Rule', 'reactwoo-geo-ai' ),
+				'allVisitors'     => __( 'All visitors', 'reactwoo-geo-ai' ),
+				'desktop'         => __( 'Desktop', 'reactwoo-geo-ai' ),
+				'selectAudit'     => __( 'Select at least one review type.', 'reactwoo-geo-ai' ),
+				'selectTarget'    => __( 'Choose a review target in Refine setup.', 'reactwoo-geo-ai' ),
 			),
 		);
 	}

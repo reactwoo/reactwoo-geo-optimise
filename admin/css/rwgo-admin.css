@@ -2230,6 +2230,16 @@ select.rwgo-input {
   margin-top: 0;
 }
 
+.rwgo-optimise-hub__ai-review.rwga-ux-reviewer {
+  --rwgo-card-pad: 18px;
+}
+
+.rwgo-optimise-hub__ai-review .rwga-ux-reviewer__setup,
+.rwgo-optimise-hub__ai-review .rwga-ux-reviewer__empty,
+.rwgo-optimise-hub__ai-review .rwga-ux-reviewer__score {
+  padding: 18px 20px;
+}
+
 .rwgo-optimise-hub__placeholder-meta {
   margin-top: 16px;
 }

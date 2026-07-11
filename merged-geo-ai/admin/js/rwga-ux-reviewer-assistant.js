@@ -6,6 +6,7 @@
 
 	var cfg = window.rwgaUxReviewerAssistant || {};
 	var i18n = cfg.i18n || {};
+	var hasInteracted = false;
 
 	function esc( text ) {
 		return String( text || '' )
@@ -218,6 +219,8 @@
 			productSelect: document.getElementById( 'rwga_ux_product_select' ),
 			variantInput: document.getElementById( 'rwga_ux_variant_select' ),
 			ruleInput: document.getElementById( 'rwga_ux_rule_select' ),
+			audience: document.getElementById( 'rwga_ux_audience' ),
+			device: document.getElementById( 'rwga_ux_device' ),
 			hiddenPage: document.getElementById( 'rwga_ux_hidden_page_id' ),
 			hiddenProduct: document.getElementById( 'rwga_ux_hidden_product_id' ),
 			hiddenVariant: document.getElementById( 'rwga_ux_hidden_variant_id' ),
@@ -225,7 +228,110 @@
 			fullScope: document.getElementById( 'rwga_ux_scope_full' ),
 			scopeItems: document.querySelectorAll( '.rwga-ux-reviewer__scope-item' ),
 			refine: document.getElementById( 'rwga-ux-refine-setup' ),
+			summaryValue: document.getElementById( 'rwga-ux-setup-summary-value' ),
+			form: document.getElementById( 'rwga-ux-review-setup' ),
+			resetBtn: document.getElementById( 'rwga-ux-assistant-reset' ),
 		};
+	}
+
+	function markInteracted() {
+		hasInteracted = true;
+		var els = getFormEls();
+		if ( els.resetBtn ) {
+			els.resetBtn.hidden = false;
+			els.resetBtn.classList.remove( 'rwga-ux-assistant-reset--hidden' );
+		}
+	}
+
+	function setAdjustExpanded( expanded ) {
+		document.querySelectorAll( '[aria-controls="rwga-ux-refine-setup"]' ).forEach( function ( btn ) {
+			btn.setAttribute( 'aria-expanded', expanded ? 'true' : 'false' );
+		} );
+	}
+
+	function openRefine( focusField ) {
+		var els = getFormEls();
+		if ( ! els.refine ) {
+			return;
+		}
+		els.refine.open = true;
+		setAdjustExpanded( true );
+		if ( els.form && els.form.hidden ) {
+			els.form.hidden = false;
+			els.form.classList.remove( 'rwga-ux-reviewer__setup--has-results' );
+		}
+		window.setTimeout( function () {
+			var target = focusField || ( els.targetType || els.refine );
+			if ( target && typeof target.focus === 'function' ) {
+				target.focus();
+			}
+			els.refine.scrollIntoView( { behavior: 'smooth', block: 'nearest' } );
+		}, 40 );
+	}
+
+	function closeRefine() {
+		var els = getFormEls();
+		if ( els.refine ) {
+			els.refine.open = false;
+		}
+		setAdjustExpanded( false );
+	}
+
+	function syncScopeSelectionClasses() {
+		var els = getFormEls();
+		document.querySelectorAll( '.rwga-ux-reviewer__scope-option' ).forEach( function ( label ) {
+			var input = label.querySelector( 'input[type="checkbox"]' );
+			label.classList.toggle( 'is-selected', !!( input && input.checked ) );
+		} );
+		if ( els.fullScope && els.fullScope.checked ) {
+			document.querySelectorAll( '.rwga-ux-reviewer__scope-item' ).forEach( function ( item ) {
+				var label = item.closest( '.rwga-ux-reviewer__scope-option' );
+				if ( label ) {
+					label.classList.remove( 'is-selected' );
+				}
+			} );
+		}
+	}
+
+	function syncScopeFull() {
+		var els = getFormEls();
+		if ( ! els.fullScope ) {
+			return;
+		}
+		var allChecked = true;
+		var anyChecked = false;
+		els.scopeItems.forEach( function ( item ) {
+			if ( item.checked ) {
+				anyChecked = true;
+			} else {
+				allChecked = false;
+			}
+		} );
+		if ( allChecked && anyChecked ) {
+			els.fullScope.checked = true;
+			els.scopeItems.forEach( function ( item ) {
+				item.checked = false;
+			} );
+		} else if ( anyChecked ) {
+			els.fullScope.checked = false;
+		}
+		syncScopeSelectionClasses();
+		updateSetupSummary();
+	}
+
+	function applyFullScope( checked ) {
+		var els = getFormEls();
+		if ( ! els.fullScope ) {
+			return;
+		}
+		els.fullScope.checked = !!checked;
+		if ( checked ) {
+			els.scopeItems.forEach( function ( item ) {
+				item.checked = false;
+			} );
+		}
+		syncScopeSelectionClasses();
+		updateSetupSummary();
 	}
 
 	function syncTargetFields() {
@@ -267,20 +373,94 @@
 		if ( type === 'rule' && els.ruleInput && els.hiddenRule ) {
 			els.hiddenRule.value = els.ruleInput.value || '';
 		}
+		updateSetupSummary();
 	}
 
-	function syncScopeFull() {
-		var els = getFormEls();
-		if ( ! els.fullScope ) {
-			return;
+	function selectedOptionLabel( select ) {
+		if ( ! select || ! select.options || select.selectedIndex < 0 ) {
+			return '';
 		}
-		var allChecked = true;
+		return String( select.options[ select.selectedIndex ].text || '' ).trim();
+	}
+
+	function reviewTypeSummary() {
+		var els = getFormEls();
+		var auditLabels = cfg.auditLabels || {};
+		if ( els.fullScope && els.fullScope.checked ) {
+			return i18n.fullReview || 'Full review';
+		}
+		var labels = [];
 		els.scopeItems.forEach( function ( item ) {
-			if ( ! item.checked ) {
-				allChecked = false;
+			if ( item.checked ) {
+				labels.push( auditLabels[ item.value ] || item.value );
 			}
 		} );
-		els.fullScope.checked = allChecked;
+		return labels.length ? labels.join( ', ' ) : ( i18n.fullReview || 'Full review' );
+	}
+
+	function targetSummary() {
+		var els = getFormEls();
+		var type = els.targetType ? els.targetType.value : 'page';
+		if ( type === 'site' ) {
+			return i18n.homepage || 'Homepage';
+		}
+		if ( type === 'page' && els.pageSelect ) {
+			var pageLabel = selectedOptionLabel( els.pageSelect );
+			var pageVal = parseInt( els.pageSelect.value, 10 ) || 0;
+			if ( pageVal > 0 && pageLabel && pageLabel.indexOf( '—' ) !== 0 ) {
+				return pageLabel;
+			}
+			return i18n.pageFallback || 'Page';
+		}
+		if ( type === 'product' && els.productSelect ) {
+			var productLabel = selectedOptionLabel( els.productSelect );
+			var productVal = parseInt( els.productSelect.value, 10 ) || 0;
+			if ( productVal > 0 && productLabel && productLabel.indexOf( '—' ) !== 0 ) {
+				return productLabel;
+			}
+			return i18n.productFallback || 'Product';
+		}
+		if ( type === 'variant' && els.variantInput ) {
+			var variantId = String( els.variantInput.value || '' ).trim();
+			return variantId ? ( ( i18n.variantFallback || 'Variant' ) + ' #' + variantId ) : ( i18n.variantFallback || 'Variant' );
+		}
+		if ( type === 'rule' && els.ruleInput ) {
+			var ruleId = String( els.ruleInput.value || '' ).trim();
+			return ruleId ? ( ( i18n.ruleFallback || 'Rule' ) + ' #' + ruleId ) : ( i18n.ruleFallback || 'Rule' );
+		}
+		return i18n.homepage || 'Homepage';
+	}
+
+	function updateSetupSummary() {
+		var els = getFormEls();
+		if ( ! els.summaryValue ) {
+			return;
+		}
+		var audience = selectedOptionLabel( els.audience ) || ( i18n.allVisitors || 'All visitors' );
+		var device = selectedOptionLabel( els.device ) || ( i18n.desktop || 'Desktop' );
+		els.summaryValue.textContent = [
+			reviewTypeSummary(),
+			targetSummary(),
+			audience,
+			device,
+		].join( ' · ' );
+	}
+
+	function detectionNeedsRefine( parsed ) {
+		if ( ! parsed.auditScopes || ! parsed.auditScopes.length ) {
+			return true;
+		}
+		var type = parsed.targetType || 'page';
+		if ( type === 'page' && ! parsed.pageId ) {
+			return true;
+		}
+		if ( type === 'product' && ! parsed.productId ) {
+			return true;
+		}
+		if ( type === 'variant' || type === 'rule' ) {
+			return true;
+		}
+		return false;
 	}
 
 	function applyDetection( parsed ) {
@@ -295,14 +475,26 @@
 			els.productSelect.value = String( parsed.productId );
 		}
 		if ( parsed.auditScopes && parsed.auditScopes.length ) {
-			els.scopeItems.forEach( function ( item ) {
-				item.checked = parsed.auditScopes.indexOf( item.value ) !== -1;
-			} );
-			syncScopeFull();
+			var allScopes = Array.isArray( cfg.allScopes ) ? cfg.allScopes : [];
+			var isFull = parsed.auditScopes.length === allScopes.length
+				&& allScopes.every( function ( slug ) {
+					return parsed.auditScopes.indexOf( slug ) !== -1;
+				} );
+			if ( isFull ) {
+				applyFullScope( true );
+			} else {
+				els.fullScope && ( els.fullScope.checked = false );
+				els.scopeItems.forEach( function ( item ) {
+					item.checked = parsed.auditScopes.indexOf( item.value ) !== -1;
+				} );
+				syncScopeSelectionClasses();
+			}
 		}
 		syncTargetFields();
-		if ( els.refine ) {
-			els.refine.open = true;
+		if ( detectionNeedsRefine( parsed ) ) {
+			openRefine( els.targetType );
+		} else {
+			closeRefine();
 		}
 	}
 
@@ -331,6 +523,12 @@
 		}
 		thread.innerHTML = '';
 		appendAssistant( '<p>' + esc( i18n.welcome || '' ) + '</p>' );
+		hasInteracted = false;
+		var els = getFormEls();
+		if ( els.resetBtn ) {
+			els.resetBtn.hidden = true;
+			els.resetBtn.classList.add( 'rwga-ux-assistant-reset--hidden' );
+		}
 	}
 
 	function sendPhrase( text ) {
@@ -338,6 +536,7 @@
 		if ( ! phrase ) {
 			return;
 		}
+		markInteracted();
 		var detecting = document.getElementById( 'rwga-ux-assistant-detecting' );
 		if ( detecting ) {
 			detecting.classList.remove( 'rwgc-is-hidden' );
@@ -349,6 +548,7 @@
 				appendAssistant( '<p>' + esc( parsed.blockReason ) + '</p>' );
 			} else if ( ! parsed.auditScopes.length ) {
 				appendAssistant( '<p>' + esc( i18n.noScopes || '' ) + '</p>' );
+				openRefine();
 			} else {
 				applyDetection( parsed );
 				appendAssistant( '<p>' + esc( i18n.applied || '' ) + '</p>' );
@@ -364,24 +564,106 @@
 			return;
 		}
 		hintsEl.innerHTML = '';
+		var examples = [];
 		( cfg.keywordHints || [] ).forEach( function ( group ) {
-			if ( ! group.items || ! group.items.length ) {
-				return;
-			}
-			var row = el( 'div', 'rwgc-targeting-assistant__hint-group' );
-			row.appendChild( el( 'span', 'rwgc-targeting-assistant__hint-label', group.label || '' ) );
-			group.items.forEach( function ( item ) {
-				var chip = el( 'button', 'rwgc-targeting-assistant__hint-chip', item.label || item.text || '' );
-				chip.type = 'button';
-				chip.addEventListener( 'click', function () {
-					var insert = item.insert || item.label || item.text || '';
-					var cur = phraseInput.value ? String( phraseInput.value ) : '';
-					phraseInput.value = cur + ( cur && ! /\s$/.test( cur ) ? ' ' : '' ) + insert;
-					phraseInput.focus();
-				} );
-				row.appendChild( chip );
+			( group.items || [] ).forEach( function ( item ) {
+				examples.push( item );
 			} );
-			hintsEl.appendChild( row );
+		} );
+		examples = examples.slice( 0, 3 );
+		if ( ! examples.length ) {
+			return;
+		}
+
+		var details = el( 'details', 'rwga-ux-reviewer__examples' );
+		var summary = el( 'summary', '', i18n.tryExample || 'Try an example' );
+		details.appendChild( summary );
+		var list = el( 'div', 'rwga-ux-reviewer__examples-list' );
+		examples.forEach( function ( item ) {
+			var chip = el( 'button', 'rwgc-targeting-assistant__hint-chip', item.label || item.text || '' );
+			chip.type = 'button';
+			chip.addEventListener( 'click', function () {
+				var insert = item.insert || item.label || item.text || '';
+				phraseInput.value = insert;
+				phraseInput.focus();
+				markInteracted();
+			} );
+			list.appendChild( chip );
+		} );
+		details.appendChild( list );
+		hintsEl.appendChild( details );
+	}
+
+	function validateBeforeSubmit( ev ) {
+		var els = getFormEls();
+		var anyScope = !!( els.fullScope && els.fullScope.checked );
+		els.scopeItems.forEach( function ( item ) {
+			if ( item.checked ) {
+				anyScope = true;
+			}
+		} );
+		if ( ! anyScope ) {
+			ev.preventDefault();
+			window.alert( i18n.selectAudit || 'Select at least one review type.' );
+			openRefine();
+			return false;
+		}
+
+		var type = els.targetType ? els.targetType.value : 'page';
+		var unresolved = false;
+		if ( type === 'page' && ( ! els.pageSelect || ! parseInt( els.pageSelect.value, 10 ) ) ) {
+			unresolved = true;
+		}
+		if ( type === 'product' && ( ! els.productSelect || ! parseInt( els.productSelect.value, 10 ) ) ) {
+			unresolved = true;
+		}
+		if ( type === 'variant' && ( ! els.variantInput || ! String( els.variantInput.value || '' ).trim() ) ) {
+			unresolved = true;
+		}
+		if ( type === 'rule' && ( ! els.ruleInput || ! String( els.ruleInput.value || '' ).trim() ) ) {
+			unresolved = true;
+		}
+		if ( unresolved ) {
+			ev.preventDefault();
+			openRefine( type === 'product' ? els.productSelect : ( type === 'variant' ? els.variantInput : ( type === 'rule' ? els.ruleInput : els.pageSelect ) ) );
+			window.alert( i18n.selectTarget || 'Choose a review target in Refine setup.' );
+			return false;
+		}
+		return true;
+	}
+
+	function initResultsControls() {
+		var runAnother = document.getElementById( 'rwga-ux-run-another' );
+		var adjustSetup = document.getElementById( 'rwga-ux-adjust-setup' );
+		var openRefineBtn = document.getElementById( 'rwga-ux-open-refine' );
+		var form = document.getElementById( 'rwga-ux-review-setup' );
+
+		function showSetup( openManual ) {
+			if ( form ) {
+				form.hidden = false;
+				form.classList.remove( 'rwga-ux-reviewer__setup--has-results' );
+				form.scrollIntoView( { behavior: 'smooth', block: 'start' } );
+			}
+			if ( openManual ) {
+				openRefine();
+			} else {
+				closeRefine();
+			}
+		}
+
+		runAnother && runAnother.addEventListener( 'click', function () {
+			showSetup( false );
+		} );
+		adjustSetup && adjustSetup.addEventListener( 'click', function () {
+			showSetup( true );
+		} );
+		openRefineBtn && openRefineBtn.addEventListener( 'click', function () {
+			var refine = document.getElementById( 'rwga-ux-refine-setup' );
+			if ( refine && refine.open ) {
+				closeRefine();
+			} else {
+				openRefine();
+			}
 		} );
 	}
 
@@ -392,6 +674,8 @@
 		var resetBtn = document.getElementById( 'rwga-ux-assistant-reset' );
 		var hints = document.getElementById( 'rwga-ux-assistant-hints' );
 		var form = document.getElementById( 'rwga-ux-review-setup' );
+
+		initResultsControls();
 
 		if ( ! composer || ! phraseInput ) {
 			return;
@@ -413,6 +697,11 @@
 				submitPhrase();
 			}
 		} );
+		phraseInput.addEventListener( 'input', function () {
+			if ( phraseInput.value ) {
+				markInteracted();
+			}
+		} );
 		resetBtn && resetBtn.addEventListener( 'click', function () {
 			phraseInput.value = '';
 			resetThread();
@@ -423,38 +712,40 @@
 			if ( els.targetType ) {
 				els.targetType.addEventListener( 'change', syncTargetFields );
 			}
-			[ els.pageSelect, els.productSelect, els.variantInput, els.ruleInput ].forEach( function ( node ) {
+			[ els.pageSelect, els.productSelect, els.variantInput, els.ruleInput, els.audience, els.device ].forEach( function ( node ) {
 				if ( ! node ) {
 					return;
 				}
 				node.addEventListener( 'change', syncTargetFields );
 				node.addEventListener( 'input', syncTargetFields );
 			} );
-			form.addEventListener( 'submit', syncTargetFields );
+			form.addEventListener( 'submit', function ( ev ) {
+				syncTargetFields();
+				validateBeforeSubmit( ev );
+			} );
 			if ( els.fullScope ) {
 				els.fullScope.addEventListener( 'change', function () {
-					els.scopeItems.forEach( function ( item ) {
-						item.checked = els.fullScope.checked;
-					} );
+					applyFullScope( els.fullScope.checked );
+					markInteracted();
 				} );
 			}
 			els.scopeItems.forEach( function ( item ) {
-				item.addEventListener( 'change', syncScopeFull );
-			} );
-			form.addEventListener( 'submit', function ( ev ) {
-				var any = false;
-				els.scopeItems.forEach( function ( item ) {
-					if ( item.checked ) {
-						any = true;
+				item.addEventListener( 'change', function () {
+					if ( item.checked && els.fullScope ) {
+						els.fullScope.checked = false;
 					}
+					syncScopeFull();
+					markInteracted();
 				} );
-				if ( ! any ) {
-					ev.preventDefault();
-					window.alert( 'Select at least one audit category.' );
-				}
 			} );
-			syncScopeFull();
+			if ( els.refine ) {
+				els.refine.addEventListener( 'toggle', function () {
+					setAdjustExpanded( !!els.refine.open );
+				} );
+			}
+			syncScopeSelectionClasses();
 			syncTargetFields();
+			updateSetupSummary();
 		}
 	}
 

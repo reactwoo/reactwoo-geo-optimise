@@ -1,6 +1,6 @@
 # ReactWoo Geo Optimise
 
-**Version:** 0.4.71  
+**Version:** 0.4.72  
 **Plugin slug:** `reactwoo-geo-optimise`
 
 ## Overview

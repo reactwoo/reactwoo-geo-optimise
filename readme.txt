@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.71
+Stable tag: 0.4.72
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.72 =
+* **AI Review UX:** Chat-first hierarchy — review types before target controls, Refine setup collapsed by default, Full review as select-all, compact results summary, hidden target-field CSS fix, legacy Experiments/Reports removed from Experiences section strip.
 
 = 0.4.71 =
 * **Measurement:** First-class `experiment_exposure` events (session/day-deduped), tracking manifest on front-end config, and `rwgo_experiment_exposure` dataLayer push.

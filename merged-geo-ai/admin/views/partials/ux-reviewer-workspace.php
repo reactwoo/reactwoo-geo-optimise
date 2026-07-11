@@ -44,10 +44,49 @@ $audit_type_defs    = isset( $audit_type_defs ) && is_array( $audit_type_defs ) 
 $selected_scopes    = isset( $selected_scopes ) && is_array( $selected_scopes ) ? $selected_scopes : array();
 $has_review         = ! empty( $has_review );
 $score_delta        = isset( $score_delta ) ? $score_delta : null;
+$all_scope_slugs    = class_exists( 'RWGA_UX_Reviewer_UI', false ) ? RWGA_UX_Reviewer_UI::all_audit_scope_slugs() : array_keys( $audit_type_defs );
+$is_full_scope      = empty( $selected_scopes ) || count( array_intersect( $selected_scopes, $all_scope_slugs ) ) === count( $all_scope_slugs );
 $is_embed         = ! empty( $ctx['embed'] );
 $outer_class = $is_embed
 	? 'rwga-ux-reviewer ' . trim( $wrap_extra )
 	: 'wrap rwgc-wrap rwgc-suite rwga-wrap rwga-ux-reviewer ' . trim( $wrap_extra );
+
+$review_target_label = __( 'Homepage', 'reactwoo-geo-ai' );
+if ( $page_id > 0 ) {
+	$title = get_the_title( $page_id );
+	$review_target_label = $title ? $title : sprintf( __( 'Page #%d', 'reactwoo-geo-ai' ), $page_id );
+} elseif ( $product_id > 0 ) {
+	$title = get_the_title( $product_id );
+	$review_target_label = $title ? $title : sprintf( __( 'Product #%d', 'reactwoo-geo-ai' ), $product_id );
+} elseif ( $variant_id > 0 ) {
+	$title = get_the_title( $variant_id );
+	$review_target_label = $title ? $title : sprintf( __( 'Variant #%d', 'reactwoo-geo-ai' ), $variant_id );
+} elseif ( '' !== $rule_id ) {
+	$review_target_label = sprintf( __( 'Rule #%s', 'reactwoo-geo-ai' ), $rule_id );
+} elseif ( $front_page_id > 0 ) {
+	$title = get_the_title( $front_page_id );
+	if ( $title ) {
+		$review_target_label = $title;
+	}
+}
+
+$review_type_label = __( 'Full review', 'reactwoo-geo-ai' );
+if ( ! $is_full_scope && ! empty( $selected_scopes ) ) {
+	$labels = array();
+	foreach ( $selected_scopes as $scope_slug ) {
+		if ( isset( $audit_type_defs[ $scope_slug ]['label'] ) ) {
+			$labels[] = (string) $audit_type_defs[ $scope_slug ]['label'];
+		}
+	}
+	if ( ! empty( $labels ) ) {
+		$review_type_label = implode( ', ', $labels );
+	}
+}
+
+$setup_class = 'rwgc-card rwga-ux-reviewer__setup';
+if ( $has_review ) {
+	$setup_class .= ' rwga-ux-reviewer__setup--has-results';
+}
 ?>
 <div class="<?php echo esc_attr( $outer_class ); ?>">
 	<?php if ( ! $is_embed ) : ?>
@@ -116,7 +155,30 @@ $outer_class = $is_embed
 		<div class="notice notice-error is-dismissible"><p><?php echo esc_html( $flash_error ? $flash_error : __( 'Review failed.', 'reactwoo-geo-ai' ) ); ?></p></div>
 	<?php endif; ?>
 
-	<form id="rwga-ux-review-setup" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgc-card rwga-ux-reviewer__setup">
+	<?php if ( $has_review ) : ?>
+		<div class="rwga-ux-reviewer__current-review" id="rwga-ux-current-review">
+			<p class="rwga-ux-reviewer__current-review-text">
+				<strong><?php esc_html_e( 'Current review:', 'reactwoo-geo-ai' ); ?></strong>
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: 1: review type, 2: target, 3: audience, 4: device */
+						__( '%1$s of %2$s · All visitors · Desktop', 'reactwoo-geo-ai' ),
+						$review_type_label,
+						$review_target_label
+					)
+				);
+				?>
+			</p>
+			<p class="rwga-ux-reviewer__current-review-actions">
+				<button type="button" class="button-link" id="rwga-ux-run-another"><?php esc_html_e( 'Run another review', 'reactwoo-geo-ai' ); ?></button>
+				<span aria-hidden="true"> · </span>
+				<button type="button" class="button-link" id="rwga-ux-adjust-setup" aria-controls="rwga-ux-refine-setup" aria-expanded="false"><?php esc_html_e( 'Adjust setup', 'reactwoo-geo-ai' ); ?></button>
+			</p>
+		</div>
+	<?php endif; ?>
+
+	<form id="rwga-ux-review-setup" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="<?php echo esc_attr( $setup_class ); ?>"<?php echo $has_review ? ' hidden' : ''; ?>>
 		<input type="hidden" name="action" value="rwga_run_ux_opportunity_review" />
 		<?php wp_nonce_field( 'rwga_run_ux_opportunity_review' ); ?>
 		<input type="hidden" name="source" value="<?php echo esc_attr( $source ); ?>" />
@@ -127,10 +189,10 @@ $outer_class = $is_embed
 
 		<div class="rwga-ux-reviewer__assistant">
 			<div class="rwgc-geo-assistant-panel">
-				<div class="rwgc-geo-assistant-panel__head"><?php esc_html_e( 'UX Review Assistant', 'reactwoo-geo-ai' ); ?></div>
+				<div class="rwgc-geo-assistant-panel__head"><?php esc_html_e( 'Tell us what to review', 'reactwoo-geo-ai' ); ?></div>
 				<div class="rwgc-geo-assistant-panel__body">
 					<div class="rwgc-targeting-assistant__thread" id="rwga-ux-assistant-thread" aria-live="polite"></div>
-					<div class="rwgc-targeting-assistant__hints" id="rwga-ux-assistant-hints" aria-label="<?php esc_attr_e( 'Audit glossary and example phrases', 'reactwoo-geo-ai' ); ?>"></div>
+					<div class="rwgc-targeting-assistant__hints" id="rwga-ux-assistant-hints" aria-label="<?php esc_attr_e( 'Example review prompts', 'reactwoo-geo-ai' ); ?>"></div>
 					<div class="rwgc-targeting-assistant__composer" id="rwga-ux-assistant-composer">
 						<div class="rwgc-targeting-assistant__input-wrap">
 							<textarea
@@ -146,107 +208,44 @@ $outer_class = $is_embed
 						</div>
 						<div class="rwgc-targeting-assistant__composer-meta">
 							<span class="rwgc-targeting-assistant__detecting rwgc-is-hidden" id="rwga-ux-assistant-detecting"><?php esc_html_e( 'Detecting…', 'reactwoo-geo-ai' ); ?></span>
-							<button type="button" class="button-link rwgc-targeting-assistant__reset" id="rwga-ux-assistant-reset"><?php esc_html_e( 'Start over', 'reactwoo-geo-ai' ); ?></button>
+							<button type="button" class="button-link rwgc-targeting-assistant__reset rwga-ux-assistant-reset--hidden" id="rwga-ux-assistant-reset" hidden><?php esc_html_e( 'Start over', 'reactwoo-geo-ai' ); ?></button>
 						</div>
 					</div>
 				</div>
 			</div>
 		</div>
 
-		<details class="rwga-ux-reviewer__refine" id="rwga-ux-refine-setup" open>
-			<summary><?php esc_html_e( 'Refine setup', 'reactwoo-geo-ai' ); ?></summary>
-			<p class="description"><?php esc_html_e( 'Adjust the detected target, audience, and audit categories before starting the review.', 'reactwoo-geo-ai' ); ?></p>
+		<section class="rwga-ux-reviewer__review-types" aria-labelledby="rwga-ux-review-types-heading">
+			<h2 id="rwga-ux-review-types-heading" class="rwga-ux-reviewer__section-title"><?php esc_html_e( 'Review types', 'reactwoo-geo-ai' ); ?></h2>
+			<div class="rwga-ux-reviewer__audit-scopes">
+				<label class="rwga-ux-reviewer__scope-option rwga-ux-reviewer__scope-option--full<?php echo $is_full_scope ? ' is-selected' : ''; ?>">
+					<input type="checkbox" id="rwga_ux_scope_full" <?php checked( $is_full_scope ); ?> />
+					<span class="rwga-ux-reviewer__scope-label"><?php esc_html_e( 'Full review', 'reactwoo-geo-ai' ); ?></span>
+					<span class="description"><?php esc_html_e( 'All categories in one pass.', 'reactwoo-geo-ai' ); ?></span>
+				</label>
+				<div class="rwga-ux-reviewer__scope-grid">
+					<?php foreach ( $audit_type_defs as $slug => $def ) : ?>
+						<?php
+						$item_checked = ! $is_full_scope && in_array( $slug, $selected_scopes, true );
+						?>
+						<label class="rwga-ux-reviewer__scope-option<?php echo $item_checked ? ' is-selected' : ''; ?>">
+							<input type="checkbox" name="audit_scopes[]" value="<?php echo esc_attr( $slug ); ?>" class="rwga-ux-reviewer__scope-item" <?php checked( $item_checked ); ?> />
+							<span class="rwga-ux-reviewer__scope-label"><?php echo esc_html( (string) ( $def['label'] ?? $slug ) ); ?></span>
+							<span class="description"><?php echo esc_html( (string) ( $def['description'] ?? '' ) ); ?></span>
+						</label>
+					<?php endforeach; ?>
+				</div>
+			</div>
+		</section>
 
-		<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
-			<?php RWGC_Admin_UI::render_section_header( __( 'Review target', 'reactwoo-geo-ai' ) ); ?>
-		<?php else : ?>
-			<h2><?php esc_html_e( 'Review target', 'reactwoo-geo-ai' ); ?></h2>
-		<?php endif; ?>
-		<div class="rwga-ux-reviewer__setup-grid">
-			<div class="rwgc-field">
-				<label class="rwgc-field__label" for="rwga_ux_target_type"><?php esc_html_e( 'Review target', 'reactwoo-geo-ai' ); ?></label>
-				<select id="rwga_ux_target_type" class="rwgc-select rwgc-input">
-					<option value="page"><?php esc_html_e( 'Page', 'reactwoo-geo-ai' ); ?></option>
-					<option value="variant"><?php esc_html_e( 'Variant', 'reactwoo-geo-ai' ); ?></option>
-					<option value="product"><?php esc_html_e( 'Product', 'reactwoo-geo-ai' ); ?></option>
-					<option value="rule"><?php esc_html_e( 'Rule', 'reactwoo-geo-ai' ); ?></option>
-					<option value="site"><?php esc_html_e( 'Site-wide (homepage)', 'reactwoo-geo-ai' ); ?></option>
-				</select>
-			</div>
-			<div class="rwgc-field rwga-ux-target-field" data-target="page variant site">
-				<label class="rwgc-field__label" for="rwga_ux_page_select"><?php esc_html_e( 'Choose page', 'reactwoo-geo-ai' ); ?></label>
-				<select id="rwga_ux_page_select" class="rwgc-select rwgc-input">
-					<option value="0"><?php esc_html_e( '— Select page —', 'reactwoo-geo-ai' ); ?></option>
-					<?php foreach ( $pages as $p ) : ?>
-						<?php if ( ! ( $p instanceof WP_Post ) || 'page' !== $p->post_type ) { continue; } ?>
-						<option value="<?php echo esc_attr( (string) $p->ID ); ?>" <?php selected( $page_id, (int) $p->ID ); ?>><?php echo esc_html( $p->post_title ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			</div>
-			<div class="rwgc-field rwga-ux-target-field" data-target="variant" hidden>
-				<label class="rwgc-field__label" for="rwga_ux_variant_select"><?php esc_html_e( 'Variant page ID', 'reactwoo-geo-ai' ); ?></label>
-				<input type="number" id="rwga_ux_variant_select" class="rwgc-input" value="<?php echo esc_attr( (string) $variant_id ); ?>" min="0" />
-			</div>
-			<div class="rwgc-field rwga-ux-target-field" data-target="product" hidden>
-				<label class="rwgc-field__label" for="rwga_ux_product_select"><?php esc_html_e( 'Choose product', 'reactwoo-geo-ai' ); ?></label>
-				<select id="rwga_ux_product_select" class="rwgc-select rwgc-input">
-					<option value="0"><?php esc_html_e( '— Select product —', 'reactwoo-geo-ai' ); ?></option>
-					<?php foreach ( $pages as $p ) : ?>
-						<?php if ( ! ( $p instanceof WP_Post ) || 'product' !== $p->post_type ) { continue; } ?>
-						<option value="<?php echo esc_attr( (string) $p->ID ); ?>" <?php selected( $product_id, (int) $p->ID ); ?>><?php echo esc_html( $p->post_title ); ?></option>
-					<?php endforeach; ?>
-				</select>
-			</div>
-			<div class="rwgc-field rwga-ux-target-field" data-target="rule" hidden>
-				<label class="rwgc-field__label" for="rwga_ux_rule_select"><?php esc_html_e( 'Rule ID', 'reactwoo-geo-ai' ); ?></label>
-				<input type="text" id="rwga_ux_rule_select" class="rwgc-input" value="<?php echo esc_attr( $rule_id ); ?>" />
-			</div>
-			<div class="rwgc-field">
-				<label class="rwgc-field__label" for="rwga_ux_audience"><?php esc_html_e( 'Audience', 'reactwoo-geo-ai' ); ?></label>
-				<select id="rwga_ux_audience" name="audience_label" class="rwgc-select rwgc-input">
-					<option value="all"><?php esc_html_e( 'All visitors', 'reactwoo-geo-ai' ); ?></option>
-					<option value="country"><?php esc_html_e( 'Country segment', 'reactwoo-geo-ai' ); ?></option>
-					<option value="rule"><?php esc_html_e( 'Rule audience', 'reactwoo-geo-ai' ); ?></option>
-					<option value="campaign"><?php esc_html_e( 'Campaign', 'reactwoo-geo-ai' ); ?></option>
-					<option value="device"><?php esc_html_e( 'Device', 'reactwoo-geo-ai' ); ?></option>
-					<?php if ( $pro_weather ) : ?>
-						<option value="weather"><?php esc_html_e( 'Weather', 'reactwoo-geo-ai' ); ?></option>
-					<?php endif; ?>
-				</select>
-			</div>
-			<div class="rwgc-field">
-				<label class="rwgc-field__label" for="rwga_ux_device"><?php esc_html_e( 'Context', 'reactwoo-geo-ai' ); ?></label>
-				<select id="rwga_ux_device" name="device_type" class="rwgc-select rwgc-input">
-					<option value="desktop"><?php esc_html_e( 'Desktop', 'reactwoo-geo-ai' ); ?></option>
-					<option value="mobile"><?php esc_html_e( 'Mobile', 'reactwoo-geo-ai' ); ?></option>
-					<option value="tablet"><?php esc_html_e( 'Tablet', 'reactwoo-geo-ai' ); ?></option>
-				</select>
-			</div>
+		<div class="rwga-ux-reviewer__setup-summary" id="rwga-ux-setup-summary" aria-live="polite">
+			<span class="rwga-ux-reviewer__setup-summary-label"><?php esc_html_e( 'Detected setup', 'reactwoo-geo-ai' ); ?></span>
+			<span class="rwga-ux-reviewer__setup-summary-value" id="rwga-ux-setup-summary-value"><?php echo esc_html( $review_type_label . ' · ' . $review_target_label . ' · ' . __( 'All visitors', 'reactwoo-geo-ai' ) . ' · ' . __( 'Desktop', 'reactwoo-geo-ai' ) ); ?></span>
 		</div>
 
-		<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
-			<?php RWGC_Admin_UI::render_section_header( __( 'Audit scope', 'reactwoo-geo-ai' ) ); ?>
-		<?php else : ?>
-			<h3><?php esc_html_e( 'Audit scope', 'reactwoo-geo-ai' ); ?></h3>
-		<?php endif; ?>
-		<p class="description rwga-ux-reviewer__scope-intro"><?php esc_html_e( 'Run a full audit or limit the review to specific UX test types.', 'reactwoo-geo-ai' ); ?></p>
-		<div class="rwga-ux-reviewer__audit-scopes">
-			<label class="rwga-ux-reviewer__scope-option rwga-ux-reviewer__scope-option--full">
-				<input type="checkbox" id="rwga_ux_scope_full" checked />
-				<span class="rwga-ux-reviewer__scope-label"><?php esc_html_e( 'Full audit (all categories)', 'reactwoo-geo-ai' ); ?></span>
-			</label>
-			<div class="rwga-ux-reviewer__scope-grid">
-				<?php foreach ( $audit_type_defs as $slug => $def ) : ?>
-					<label class="rwga-ux-reviewer__scope-option">
-						<input type="checkbox" name="audit_scopes[]" value="<?php echo esc_attr( $slug ); ?>" class="rwga-ux-reviewer__scope-item" <?php checked( empty( $selected_scopes ) || in_array( $slug, $selected_scopes, true ) ); ?> />
-						<span class="rwga-ux-reviewer__scope-label"><?php echo esc_html( (string) ( $def['label'] ?? $slug ) ); ?></span>
-						<span class="description"><?php echo esc_html( (string) ( $def['description'] ?? '' ) ); ?></span>
-					</label>
-				<?php endforeach; ?>
-			</div>
-		</div>
 		<p class="rwga-ux-reviewer__setup-actions">
-			<button type="submit" class="rwgc-btn rwgc-btn--primary" <?php disabled( ! $can_run ); ?>><?php esc_html_e( 'Start review', 'reactwoo-geo-ai' ); ?></button>
+			<button type="submit" class="rwgc-btn rwgc-btn--primary" <?php disabled( ! $can_run ); ?>><?php esc_html_e( 'Run review', 'reactwoo-geo-ai' ); ?></button>
+			<button type="button" class="button-link rwga-ux-reviewer__adjust-link" id="rwga-ux-open-refine" aria-controls="rwga-ux-refine-setup" aria-expanded="false"><?php esc_html_e( 'Adjust setup', 'reactwoo-geo-ai' ); ?></button>
 			<?php if ( ! $can_run ) : ?>
 				<span class="description">
 					<?php if ( ! $has_run_cap ) : ?>
@@ -258,55 +257,156 @@ $outer_class = $is_embed
 				</span>
 			<?php endif; ?>
 		</p>
+
+		<details class="rwga-ux-reviewer__refine" id="rwga-ux-refine-setup">
+			<summary><?php esc_html_e( 'Refine setup', 'reactwoo-geo-ai' ); ?></summary>
+			<p class="description"><?php esc_html_e( 'Choose where to review and optionally refine audience or device.', 'reactwoo-geo-ai' ); ?></p>
+
+			<h3 class="rwga-ux-reviewer__section-title"><?php esc_html_e( 'Where should we review?', 'reactwoo-geo-ai' ); ?></h3>
+			<div class="rwga-ux-reviewer__setup-grid">
+				<div class="rwgc-field">
+					<label class="rwgc-field__label" for="rwga_ux_target_type"><?php esc_html_e( 'Content type', 'reactwoo-geo-ai' ); ?></label>
+					<select id="rwga_ux_target_type" class="rwgc-select rwgc-input">
+						<option value="page"><?php esc_html_e( 'Page', 'reactwoo-geo-ai' ); ?></option>
+						<option value="variant"><?php esc_html_e( 'Variant', 'reactwoo-geo-ai' ); ?></option>
+						<option value="product"><?php esc_html_e( 'Product', 'reactwoo-geo-ai' ); ?></option>
+						<option value="rule"><?php esc_html_e( 'Rule', 'reactwoo-geo-ai' ); ?></option>
+						<option value="site"><?php esc_html_e( 'Site-wide (homepage)', 'reactwoo-geo-ai' ); ?></option>
+					</select>
+				</div>
+				<div class="rwgc-field rwga-ux-target-field" data-target="page">
+					<label class="rwgc-field__label" for="rwga_ux_page_select"><?php esc_html_e( 'Choose page', 'reactwoo-geo-ai' ); ?></label>
+					<select id="rwga_ux_page_select" class="rwgc-select rwgc-input">
+						<option value="0"><?php esc_html_e( '— Select page —', 'reactwoo-geo-ai' ); ?></option>
+						<?php foreach ( $pages as $p ) : ?>
+							<?php if ( ! ( $p instanceof WP_Post ) || 'page' !== $p->post_type ) { continue; } ?>
+							<option value="<?php echo esc_attr( (string) $p->ID ); ?>" <?php selected( $page_id, (int) $p->ID ); ?>><?php echo esc_html( $p->post_title ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div class="rwgc-field rwga-ux-target-field" data-target="variant" hidden>
+					<label class="rwgc-field__label" for="rwga_ux_variant_select"><?php esc_html_e( 'Variant page ID', 'reactwoo-geo-ai' ); ?></label>
+					<input type="number" id="rwga_ux_variant_select" class="rwgc-input" value="<?php echo esc_attr( (string) $variant_id ); ?>" min="0" />
+				</div>
+				<div class="rwgc-field rwga-ux-target-field" data-target="product" hidden>
+					<label class="rwgc-field__label" for="rwga_ux_product_select"><?php esc_html_e( 'Choose product', 'reactwoo-geo-ai' ); ?></label>
+					<select id="rwga_ux_product_select" class="rwgc-select rwgc-input">
+						<option value="0"><?php esc_html_e( '— Select product —', 'reactwoo-geo-ai' ); ?></option>
+						<?php foreach ( $pages as $p ) : ?>
+							<?php if ( ! ( $p instanceof WP_Post ) || 'product' !== $p->post_type ) { continue; } ?>
+							<option value="<?php echo esc_attr( (string) $p->ID ); ?>" <?php selected( $product_id, (int) $p->ID ); ?>><?php echo esc_html( $p->post_title ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div class="rwgc-field rwga-ux-target-field" data-target="rule" hidden>
+					<label class="rwgc-field__label" for="rwga_ux_rule_select"><?php esc_html_e( 'Rule ID', 'reactwoo-geo-ai' ); ?></label>
+					<input type="text" id="rwga_ux_rule_select" class="rwgc-input" value="<?php echo esc_attr( $rule_id ); ?>" />
+				</div>
+			</div>
+
+			<details class="rwga-ux-reviewer__audience-device">
+				<summary><?php esc_html_e( 'Audience & device — Optional', 'reactwoo-geo-ai' ); ?></summary>
+				<div class="rwga-ux-reviewer__setup-grid">
+					<div class="rwgc-field">
+						<label class="rwgc-field__label" for="rwga_ux_audience"><?php esc_html_e( 'Audience', 'reactwoo-geo-ai' ); ?></label>
+						<select id="rwga_ux_audience" name="audience_label" class="rwgc-select rwgc-input">
+							<option value="all"><?php esc_html_e( 'All visitors', 'reactwoo-geo-ai' ); ?></option>
+							<option value="country"><?php esc_html_e( 'Country segment', 'reactwoo-geo-ai' ); ?></option>
+							<option value="rule"><?php esc_html_e( 'Rule audience', 'reactwoo-geo-ai' ); ?></option>
+							<option value="campaign"><?php esc_html_e( 'Campaign', 'reactwoo-geo-ai' ); ?></option>
+							<option value="device"><?php esc_html_e( 'Device', 'reactwoo-geo-ai' ); ?></option>
+							<?php if ( $pro_weather ) : ?>
+								<option value="weather"><?php esc_html_e( 'Weather', 'reactwoo-geo-ai' ); ?></option>
+							<?php endif; ?>
+						</select>
+					</div>
+					<div class="rwgc-field">
+						<label class="rwgc-field__label" for="rwga_ux_device"><?php esc_html_e( 'Device', 'reactwoo-geo-ai' ); ?></label>
+						<select id="rwga_ux_device" name="device_type" class="rwgc-select rwgc-input">
+							<option value="desktop"><?php esc_html_e( 'Desktop', 'reactwoo-geo-ai' ); ?></option>
+							<option value="mobile"><?php esc_html_e( 'Mobile', 'reactwoo-geo-ai' ); ?></option>
+							<option value="tablet"><?php esc_html_e( 'Tablet', 'reactwoo-geo-ai' ); ?></option>
+						</select>
+					</div>
+				</div>
+			</details>
 		</details>
 	</form>
 
-	<?php if ( ! empty( $category_summaries ) ) : ?>
-		<div class="rwga-ux-reviewer__categories" aria-label="<?php esc_attr_e( 'Audit category summary', 'reactwoo-geo-ai' ); ?>">
-			<?php foreach ( $category_summaries as $summary ) : ?>
-				<?php
-				if ( ! is_array( $summary ) ) {
-					continue;
-				}
-				$slug   = (string) ( $summary['slug'] ?? '' );
-				$status = (string) ( $summary['status'] ?? 'pending' );
-				$percent = isset( $summary['percent'] ) ? (int) $summary['percent'] : null;
-				$issues  = (int) ( $summary['issues'] ?? 0 );
-				?>
-				<button type="button" class="rwga-ux-category-card rwga-ux-category-card--<?php echo esc_attr( $status ); ?>" data-audit-filter="<?php echo esc_attr( $slug ); ?>" <?php disabled( in_array( $status, array( 'pending', 'skipped' ), true ) ); ?>>
-					<span class="rwga-ux-category-card__label"><?php echo esc_html( (string) ( $summary['label'] ?? '' ) ); ?></span>
-					<span class="rwga-ux-category-card__score">
-						<?php if ( null !== $percent ) : ?>
-							<?php echo esc_html( (string) $percent ); ?>%
-						<?php else : ?>
-							<?php echo esc_html( (string) ( $summary['status_label'] ?? '—' ) ); ?>
-						<?php endif; ?>
-					</span>
-					<span class="rwga-ux-category-card__status"><?php echo esc_html( (string) ( $summary['status_label'] ?? '' ) ); ?></span>
-					<span class="rwga-ux-category-card__issues">
-						<?php
-						if ( 'skipped' === $status ) {
-							esc_html_e( 'Not included', 'reactwoo-geo-ai' );
-						} elseif ( 'pending' === $status ) {
-							esc_html_e( 'Awaiting review', 'reactwoo-geo-ai' );
-						} else {
-							echo esc_html(
-								sprintf(
-									/* translators: %d: issue count */
-									_n( '%d issue', '%d issues', $issues, 'reactwoo-geo-ai' ),
-									$issues
-								)
-							);
-						}
-						?>
-					</span>
-					<span class="description rwga-ux-category-card__desc"><?php echo esc_html( (string) ( $summary['description'] ?? '' ) ); ?></span>
-				</button>
-			<?php endforeach; ?>
+	<?php if ( $has_review && ! empty( $category_summaries ) ) : ?>
+		<div class="rwga-ux-reviewer__results-summary">
+			<?php if ( null !== ( $score_summary['score'] ?? null ) ) : ?>
+				<div class="rwga-ux-reviewer__overall-score" aria-label="<?php esc_attr_e( 'Overall performance score', 'reactwoo-geo-ai' ); ?>">
+					<div class="rwga-ux-score-ring rwga-ux-score-ring--compact" style="--rwga-score: <?php echo esc_attr( (string) (int) $score_summary['score'] ); ?>;">
+						<div class="rwga-ux-score-ring__inner">
+							<span class="rwga-ux-score-ring__value"><?php echo esc_html( (string) $score_summary['score'] ); ?></span>
+							<?php if ( null !== $score_delta && 0 !== (int) $score_delta ) : ?>
+								<span class="rwga-ux-score-ring__delta"><?php echo esc_html( ( (int) $score_delta > 0 ? '+' : '' ) . (string) (int) $score_delta . '%' ); ?></span>
+							<?php endif; ?>
+						</div>
+					</div>
+					<div class="rwga-ux-reviewer__overall-score-copy">
+						<strong><?php esc_html_e( 'Performance score', 'reactwoo-geo-ai' ); ?></strong>
+						<span>
+							<?php
+							if ( null !== $score_delta && 0 !== (int) $score_delta ) {
+								echo esc_html( (int) $score_delta > 0 ? __( 'Improving', 'reactwoo-geo-ai' ) : __( 'Needs attention', 'reactwoo-geo-ai' ) );
+							} else {
+								esc_html_e( 'Stable', 'reactwoo-geo-ai' );
+							}
+							?>
+						</span>
+					</div>
+				</div>
+			<?php endif; ?>
+
+			<div class="rwga-ux-reviewer__categories" aria-label="<?php esc_attr_e( 'Audit category summary', 'reactwoo-geo-ai' ); ?>">
+				<?php foreach ( $category_summaries as $summary ) : ?>
+					<?php
+					if ( ! is_array( $summary ) ) {
+						continue;
+					}
+					$slug    = (string) ( $summary['slug'] ?? '' );
+					$status  = (string) ( $summary['status'] ?? 'pending' );
+					$percent = isset( $summary['percent'] ) ? (int) $summary['percent'] : null;
+					$issues  = (int) ( $summary['issues'] ?? 0 );
+					$desc    = (string) ( $summary['description'] ?? '' );
+					?>
+					<button type="button" class="rwga-ux-category-card rwga-ux-category-card--compact rwga-ux-category-card--<?php echo esc_attr( $status ); ?>" data-audit-filter="<?php echo esc_attr( $slug ); ?>" title="<?php echo esc_attr( $desc ); ?>" <?php disabled( in_array( $status, array( 'pending', 'skipped' ), true ) ); ?>>
+						<span class="rwga-ux-category-card__label"><?php echo esc_html( (string) ( $summary['label'] ?? '' ) ); ?></span>
+						<span class="rwga-ux-category-card__score">
+							<?php if ( null !== $percent ) : ?>
+								<?php echo esc_html( (string) $percent ); ?>%
+							<?php else : ?>
+								<?php echo esc_html( (string) ( $summary['status_label'] ?? '—' ) ); ?>
+							<?php endif; ?>
+						</span>
+						<span class="rwga-ux-category-card__status"><?php echo esc_html( (string) ( $summary['status_label'] ?? '' ) ); ?></span>
+						<span class="rwga-ux-category-card__issues">
+							<?php
+							if ( 'skipped' === $status ) {
+								esc_html_e( 'Not included', 'reactwoo-geo-ai' );
+							} elseif ( 'pending' === $status ) {
+								esc_html_e( 'Awaiting review', 'reactwoo-geo-ai' );
+							} else {
+								echo esc_html(
+									sprintf(
+										/* translators: %d: issue count */
+										_n( '%d issue', '%d issues', $issues, 'reactwoo-geo-ai' ),
+										$issues
+									)
+								);
+							}
+							?>
+						</span>
+						<span class="screen-reader-text"><?php echo esc_html( $desc ); ?></span>
+					</button>
+				<?php endforeach; ?>
+			</div>
 		</div>
 	<?php endif; ?>
 
-	<div class="rwga-ux-reviewer__layout">
+	<div class="rwga-ux-reviewer__layout<?php echo $has_review ? ' rwga-ux-reviewer__layout--results' : ''; ?>">
 		<main class="rwga-ux-reviewer__feed">
 			<div class="rwga-ux-reviewer__feed-toolbar">
 				<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
@@ -335,8 +435,8 @@ $outer_class = $is_embed
 			<?php if ( ! $has_findings ) : ?>
 				<div class="rwgc-card rwga-ux-reviewer__empty">
 					<h2><?php esc_html_e( 'Start your first AI UX review', 'reactwoo-geo-ai' ); ?></h2>
-					<p><?php esc_html_e( 'Describe what you want to review in the assistant above — for example, copy on the homepage or SEO on a landing page. Then start the review.', 'reactwoo-geo-ai' ); ?></p>
-					<p><a class="rwgc-btn rwgc-btn--primary" href="#rwga-ux-review-setup"><?php esc_html_e( 'Start review', 'reactwoo-geo-ai' ); ?></a></p>
+					<p><?php esc_html_e( 'Choose a review type above, or describe what you want to improve. Then run the review.', 'reactwoo-geo-ai' ); ?></p>
+					<p><a class="rwgc-btn rwgc-btn--primary" href="#rwga-ux-review-setup"><?php esc_html_e( 'Run review', 'reactwoo-geo-ai' ); ?></a></p>
 				</div>
 
 				<?php if ( ! empty( $example_findings ) ) : ?>
@@ -378,6 +478,15 @@ $outer_class = $is_embed
 					$actions  = RWGA_UX_Reviewer_UI::get_card_actions( $card );
 					$target   = RWGA_UX_Reviewer_UI::affected_target_label( $card );
 					$body     = ! empty( $card['problem'] ) ? (string) $card['problem'] : ( ! empty( $card['recommendation'] ) ? (string) $card['recommendation'] : '' );
+					$primary_action = null;
+					$secondary_actions = array();
+					foreach ( $actions as $action ) {
+						if ( null === $primary_action && ! empty( $action['active'] ) && ! empty( $action['url'] ) ) {
+							$primary_action = $action;
+						} else {
+							$secondary_actions[] = $action;
+						}
+					}
 					?>
 					<article id="rwga-finding-<?php echo esc_attr( (string) $idx ); ?>" class="rwga-ux-finding" data-priority="<?php echo esc_attr( $priority ); ?>" data-audit-scope="<?php echo esc_attr( $audit_scope ); ?>" data-search="<?php echo esc_attr( strtolower( (string) ( $card['title'] ?? '' ) . ' ' . $body ) ); ?>">
 						<header class="rwga-ux-finding__meta">
@@ -396,70 +505,36 @@ $outer_class = $is_embed
 							<p class="rwga-ux-finding__rec"><strong><?php esc_html_e( 'Suggestion', 'reactwoo-geo-ai' ); ?></strong> <?php echo wp_kses_post( (string) $card['recommendation'] ); ?></p>
 						<?php endif; ?>
 						<footer class="rwga-ux-finding__actions">
-							<?php foreach ( $actions as $action ) : ?>
+							<?php if ( $primary_action ) : ?>
+								<a class="<?php echo esc_attr( (string) $primary_action['class'] ); ?>" href="<?php echo esc_url( (string) $primary_action['url'] ); ?>"><?php echo esc_html( (string) $primary_action['label'] ); ?></a>
+							<?php endif; ?>
+							<?php foreach ( $secondary_actions as $action ) : ?>
 								<?php if ( ! empty( $action['active'] ) && ! empty( $action['url'] ) ) : ?>
-									<a class="<?php echo esc_attr( (string) $action['class'] ); ?>" href="<?php echo esc_url( (string) $action['url'] ); ?>"><?php echo esc_html( (string) $action['label'] ); ?></a>
+									<a class="button-link rwga-ux-finding__secondary-action" href="<?php echo esc_url( (string) $action['url'] ); ?>"><?php echo esc_html( (string) $action['label'] ); ?></a>
 								<?php elseif ( ! empty( $action['label'] ) ) : ?>
 									<span class="<?php echo esc_attr( (string) ( $action['class'] ?? 'rwgc-geo-badge rwgc-geo-badge--locked' ) ); ?>"><?php echo esc_html( (string) $action['label'] ); ?></span>
 								<?php endif; ?>
 							<?php endforeach; ?>
-							<a class="rwgc-btn rwgc-btn--tertiary rwgc-btn--sm" href="<?php echo esc_url( $history_url ); ?>"><?php esc_html_e( 'Dismiss to actions', 'reactwoo-geo-ai' ); ?></a>
+							<a class="button-link rwga-ux-finding__dismiss" href="<?php echo esc_url( $history_url ); ?>"><?php esc_html_e( 'Dismiss to actions', 'reactwoo-geo-ai' ); ?></a>
 						</footer>
 					</article>
 				<?php endforeach; ?>
 			<?php endif; ?>
 		</main>
 
+		<?php if ( ! $has_review ) : ?>
 		<aside class="rwga-ux-reviewer__sidebar">
 			<div class="rwgc-card rwga-ux-reviewer__score">
 				<h2><?php esc_html_e( 'Performance score', 'reactwoo-geo-ai' ); ?></h2>
-				<?php if ( null !== ( $score_summary['score'] ?? null ) ) : ?>
-					<div class="rwga-ux-score-ring" style="--rwga-score: <?php echo esc_attr( (string) (int) $score_summary['score'] ); ?>;">
-						<div class="rwga-ux-score-ring__inner">
-							<span class="rwga-ux-score-ring__value"><?php echo esc_html( (string) $score_summary['score'] ); ?></span>
-							<?php if ( null !== $score_delta && 0 !== (int) $score_delta ) : ?>
-								<span class="rwga-ux-score-ring__delta"><?php echo esc_html( ( (int) $score_delta > 0 ? '+' : '' ) . (string) (int) $score_delta . '%' ); ?></span>
-							<?php endif; ?>
-						</div>
+				<div class="rwga-ux-score-ring rwga-ux-score-ring--empty" style="--rwga-score: 0;">
+					<div class="rwga-ux-score-ring__inner">
+						<span class="rwga-ux-score-ring__value">—</span>
 					</div>
-					<p class="rwga-ux-score-ring__label">
-						<?php
-						if ( null !== $score_delta && 0 !== (int) $score_delta ) {
-							echo esc_html( (int) $score_delta > 0 ? __( 'Improving', 'reactwoo-geo-ai' ) : __( 'Needs attention', 'reactwoo-geo-ai' ) );
-						} else {
-							esc_html_e( 'Stable', 'reactwoo-geo-ai' );
-						}
-						?>
-					</p>
-				<?php else : ?>
-					<div class="rwga-ux-score-ring rwga-ux-score-ring--empty" style="--rwga-score: 0;">
-						<div class="rwga-ux-score-ring__inner">
-							<span class="rwga-ux-score-ring__value">—</span>
-						</div>
-					</div>
-					<p class="description"><?php esc_html_e( 'Run a review to generate a score.', 'reactwoo-geo-ai' ); ?></p>
-				<?php endif; ?>
-				<ul class="rwga-ux-reviewer__score-metrics">
-					<li><span><?php esc_html_e( 'Conversion potential', 'reactwoo-geo-ai' ); ?></span><strong><?php echo esc_html( (string) ( $score_summary['conversion_potential'] ?? '—' ) ); ?></strong></li>
-					<li><span><?php esc_html_e( 'User friction', 'reactwoo-geo-ai' ); ?></span><strong><?php echo esc_html( (string) ( $score_summary['user_friction'] ?? '—' ) ); ?></strong></li>
-					<li><span><?php esc_html_e( 'Geo personalisation', 'reactwoo-geo-ai' ); ?></span><strong><?php echo esc_html( (string) ( $score_summary['geo_personalisation'] ?? '—' ) ); ?></strong></li>
-					<li><span><?php esc_html_e( 'Accessibility', 'reactwoo-geo-ai' ); ?></span><strong><?php echo esc_html( (string) ( $score_summary['accessibility'] ?? '—' ) ); ?></strong></li>
-				</ul>
-			</div>
-
-			<div class="rwgc-card rwga-ux-reviewer__key-recs">
-				<h2><?php esc_html_e( 'Key recommendations', 'reactwoo-geo-ai' ); ?></h2>
-				<?php if ( empty( $score_summary['key_recommendations'] ) ) : ?>
-					<p class="description"><?php esc_html_e( 'Run a review to populate key recommendations.', 'reactwoo-geo-ai' ); ?></p>
-				<?php else : ?>
-					<ol class="rwga-ux-reviewer__key-list">
-						<?php foreach ( $score_summary['key_recommendations'] as $item ) : ?>
-							<li><a href="#<?php echo esc_attr( (string) ( $item['anchor'] ?? '' ) ); ?>"><?php echo esc_html( (string) ( $item['title'] ?? '' ) ); ?></a></li>
-						<?php endforeach; ?>
-					</ol>
-				<?php endif; ?>
+				</div>
+				<p class="description"><?php esc_html_e( 'Run a review to generate a score.', 'reactwoo-geo-ai' ); ?></p>
 			</div>
 		</aside>
+		<?php endif; ?>
 	</div>
 </div>
 <script>

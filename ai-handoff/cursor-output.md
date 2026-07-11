@@ -4,33 +4,50 @@
 
 done
 
+## Task
+
+AI Review workspace UX hierarchy pass (Optimise 0.4.72). WordPress AI transport left untouched.
+
+## Before → after hierarchy
+
+### Before
+1. Assistant + glossary chips (audit types / targets / examples)
+2. Refine setup **open** (target, audience, device first)
+3. Audit scope checkboxes (Full + 4 categories all checked)
+4. Start review inside `<details>`
+5. Category cards + score sidebar + Key recommendations + findings
+
+### After
+1. Assistant (short welcome) + **Try an example** disclosure
+2. **Review types** (Full review as select-all; individuals exclusive of Full)
+3. Detected setup summary + **Run review** (outside Refine)
+4. **Refine setup** collapsed (content type + relevant selector; Audience & device nested optional)
+5. After review: compact current-review bar → overall/category summary → findings (no Key recommendations card)
+
 ## Files changed
 
-- `includes/class-rwgo-exposure.php` (new) — server exposure recording
-- `includes/class-rwgo-tracking-manifest.php` (new) — schema 1.0 manifest builder
-- `includes/class-rwgo-event-payload.php` — `normalize_experiment_exposure`
-- `includes/class-rwgo-event-store.php` — hook + counts; persist session_hash
-- `includes/class-rwgo-runtime.php` — call exposure after served
-- `includes/class-rwgo-plugin.php` — require new classes
-- `includes/class-rwgo-goal-registry.php` — `trackingManifest` on FE config
-- `includes/class-rwgo-gtm-handoff.php` — exposure event docs/example
-- `assets/js/rwgo-tracking.js` — dataLayer exposure push
-- `docs/MEASUREMENT-CONTRACT.md` — phase 2
-- Version → **0.4.71**
+- `merged-geo-ai/admin/views/partials/ux-reviewer-workspace.php` — reorder, collapse, results compact, finding action hierarchy
+- `merged-geo-ai/admin/js/rwga-ux-reviewer-assistant.js` — no auto-open refine; summary; Full sync; Adjust setup; validation opens refine
+- `merged-geo-ai/admin/css/rwga-ux-reviewer.css` — `[hidden]` override for `.rwga-ux-target-field`; denser layout
+- `merged-geo-ai/includes/class-rwga-ux-reviewer-ui.php` — labels, welcome, examples-only hints, i18n
+- `includes/class-rwgo-admin.php` — Experiments/Reports `is_section_nav => false`
+- `admin/css/rwgo-admin.css` — hub AI review padding 18–20px
+- Version refs → **0.4.72**
 
-## What was not changed
+## Not changed
 
-- Physical goal_id/handler_id matching
-- GTM API provisioning / Atomic write / winner policy
-- Unrelated UX reviewer workspace JS (left unstaged)
-- Standalone Geo AI repo
+- AI generation transports, quota, experiments, goals, promotion, Geo Core evaluator
+- Form action / nonce / field names (`audit_scopes[]`, `page_id`, etc.)
+- Geo Core navigation CSS
 
-## Commands / validation
+## Commands run
 
-- PHP syntax check on new classes
-- `npm run package:zip`
-- Tag `v0.4.71` push + `git ls-remote` verify
+- `php -l` on workspace PHP, UX UI class, RWGO_Admin — OK
+- `node --check` on assistant JS — OK
+- `npm run package:zip` — OK → `reactwoo-geo-optimise-0.4.72.zip`
 
-## Remaining
+## Acceptance notes
 
-- Next roadmap: Atomic write stamping keys from blueprint
+- Target field visibility: confirmed `.rwgc-wrap.rwgc-suite .rwgc-field { display: flex }` overrides native `[hidden]`; fixed with scoped `display: none !important`.
+- Outer Experiences strip: legacy Experiments/Reports routes remain registered but excluded from section nav; Optimise hub tabs are primary.
+- Core strip may still show other Experiences items (Dynamic content, Geo content, Optimise) — no Core change required for this pass.
