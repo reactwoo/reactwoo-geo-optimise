@@ -14,7 +14,9 @@ $settings         = RWGO_Settings::get_settings();
 $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-settings';
 
 $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $settings['builder_mode'] ) : 'recommended';
+$rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 ?>
+<?php if ( ! $rwgo_hub_embed ) : ?>
 <div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--settings">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
@@ -30,6 +32,9 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
 	<div class="rwgo-stack">
+<?php else : ?>
+<div class="rwgo-optimise-hub__embed rwgo-optimise-hub__embed--settings">
+<?php endif; ?>
 	<form method="post" action="options.php" class="rwgo-panel">
 		<?php settings_fields( 'rwgo_license_group' ); ?>
 		<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="optimisation" />
@@ -112,5 +117,9 @@ $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $set
 			<?php submit_button( __( 'Save settings', 'reactwoo-geo-optimise' ), 'primary', 'submit', false, array( 'class' => 'button button-primary rwgo-btn rwgo-btn--primary' ) ); ?>
 		</p>
 	</form>
+<?php if ( ! $rwgo_hub_embed ) : ?>
 	</div>
 </div>
+<?php else : ?>
+</div>
+<?php endif; ?>

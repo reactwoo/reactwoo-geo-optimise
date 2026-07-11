@@ -1,57 +1,19 @@
-# Current task
+# Current task — Elementor Atomic V4 read support
 
-> Replace this file each new task. Planner owns this file; Cursor reads it before changing code.
+**Phase:** Geo AI builder context — read-only Atomic Editor V4 support
 
 ## Problem
 
-<!-- What is broken or what feature is needed? One paragraph. -->
+`RWGA_Elementor_Adapter` assumes legacy V3 widget types and flat settings. Elementor 4 Atomic documents use `e-heading`, typed `$$type`/`value` props, styles/classes outside flat settings. Mixed V3/V4 documents must be supported per element.
 
 ## Expected
 
-<!-- Correct behaviour when done. -->
+Read-only normalized context from V3, V4, and mixed documents. No mutation/conversion.
 
-## Actual
+## Acceptance
 
-<!-- What happens today (error, wrong UI, failing test). -->
-
-## Files involved
-
-<!-- Paths you already suspect. Cursor may add more after inspection. -->
-
-- 
-
-## What we already tried
-
-<!-- From known-issues.md or prior loops — avoid repeating. -->
-
-- 
-
-## Error / log
-
-```
-(paste relevant stack trace or log excerpt)
-```
-
-## Acceptance test
-
-<!-- Smallest command or manual check that proves the fix. -->
-
-- [ ] 
+See planner brief: V3 regression, Atomic heading/button/image extraction, class/style summaries, mixed docs, fixtures/tests, package zip, cursor-output update.
 
 ## Do not touch
 
-<!-- Files, behaviours, or refactors that are out of scope. -->
-
-- 
-
-## Specification (optional)
-
-<!-- Paste spec excerpt or link to Flow item / Jira. -->
-
-## Cursor instructions
-
-1. Read `ai-handoff/known-issues.md` before editing.
-2. Find root cause before patching symptoms.
-3. Change only what this task requires.
-4. Run the smallest validation that matches **Acceptance test**.
-5. Update `ai-handoff/cursor-output.md` when finished (required).
+Action planner/executor, Gutenberg, Geo Core, Optimise goals, WP AI transport, MCP internals, `_elementor_data` writes.

@@ -77,7 +77,9 @@ $rwgo_status_pill_class = static function ( $st ) {
 	return isset( $map[ $st ] ) ? $map[ $st ] : 'rwgo-pill--draft';
 };
 
+$rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 ?>
+<?php if ( ! $rwgo_hub_embed ) : ?>
 <div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--tests">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
@@ -93,6 +95,9 @@ $rwgo_status_pill_class = static function ( $st ) {
 	<?php if ( ! $rwgo_use_platform_shell ) : ?>
 		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 	<?php endif; ?>
+<?php else : ?>
+<div class="rwgo-optimise-hub__embed rwgo-optimise-hub__embed--experiments">
+<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="rwgo-page-notices">

@@ -109,6 +109,15 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-optimise-hub.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-ai-module.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-ai-hub-views.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-optimise-history.php';
+		RWGO_AI_Module::boot();
+		require_once RWGO_PATH . 'includes/class-rwgo-legacy-redirects.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-merge-bridge.php';
+		RWGO_Legacy_Redirects::init();
+		RWGO_Merge_Bridge::init();
 		require_once RWGO_PATH . 'includes/class-rwgo-ai-snapshot.php';
 		RWGO_AI_Snapshot::init();
 		require_once RWGO_PATH . 'includes/class-rwgo-insights-provider.php';

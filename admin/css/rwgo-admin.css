@@ -2210,6 +2210,136 @@ select.rwgo-input {
   }
 }
 
+/* -------------------------------------------------------------------------
+   Optimise hub (merged AI + experiments shell)
+   ------------------------------------------------------------------------- */
+.rwgo-wrap--optimise-hub {
+  max-width: 1240px;
+}
+
+.rwgo-optimise-hub__tabs {
+  margin-bottom: 12px;
+}
+
+.rwgo-optimise-hub__tab-lead {
+  margin: 0 0 16px;
+  max-width: 72ch;
+}
+
+.rwgo-optimise-hub__content {
+  margin-top: 0;
+}
+
+.rwgo-optimise-hub__placeholder-meta {
+  margin-top: 16px;
+}
+
+.rwgo-optimise-hub__chat-preview {
+  margin: 16px 0;
+  padding: 16px 18px;
+  border: 1px dashed var(--rwgo-color-accent-border, #bfdbfe);
+  border-radius: var(--rwgo-radius-md, 12px);
+  background: var(--rwgo-color-accent-soft, #eff6ff);
+  max-width: 56ch;
+}
+
+.rwgo-optimise-hub__chat-prompt {
+  margin: 0 0 6px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.rwgo-optimise-hub__settings-stack > .rwgo-optimise-hub__embed + .rwgo-optimise-hub__embed {
+  margin-top: var(--rwgo-gap, 24px);
+}
+
+.rwgo-optimise-hub__embed--experiments .rwgo-tests-toolbar,
+.rwgo-optimise-hub__embed--reports .rwgo-report-filters {
+  margin-top: 0;
+}
+
+.rwgo-optimise-hub__history-timeline {
+  margin-bottom: var(--rwgo-gap, 24px);
+}
+
+.rwgo-history-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.rwgo-history-timeline__item {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 12px 16px;
+  padding: 14px 16px;
+  border: var(--rwgo-border, 1px solid #e5e7eb);
+  border-radius: var(--rwgo-radius-md, 12px);
+  background: #fff;
+}
+
+.rwgo-history-timeline__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rwgo-history-timeline__badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.rwgo-history-timeline__badge--ai {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.rwgo-history-timeline__badge--experiment {
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.rwgo-history-timeline__badge--promotion {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.rwgo-history-timeline__time {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.rwgo-history-timeline__title {
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+a.rwgo-history-timeline__title:hover {
+  color: #1d4ed8;
+}
+
+.rwgo-history-timeline__detail {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #64748b;
+  word-break: break-word;
+}
+
+@media (max-width: 782px) {
+  .rwgo-history-timeline__item {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* When Geo Core suite shell is present, prefer shared border/shadow tokens */
 .rwgo-wrap.rwgc-suite {
   --rwgo-border: 1px solid var(--rw-suite-border, #e5e7eb);

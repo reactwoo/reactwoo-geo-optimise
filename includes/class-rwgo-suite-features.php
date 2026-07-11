@@ -132,6 +132,9 @@ class RWGO_Suite_Features {
 	 * @return string
 	 */
 	public static function get_geo_ai_license_url() {
+		if ( class_exists( 'RWGO_Optimise_Hub', false ) && class_exists( 'RWGO_AI_Module', false ) && RWGO_AI_Module::uses_optimise_hub() ) {
+			return RWGO_Optimise_Hub::tab_url( 'settings' );
+		}
 		return admin_url( 'admin.php?page=rwga-license' );
 	}
 

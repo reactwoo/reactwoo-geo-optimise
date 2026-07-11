@@ -75,6 +75,21 @@ class RWGO_Promotion_Log {
 	}
 
 	/**
+	 * Recent promotion rows for admin timeline.
+	 *
+	 * @param int $limit Max rows.
+	 * @return array<int, object>
+	 */
+	public static function list_recent( $limit = 20 ) {
+		global $wpdb;
+		$limit = max( 1, min( 50, (int) $limit ) );
+		$table = self::table_name();
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$rows = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY created_at_gmt DESC LIMIT %d", $limit ) );
+		return is_array( $rows ) ? $rows : array();
+	}
+
+	/**
 	 * Delete audit rows for an experiment (e.g. after test deletion).
 	 *
 	 * @param int $experiment_post_id Experiment CPT ID.

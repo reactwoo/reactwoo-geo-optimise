@@ -30,7 +30,23 @@ class RWGO_Admin {
 	}
 
 	/**
-	 * Tracking Tools — GTM / GA4 / dataLayer (operator + agency).
+	 * Optimise hub URL with optional tab.
+	 *
+	 * @param string $tab   Tab id (ai-review, experiments, …).
+	 * @param array  $extra Extra query args.
+	 * @return string
+	 */
+	public static function optimise_hub_url( $tab = '', array $extra = array() ) {
+		if ( class_exists( 'RWGO_Optimise_Hub', false ) ) {
+			if ( '' === (string) $tab ) {
+				return admin_url( 'admin.php?page=' . RWGO_Optimise_Hub::PAGE_SLUG );
+			}
+			return RWGO_Optimise_Hub::tab_url( $tab, $extra );
+		}
+		return admin_url( 'admin.php?page=' . self::MENU_PARENT );
+	}
+
+	/**
 	 *
 	 * @return string
 	 */
@@ -374,7 +390,7 @@ class RWGO_Admin {
 			return;
 		}
 		$data = self::get_view_data();
-		$url  = admin_url( 'admin.php?page=' . self::MENU_PARENT );
+		$url  = self::optimise_hub_url( 'experiments' );
 		$nexp = isset( $data['active_managed_tests'] ) ? (int) $data['active_managed_tests'] : 0;
 		$asg  = isset( $data['total_variant_assignments'] ) ? (int) $data['total_variant_assignments'] : 0;
 		?>
@@ -434,6 +450,7 @@ class RWGO_Admin {
 		}
 
 		$items = array(
+			RWGO_Optimise_Hub::PAGE_SLUG => __( 'Optimise', 'reactwoo-geo-optimise' ),
 			self::MENU_PARENT     => __( 'Dashboard', 'reactwoo-geo-optimise' ),
 			'rwgo-create-test'    => __( 'Create Test', 'reactwoo-geo-optimise' ),
 			'rwgo-tests'          => __( 'Tests', 'reactwoo-geo-optimise' ),
@@ -655,7 +672,7 @@ class RWGO_Admin {
 				)
 			);
 		}
-		if ( false !== strpos( $hook, 'rwgo-tracking-tools' ) || false !== strpos( $hook, 'rwgo-tests' ) ) {
+		if ( false !== strpos( $hook, 'rwgo-tracking-tools' ) || false !== strpos( $hook, 'rwgo-tests' ) || false !== strpos( $hook, 'rwgo-optimise' ) ) {
 			wp_enqueue_style( 'dashicons' );
 			wp_enqueue_script(
 				'rwgo-admin-gtm',
@@ -708,6 +725,14 @@ class RWGO_Admin {
 	 */
 	public static function register_menu() {
 		$routes = array(
+			array(
+				'menu_slug' => RWGO_Optimise_Hub::PAGE_SLUG,
+				'section'   => 'experiences',
+				'route'     => 'optimise',
+				'label'     => __( 'Optimise', 'reactwoo-geo-optimise' ),
+				'order'     => 8,
+				'callback'  => array( __CLASS__, 'render_optimise_hub' ),
+			),
 			array(
 				'menu_slug' => self::MENU_PARENT,
 				'section'   => 'experiences',
@@ -945,6 +970,18 @@ class RWGO_Admin {
 		}
 		$rwgc_nav_current = 'rwgo-license';
 		include RWGO_PATH . 'admin/views/license-settings.php';
+	}
+
+	/**
+	 * Merged Optimise hub (AI + experiments tabs).
+	 *
+	 * @return void
+	 */
+	public static function render_optimise_hub() {
+		if ( ! self::can_manage() ) {
+			return;
+		}
+		include RWGO_PATH . 'admin/views/optimise/hub.php';
 	}
 
 	/**

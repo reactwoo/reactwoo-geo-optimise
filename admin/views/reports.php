@@ -62,7 +62,9 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 	}
 	return $out;
 };
+$rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 ?>
+<?php if ( ! $rwgo_hub_embed ) : ?>
 <div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--reports">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
@@ -80,6 +82,9 @@ $rwgo_split_pct = static function ( array $counts, array $slugs ) {
 	<?php if ( ! $rwgo_use_platform_shell ) : ?>
 		<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 	<?php endif; ?>
+<?php else : ?>
+<div class="rwgo-optimise-hub__embed rwgo-optimise-hub__embed--reports">
+<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_promoted'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success is-dismissible rwgo-notice"><p><?php esc_html_e( 'Variant B was copied into Control and this test was marked completed.', 'reactwoo-geo-optimise' ); ?></p></div>

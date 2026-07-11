@@ -1,0 +1,379 @@
+.rwga-wizard { margin-bottom: 16px; }
+.rwga-progress { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.rwga-progress li { background: #f0f4f8; border: 1px solid #d4dbe3; border-radius: 999px; padding: 6px 10px; font-size: 12px; }
+.rwga-progress li.is-active { background: #2271b1; color: #fff; border-color: #2271b1; }
+.rwga-report-html h2 { margin-top: 1.2em; margin-bottom: 0.4em; }
+.rwga-report-html h3 { margin-top: 1em; margin-bottom: 0.35em; }
+.rwga-report-html h4 { margin-top: 0.9em; margin-bottom: 0.3em; font-size: 15px; }
+.rwga-report-html h5 { margin-top: 0.75em; margin-bottom: 0.25em; font-size: 13px; text-transform: uppercase; letter-spacing: 0.02em; color: #50575e; }
+.rwga-report-html p { margin: 0 0 0.8em; line-height: 1.5; }
+.rwga-report-html ul { margin: 0 0 1em 1.2em; }
+.rwga-wrap { display: flex; flex-direction: column; gap: 24px; }
+.rwgc-card + .rwgc-card { margin-top: 0; }
+.rwga-next-step,
+.rwga-workflow-state,
+.rwga-implementation-actions {
+	border-left: 4px solid #2271b1;
+}
+.rwga-report-content h2,
+.rwga-report-content h3,
+.rwga-report-content h4 {
+	margin-top: 1.25em;
+	margin-bottom: 0.5em;
+}
+.rwga-report-content p {
+	margin: 0 0 1em;
+	line-height: 1.6;
+}
+.rwga-report-content ul {
+	margin: 0 0 1em 1.25em;
+}
+.rwga-report-content > * + * {
+	margin-top: 12px;
+}
+/* Recommendation cards: match finding-card density + sectioned body */
+.rwga-report-html .rwga-rec-list,
+.rwga-report-content .rwga-rec-list {
+	list-style: none;
+	margin: 0 0 1.25em;
+	padding: 0;
+}
+.rwga-report-html .rwga-rec-card,
+.rwga-report-content .rwga-rec-card {
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 0;
+	margin: 0 0 12px;
+	background: #fff;
+	overflow: hidden;
+}
+.rwga-report-html .rwga-rec-card__head,
+.rwga-report-content .rwga-rec-card__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 8px 12px;
+	padding: 14px 16px 10px;
+	margin: 0;
+	border-bottom: 1px solid #f0f0f1;
+	background: linear-gradient(180deg, #fafbfc 0%, #fff 100%);
+}
+.rwga-report-html .rwga-rec-card__title,
+.rwga-report-content .rwga-rec-card__title {
+	font-size: 15px;
+	font-weight: 700;
+	line-height: 1.35;
+	margin: 0;
+	flex: 1 1 160px;
+}
+.rwga-report-html .rwga-rec-card__category.description,
+.rwga-report-content .rwga-rec-card__category.description {
+	margin: 0;
+	font-size: 12px;
+	color: #64748b;
+}
+.rwga-rec-priority {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	padding: 2px 8px;
+	border-radius: 999px;
+	background: #f1f5f9;
+	color: #475569;
+	white-space: nowrap;
+}
+.rwga-rec-priority--high {
+	background: #fee2e2;
+	color: #991b1b;
+}
+.rwga-rec-priority--medium {
+	background: #fef3c7;
+	color: #92400e;
+}
+.rwga-rec-priority--low {
+	background: #dcfce7;
+	color: #166534;
+}
+.rwga-report-html .rwga-rec-card__where,
+.rwga-report-content .rwga-rec-card__where {
+	margin: 0;
+	padding: 10px 16px 0;
+	font-size: 13px;
+	line-height: 1.5;
+	color: #1d2327;
+}
+.rwga-report-html .rwga-rec-card__section,
+.rwga-report-content .rwga-rec-card__section {
+	padding: 12px 16px 14px;
+	border-top: 1px solid #f0f0f1;
+}
+.rwga-report-html .rwga-rec-card__section--paste,
+.rwga-report-content .rwga-rec-card__section--paste {
+	background: #f8fafc;
+}
+.rwga-report-html .rwga-rec-card__section--context .rwga-rec-card__meta:last-child,
+.rwga-report-content .rwga-rec-card__section--context .rwga-rec-card__meta:last-child {
+	margin-bottom: 0;
+}
+.rwga-report-html .rwga-rec-card__section h5,
+.rwga-report-content .rwga-rec-card__section h5 {
+	margin: 0 0 8px;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: #64748b;
+}
+.rwga-report-html .rwga-rec-card__section--paste h5,
+.rwga-report-content .rwga-rec-card__section--paste h5 {
+	color: #1e40af;
+}
+.rwga-report-html .rwga-rec-card__meta,
+.rwga-report-content .rwga-rec-card__meta {
+	font-size: 13px;
+	color: #50575e;
+	margin: 0 0 0.65em;
+	line-height: 1.55;
+}
+.rwga-report-html .rwga-rec-card__field,
+.rwga-report-content .rwga-rec-card__field {
+	margin: 0.5em 0 0.2em;
+	font-size: 12px;
+}
+.rwga-report-html .rwga-rec-card__cta,
+.rwga-report-content .rwga-rec-card__cta {
+	margin: 0.35em 0 0;
+	font-size: 13px;
+}
+.rwga-report-html .rwga-rec-card__replace,
+.rwga-report-content .rwga-rec-card__replace {
+	margin: 0 0 0.75em;
+	font-size: 13px;
+	color: #50575e;
+}
+.rwga-report-html blockquote.rwga-paste-copy,
+.rwga-report-content blockquote.rwga-paste-copy {
+	margin: 0.25em 0 0.85em;
+	padding: 10px 14px;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-left: 3px solid #2271b1;
+	font-size: 15px;
+	line-height: 1.45;
+}
+/**
+ * Geo AI admin — complements Geo Core .rwgc-* styles.
+ */
+
+/* Stacked suite cards: reliable vertical rhythm (grid gap + sibling fallback). */
+.rwga-wrap.rwgc-suite .rwgc-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.rwga-wrap.rwgc-suite .rwgc-card + .rwgc-card {
+  margin-top: 16px;
+}
+
+.rwga-wrap.rwgc-suite {
+  --rwga-accent: var(--rw-suite-accent, #1d4ed8);
+  --rwga-accent-soft: var(--rw-suite-accent-soft, #eff6ff);
+  --rwga-accent-strong: var(--rw-suite-accent-strong, #1e40af);
+  --rwga-severity-high: #991b1b;
+  --rwga-severity-medium: #92400e;
+  --rwga-severity-low: #166534;
+}
+
+/* Section titles inside cards (e.g. Setup checklist, Recent analyses) */
+.rwga-wrap.rwgc-suite .rwgc-card > h2 {
+  margin: 0 0 var(--rw-suite-space-4, 16px);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--rw-suite-text, #111827);
+  letter-spacing: -0.01em;
+}
+
+.rwga-wrap .rwga-hero {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 50%, #f8fafc 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  padding: 20px 22px;
+  margin-bottom: var(--rw-suite-space-5, 24px);
+}
+
+.rwga-wrap .rwga-hero h2 {
+  margin-top: 0;
+  font-size: 18px;
+}
+
+.rwga-wrap .rwga-steps {
+  margin: 0 0 12px;
+  padding-left: 22px;
+}
+
+.rwga-wrap .rwga-steps li {
+  margin-bottom: 8px;
+}
+
+.rwga-wrap .rwga-dev-details {
+  margin-top: var(--rw-suite-space-5, 24px);
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 0 16px 12px;
+  background: #f8fafc;
+}
+
+.rwga-wrap .rwga-dev-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0 8px;
+  color: #475569;
+}
+
+.rwga-wrap .rwga-dev-details[open] summary {
+  margin-bottom: 8px;
+}
+
+.rwga-wrap .rwga-dev-details pre,
+.rwga-wrap .rwga-dev-details code {
+  font-size: 12px;
+}
+
+.rwga-license-dl {
+  margin: 0 0 16px;
+  display: grid;
+  grid-template-columns: minmax(120px, 40%) 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+
+.rwga-license-dl dt {
+  margin: 0;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.rwga-license-dl dd {
+  margin: 0;
+}
+
+.rwga-license-actions .button {
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.rwga-table-comfortable th,
+.rwga-table-comfortable td {
+  padding: 14px 16px;
+  vertical-align: top;
+}
+
+.rwga-wrap.rwgc-suite .rwga-table-comfortable thead th {
+  padding-bottom: var(--rw-suite-space-3, 12px);
+}
+
+.rwga-code-block {
+  display: block;
+  margin-top: 8px;
+  word-break: break-all;
+  font-size: 12px;
+}
+
+.rwga-code-inline {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.rwga-empty-hint {
+  color: #64748b;
+  margin: 0 0 12px;
+  max-width: 52em;
+}
+
+.rwga-suite-satellite-links {
+  margin-bottom: 20px;
+}
+
+.rwga-suite-satellite-links .rwga-suite-satellite-links__title {
+  margin-top: 0;
+  font-size: 16px;
+}
+
+.rwga-findings-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rwga-finding-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.rwga-finding-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.rwga-finding-card__head .description {
+  margin: 0;
+}
+
+.rwga-finding-card__evidence,
+.rwga-finding-card__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.rwga-severity {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.rwga-severity--high {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.rwga-severity--medium {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rwga-severity--low {
+  background: #dcfce7;
+  color: #166534;
+}
+
+/* Beat Geo Core `.rwgc-wrap.rwgc-suite .rwgc-actions { flex-wrap: wrap }` so Save + Disconnect stay on one row. */
+.rwga-wrap.rwgc-suite .rwga-license-primary-actions.rwgc-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.rwga-wrap.rwgc-suite .rwga-license-disconnect-form {
+  display: inline-flex;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.rwga-wrap.rwgc-suite .rwga-license-primary-actions > .rwgc-btn--primary {
+  flex: 0 0 auto;
+}

@@ -18,8 +18,10 @@ $last_ok          = is_array( $last_check ) && ! empty( $last_check['ok'] );
 $last_time        = is_array( $last_check ) && ! empty( $last_check['time'] ) ? (string) $last_check['time'] : '';
 $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (string) $last_check['error'] : '';
 $import_sources   = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::get_manual_import_sources() : array();
+$rwgo_hub_embed   = ! empty( $rwgo_optimise_hub_embed );
 
 ?>
+<?php if ( ! $rwgo_hub_embed ) : ?>
 <div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--license">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
@@ -33,6 +35,9 @@ $import_sources   = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::get_
 	<?php endif; ?>
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+<?php else : ?>
+<div class="rwgo-optimise-hub__embed rwgo-optimise-hub__embed--license">
+<?php endif; ?>
 
 	<?php if ( ! empty( $_GET['rwgo_disconnected'] ) || isset( $_GET['rwgo_license_test'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 	<div class="rwgo-page-notices">
