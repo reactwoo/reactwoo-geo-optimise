@@ -99,6 +99,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-exposure.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-manifest.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-measurement-stamper.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-blueprint-page-writer.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-preflight.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-provisioner.php';

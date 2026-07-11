@@ -34,6 +34,20 @@ class RWGA_Section_Blueprint {
 	}
 
 	/**
+	 * @return string
+	 */
+	public function get_type() {
+		return $this->type;
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	public function get_required_elements() {
+		return $this->required_elements;
+	}
+
+	/**
 	 * @return array<string, mixed>
 	 */
 	public function to_array() {

@@ -33,6 +33,7 @@ class RWGA_Builder_Loader {
 		require_once $base . 'elementor/class-rwga-elementor-v3-node-reader.php';
 		require_once $base . 'elementor/class-rwga-elementor-v4-node-reader.php';
 		require_once $base . 'elementor/class-rwga-elementor-document-writer.php';
+		require_once $base . 'elementor/class-rwga-elementor-blueprint-builder.php';
 		require_once $base . 'class-rwga-elementor-adapter.php';
 		require_once $base . 'class-rwga-gutenberg-adapter.php';
 		require_once $base . 'class-rwga-default-post-content-adapter.php';

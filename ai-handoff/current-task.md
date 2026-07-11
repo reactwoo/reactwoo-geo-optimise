@@ -4,17 +4,15 @@
 
 ## Problem
 
-GTM provisioning after Atomic write: tracking preflight + offline provision pack (no live Google API yet).
+User asked for both: (1) Atomic Elementor goals and (2) full Atomic/page write from blueprints — sequentially.
 
-## Expected (this pass)
+## Expected
 
-- `RWGO_Tracking_Preflight` checklist per experiment
-- `RWGO_GTM_Provisioner` downloadable JSON pack
-- Tracking Tools UI: preflight + Download GTM pack
-- Ship **0.4.74**
+- **0.4.73** already shipped Atomic goals + stamp-on-existing write
+- **0.4.75** blueprint page construction (V3 + Atomic) with CTA element keys
+- Developer Tools create-draft action
 
 ## Do not touch
 
-- Live GTM Tag Manager API OAuth push
-- Winner policy statistical gates (next)
-- Standalone `reactwoo-geo-ai`
+- Live GTM API push / winner policy
+- Standalone Geo AI

@@ -306,6 +306,7 @@ class RWGO_Admin {
 		add_filter( 'rwgc_onboarding_platform_steps', array( __CLASS__, 'filter_onboarding_platform_steps' ), 20, 2 );
 		add_action( 'admin_post_rwgo_resync_all_safe', array( __CLASS__, 'handle_resync_all_safe' ) );
 		add_action( 'admin_post_rwgo_sync_measurement_keys', array( __CLASS__, 'handle_sync_measurement_keys' ) );
+		add_action( 'admin_post_rwgo_create_blueprint_page', array( __CLASS__, 'handle_create_blueprint_page' ) );
 		add_action( 'admin_post_rwgo_download_gtm_pack', array( __CLASS__, 'handle_download_gtm_pack' ) );
 		add_action( 'rwgc_dashboard_satellite_panels', array( __CLASS__, 'render_geo_core_summary_card' ) );
 	}
@@ -1348,6 +1349,46 @@ class RWGO_Admin {
 			self::developer_url( 'developer' )
 		);
 		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Create a draft Elementor page from the lead-generation blueprint.
+	 *
+	 * @return void
+	 */
+	public static function handle_create_blueprint_page() {
+		if ( ! self::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_create_blueprint_page' );
+
+		$mode = isset( $_POST['rwgo_blueprint_mode'] ) ? sanitize_key( (string) wp_unslash( $_POST['rwgo_blueprint_mode'] ) ) : 'v3'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( ! in_array( $mode, array( 'v3', 'atomic' ), true ) ) {
+			$mode = 'v3';
+		}
+
+		$result = class_exists( 'RWGO_Blueprint_Page_Writer', false )
+			? RWGO_Blueprint_Page_Writer::create_draft_page(
+				array(
+					'mode'       => $mode,
+					'post_title' => __( 'Geo Optimise blueprint (lead gen)', 'reactwoo-geo-optimise' ),
+				)
+			)
+			: new WP_Error( 'rwgo_bp_missing', __( 'Blueprint page writer is unavailable.', 'reactwoo-geo-optimise' ) );
+
+		$args = array(
+			'rwgo_bp_created' => is_wp_error( $result ) ? '0' : '1',
+		);
+		if ( is_wp_error( $result ) ) {
+			$args['rwgo_bp_error'] = rawurlencode( $result->get_error_message() );
+		} else {
+			$args['rwgo_bp_post']  = (string) (int) ( $result['post_id'] ?? 0 );
+			$args['rwgo_bp_mode']  = isset( $result['mode'] ) ? (string) $result['mode'] : $mode;
+			$args['rwgo_bp_goals'] = (string) (int) ( $result['goals_stamped'] ?? 0 );
+		}
+
+		wp_safe_redirect( add_query_arg( $args, self::developer_url( 'developer' ) ) );
 		exit;
 	}
 

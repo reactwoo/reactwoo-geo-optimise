@@ -120,7 +120,7 @@ class RWGO_Elementor_Goals {
 	public static function get_goal_type_options_for_widget( $widget_name ) {
 		$widget_name = sanitize_key( (string) $widget_name );
 
-		$formish = array( 'form' );
+		$formish = array( 'form', 'e-form' );
 		$navish  = array( 'nav-menu', 'search-form' );
 		$commerish = array(
 			'woocommerce-product-add-to-cart',

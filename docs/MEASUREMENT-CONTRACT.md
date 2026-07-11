@@ -1,6 +1,6 @@
 # Geo Optimise measurement contract
 
-**Status:** Phase 4 implemented (element keys + exposure + manifest + Atomic write + GTM provision pack)  
+**Status:** Phase 5 implemented (keys + exposure + manifest + stamp write + GTM pack + blueprint construction)  
 **Owner:** `reactwoo-geo-optimise`
 
 ## Purpose
@@ -68,7 +68,7 @@ On page load (sessionStorage-deduped), `rwgo-tracking.js` pushes `rwgo_experimen
 - Measurement keys (`rwgo_*`) stored as **plain** strings (compatible with Advanced controls)
 - Other Atomic V4 content props can use `{ $$type, value }` wrappers when the node is detected as V4
 
-Does **not** construct full Atomic pages.
+Does **not** invent full Atomic style systems when only patching — use Phase 5 for construction.
 
 ### Stamper
 
@@ -103,12 +103,24 @@ Shown on Tracking Tools per-test cards.
 
 This is **agency offline provisioning** — not a live Google Tag Manager API push (OAuth / container write is a later phase).
 
+## Phase 5 — Blueprint page construction
+
+`RWGA_Elementor_Blueprint_Builder` turns `RWGA_Page_Blueprint` (e.g. `lead_generation_landing()`) into a full Elementor tree:
+
+| Mode | Structure |
+|------|-----------|
+| `v3` | section → column → classic widgets |
+| `atomic` | `e-flexbox` shells → `e-heading` / `e-paragraph` / `e-button` / `e-image` / … |
+
+Interactive CTAs (`primary_cta`, `button`) receive plain `rwgo_*` measurement settings with semantic keys like `hero.primary_cta`.
+
+`RWGO_Blueprint_Page_Writer::create_draft_page()` / `apply_to_post()` persist via `RWGA_Elementor_Document_Writer::write_document()`. Developer Tools: **Create page from blueprint**.
+
 ## Not in this phase
 
 - Live GTM Tag Manager API push
 - Winner policy statistical gates
 - Replacing physical goal/handler mapping with element-key-only matching
-- Full Atomic page construction from blueprints
 
 ## Next
 

@@ -71,6 +71,40 @@ if ( ! defined( 'ABSPATH' ) ) {
 		<?php endif; ?>
 	</div>
 
+	<div class="rwgc-card rwgo-resync-card">
+		<h2><?php esc_html_e( 'Create page from blueprint', 'reactwoo-geo-optimise' ); ?></h2>
+		<p><?php esc_html_e( 'Generate a draft Elementor page from the lead-generation blueprint. Interactive CTAs are stamped with stable element keys (e.g. hero.primary_cta). Choose Atomic for e-flexbox / e-button documents, or Classic V3 for section/column widgets.', 'reactwoo-geo-optimise' ); ?></p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-cta-row">
+			<input type="hidden" name="action" value="rwgo_create_blueprint_page" />
+			<?php wp_nonce_field( 'rwgo_create_blueprint_page' ); ?>
+			<label for="rwgo_blueprint_mode" class="screen-reader-text"><?php esc_html_e( 'Document mode', 'reactwoo-geo-optimise' ); ?></label>
+			<select name="rwgo_blueprint_mode" id="rwgo_blueprint_mode">
+				<option value="v3"><?php esc_html_e( 'Classic Elementor (V3)', 'reactwoo-geo-optimise' ); ?></option>
+				<option value="atomic"><?php esc_html_e( 'Atomic Elementor (V4)', 'reactwoo-geo-optimise' ); ?></option>
+			</select>
+			<?php submit_button( __( 'Create blueprint draft page', 'reactwoo-geo-optimise' ), 'secondary', 'submit', false, array( 'class' => 'button rwgo-btn' ) ); ?>
+		</form>
+		<?php if ( isset( $_GET['rwgo_bp_created'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+			<?php
+			$rwgo_bp_ok   = '1' === (string) $_GET['rwgo_bp_created']; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_bp_post = isset( $_GET['rwgo_bp_post'] ) ? (int) $_GET['rwgo_bp_post'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_bp_mode = isset( $_GET['rwgo_bp_mode'] ) ? sanitize_key( (string) $_GET['rwgo_bp_mode'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_bp_goals = isset( $_GET['rwgo_bp_goals'] ) ? (int) $_GET['rwgo_bp_goals'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$rwgo_bp_err  = isset( $_GET['rwgo_bp_error'] ) ? sanitize_text_field( rawurldecode( (string) wp_unslash( $_GET['rwgo_bp_error'] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			?>
+			<div class="rwgo-hint rwgo-hint--accent">
+				<?php if ( $rwgo_bp_ok && $rwgo_bp_post > 0 ) : ?>
+					<p><?php echo esc_html( sprintf( /* translators: 1: post id, 2: mode, 3: goal count */ __( 'Created page #%1$d (%2$s) with %3$d stamped CTA goal(s).', 'reactwoo-geo-optimise' ), $rwgo_bp_post, $rwgo_bp_mode, $rwgo_bp_goals ) ); ?></p>
+					<p><a href="<?php echo esc_url( admin_url( 'post.php?post=' . $rwgo_bp_post . '&action=elementor' ) ); ?>"><?php esc_html_e( 'Open in Elementor', 'reactwoo-geo-optimise' ); ?></a>
+						|
+						<a href="<?php echo esc_url( get_edit_post_link( $rwgo_bp_post, 'raw' ) ); ?>"><?php esc_html_e( 'Edit page', 'reactwoo-geo-optimise' ); ?></a></p>
+				<?php else : ?>
+					<p><?php echo esc_html( $rwgo_bp_err ? $rwgo_bp_err : __( 'Blueprint page could not be created.', 'reactwoo-geo-optimise' ) ); ?></p>
+				<?php endif; ?>
+			</div>
+		<?php endif; ?>
+	</div>
+
 	<div class="rwgc-card">
 		<h2><?php esc_html_e( 'Manual PHP variant resolution', 'reactwoo-geo-optimise' ); ?></h2>
 		<p><?php esc_html_e( 'Use this only when you implement a custom template or bespoke PHP outside the wizard — for example, conditional output in a theme file.', 'reactwoo-geo-optimise' ); ?></p>

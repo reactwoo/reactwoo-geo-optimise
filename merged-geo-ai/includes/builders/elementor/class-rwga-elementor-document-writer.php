@@ -45,15 +45,28 @@ class RWGA_Elementor_Document_Writer {
 	 *
 	 * @param int               $post_id Post ID.
 	 * @param array<int, mixed> $data    Elements tree.
+	 * @param array<string, mixed> $options Optional: mark_builder (bool, default true).
 	 * @return true|\WP_Error
 	 */
-	public static function save_data( $post_id, array $data ) {
+	public static function save_data( $post_id, array $data, array $options = array() ) {
 		$post_id = (int) $post_id;
 		$encoded = wp_json_encode( $data );
 		if ( ! is_string( $encoded ) || '' === $encoded ) {
 			return new WP_Error( 'rwga_el_encode', __( 'Could not encode Elementor data.', 'reactwoo-geo-ai' ) );
 		}
 		update_post_meta( $post_id, '_elementor_data', wp_slash( $encoded ) );
+
+		$mark_builder = ! isset( $options['mark_builder'] ) || ! empty( $options['mark_builder'] );
+		if ( $mark_builder ) {
+			update_post_meta( $post_id, '_elementor_edit_mode', 'builder' );
+			if ( '' === (string) get_post_meta( $post_id, '_elementor_template_type', true ) ) {
+				update_post_meta( $post_id, '_elementor_template_type', 'wp-page' );
+			}
+			if ( '' === (string) get_post_meta( $post_id, '_elementor_version', true ) ) {
+				$ver = defined( 'ELEMENTOR_VERSION' ) ? (string) ELEMENTOR_VERSION : '3.0.0';
+				update_post_meta( $post_id, '_elementor_version', $ver );
+			}
+		}
 
 		if ( class_exists( '\Elementor\Plugin', false ) && isset( \Elementor\Plugin::$instance->files_manager ) ) {
 			try {
@@ -72,6 +85,25 @@ class RWGA_Elementor_Document_Writer {
 		do_action( 'rwga_elementor_document_saved', $post_id, $data );
 
 		return true;
+	}
+
+	/**
+	 * Replace (or create) the full Elementor document tree on a post.
+	 *
+	 * @param int                  $post_id Post ID.
+	 * @param array<int, mixed>    $data    Full elements tree.
+	 * @param array<string, mixed> $options Passed to save_data().
+	 * @return true|\WP_Error
+	 */
+	public static function write_document( $post_id, array $data, array $options = array() ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return new WP_Error( 'rwga_el_bad_post', __( 'Invalid post for Elementor write.', 'reactwoo-geo-ai' ) );
+		}
+		if ( empty( $data ) ) {
+			return new WP_Error( 'rwga_el_empty_doc', __( 'Elementor document tree is empty.', 'reactwoo-geo-ai' ) );
+		}
+		return self::save_data( $post_id, $data, $options );
 	}
 
 	/**

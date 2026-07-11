@@ -1,23 +1,28 @@
-# Cursor output
+# Cursor output — blueprint construction (0.4.75)
 
-## Status
+**Status:** done  
+**Date:** 2026-07-11
 
-done
+## Summary
+
+Sequential delivery complete: Atomic goals were already in **0.4.73**; this pass adds full blueprint → Elementor page construction as **0.4.75**.
 
 ## Files changed
 
-- `includes/class-rwgo-tracking-preflight.php` (new)
-- `includes/class-rwgo-gtm-provisioner.php` (new)
-- Admin download handler + Tracking Tools cards
-- `docs/MEASUREMENT-CONTRACT.md` phase 4
-- Version → **0.4.74**
+| File | Why |
+|------|-----|
+| `class-rwga-elementor-blueprint-builder.php` | V3/Atomic tree from page blueprint + CTA stamps |
+| `class-rwgo-blueprint-page-writer.php` | create_draft / apply_to_post |
+| `class-rwga-elementor-document-writer.php` | `write_document` + Elementor meta marks |
+| Page/Section blueprint getters | Builder access |
+| Admin + Developer Tools | Create blueprint draft |
+| `RWGAElementorBlueprintBuilderTest` | 3 tests |
+| Docs / version → **0.4.75** |
 
-## What was not changed
+## Not changed
 
-- Live Google Tag Manager API
-- Winner policy gates
-- Promotion automation
+- Live GTM API, winner policy, standalone Geo AI
 
-## Remaining
+## Commands
 
-- Next: winner policy + promotion automation
+- php -l / PHPUnit / `npm run package:zip`

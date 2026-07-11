@@ -47,6 +47,27 @@ class RWGA_Page_Blueprint {
 	}
 
 	/**
+	 * @return string
+	 */
+	public function get_page_type() {
+		return $this->page_type;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function get_goal() {
+		return $this->goal;
+	}
+
+	/**
+	 * @return array<int, RWGA_Section_Blueprint>
+	 */
+	public function get_sections() {
+		return $this->sections;
+	}
+
+	/**
 	 * Standard lead-gen landing blueprint.
 	 *
 	 * @return self

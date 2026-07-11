@@ -1,6 +1,6 @@
 # ReactWoo Geo Optimise
 
-**Version:** 0.4.74  
+**Version:** 0.4.75  
 **Plugin slug:** `reactwoo-geo-optimise`
 
 ## Overview
@@ -31,7 +31,7 @@ Geo Optimise consumes Core hooks (`rwgc_emit_geo_event`, REST `/capabilities`) a
 - **REST goal tracking**: `POST /wp-json/rwgo/v1/goal`, tracking nonce endpoint
 - Front-end **`rwgo-tracking.js`** with defined-goal mapping across Control and Variant B
 - Elementor and Gutenberg **builder-defined goals** (CTA, form submit, destination goals)
-- Elementor Atomic V4 normalized context **plus** measurement-key write stamps (full Atomic page construction is a later pass)
+- Elementor Atomic V4 normalized context, measurement-key write stamps, and **blueprint page construction** (Classic V3 or Atomic V4)
 - **Canonical page bindings** with resync (front page, shop, relative paths)
 - **Promote winner** wizard (Mode A: replace primary content)
 - CSV export and stats snapshot (`rwgo_stats_snapshot`)
