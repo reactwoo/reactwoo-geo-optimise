@@ -186,4 +186,122 @@
 			}
 		});
 	}
+
+	/* Live GTM target picker — cascade accounts → containers → workspaces */
+	(function initGtmPicker() {
+		var form = document.getElementById('rwgo-gtm-target-form');
+		if (!form || form.getAttribute('data-rwgo-gtm-picker') !== '1') {
+			return;
+		}
+		var accountEl = document.getElementById('rwgo_gtm_account_id');
+		var containerEl = document.getElementById('rwgo_gtm_container_id');
+		var workspaceEl = document.getElementById('rwgo_gtm_workspace_id');
+		var refreshBtn = document.getElementById('rwgo-gtm-refresh-accounts');
+		if (!accountEl || !containerEl || !workspaceEl) {
+			return;
+		}
+		var ajaxUrl = i18n.ajaxUrl || '';
+		var nonce = i18n.nonce || '';
+
+		function fillSelect(sel, rows, placeholder, selected) {
+			var html = '<option value="">' + escapeHtml(placeholder || '') + '</option>';
+			(rows || []).forEach(function (row) {
+				if (!row || !row.id) {
+					return;
+				}
+				var selAttr = String(row.id) === String(selected || '') ? ' selected' : '';
+				html += '<option value="' + escapeHtml(String(row.id)) + '"' + selAttr + '>' + escapeHtml(String(row.label || row.id)) + '</option>';
+			});
+			sel.innerHTML = html;
+		}
+
+		function fetchJson(action, params) {
+			var q = 'action=' + encodeURIComponent(action) + '&nonce=' + encodeURIComponent(nonce);
+			Object.keys(params || {}).forEach(function (k) {
+				q += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+			});
+			return fetch(ajaxUrl + '?' + q, { credentials: 'same-origin' }).then(function (r) {
+				return r.json();
+			});
+		}
+
+		function loadAccounts(keepSelection) {
+			accountEl.disabled = true;
+			return fetchJson('rwgo_gtm_list_accounts', {}).then(function (data) {
+				accountEl.disabled = false;
+				if (!data || !data.success) {
+					window.alert((data && data.data && data.data.message) || msg('loadFailed', 'Could not load GTM list.'));
+					return;
+				}
+				var selected = keepSelection ? accountEl.value : '';
+				fillSelect(accountEl, data.data.accounts || [], msg('selectAccount', '— Select account —'), selected);
+				if (!accountEl.value) {
+					fillSelect(containerEl, [], msg('selectContainer', '— Select container —'), '');
+					containerEl.disabled = true;
+					fillSelect(workspaceEl, [], msg('selectWorkspace', '— Default workspace —'), '');
+					workspaceEl.disabled = true;
+				}
+			}).catch(function () {
+				accountEl.disabled = false;
+				window.alert(msg('loadFailed', 'Could not load GTM list.'));
+			});
+		}
+
+		function loadContainers() {
+			var accountId = accountEl.value;
+			fillSelect(containerEl, [], msg('loading', 'Loading…'), '');
+			fillSelect(workspaceEl, [], msg('selectWorkspace', '— Default workspace —'), '');
+			workspaceEl.disabled = true;
+			if (!accountId) {
+				containerEl.disabled = true;
+				return;
+			}
+			containerEl.disabled = true;
+			fetchJson('rwgo_gtm_list_containers', { account_id: accountId }).then(function (data) {
+				containerEl.disabled = false;
+				if (!data || !data.success) {
+					window.alert((data && data.data && data.data.message) || msg('loadFailed', 'Could not load GTM list.'));
+					return;
+				}
+				fillSelect(containerEl, data.data.containers || [], msg('selectContainer', '— Select container —'), '');
+			}).catch(function () {
+				containerEl.disabled = false;
+				window.alert(msg('loadFailed', 'Could not load GTM list.'));
+			});
+		}
+
+		function loadWorkspaces() {
+			var accountId = accountEl.value;
+			var containerId = containerEl.value;
+			fillSelect(workspaceEl, [], msg('loading', 'Loading…'), '');
+			if (!accountId || !containerId) {
+				workspaceEl.disabled = true;
+				fillSelect(workspaceEl, [], msg('selectWorkspace', '— Default workspace —'), '');
+				return;
+			}
+			workspaceEl.disabled = true;
+			fetchJson('rwgo_gtm_list_workspaces', { account_id: accountId, container_id: containerId }).then(function (data) {
+				workspaceEl.disabled = false;
+				if (!data || !data.success) {
+					window.alert((data && data.data && data.data.message) || msg('loadFailed', 'Could not load GTM list.'));
+					return;
+				}
+				fillSelect(workspaceEl, data.data.workspaces || [], msg('selectWorkspace', '— Default workspace —'), '');
+			}).catch(function () {
+				workspaceEl.disabled = false;
+				window.alert(msg('loadFailed', 'Could not load GTM list.'));
+			});
+		}
+
+		accountEl.addEventListener('change', loadContainers);
+		containerEl.addEventListener('change', loadWorkspaces);
+		if (refreshBtn) {
+			refreshBtn.addEventListener('click', function () {
+				loadAccounts(false);
+			});
+		}
+		if (!accountEl.options || accountEl.options.length <= 1) {
+			loadAccounts(true);
+		}
+	})();
 })();

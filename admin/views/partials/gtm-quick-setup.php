@@ -42,6 +42,14 @@ $rwgo_gtm_target    = class_exists( 'RWGO_GTM_Live', false ) ? RWGO_GTM_Live::ge
 	'workspace_id'   => '',
 	'measurement_id' => '',
 );
+$rwgo_gtm_discovery = ( $rwgo_gtm_connected && class_exists( 'RWGO_GTM_Live', false ) )
+	? RWGO_GTM_Live::discovery_for_admin()
+	: array(
+		'accounts'   => array(),
+		'containers' => array(),
+		'workspaces' => array(),
+		'error'      => '',
+	);
 $rwgo_gtm_err  = isset( $_GET['rwgo_gtm_err'] ) ? sanitize_text_field( wp_unslash( $_GET['rwgo_gtm_err'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $rwgo_gtm_ok   = isset( $_GET['rwgo_gtm_ok'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $rwgo_gtm_saved = isset( $_GET['rwgo_gtm_saved'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -85,20 +93,53 @@ $rwgo_gtm_last = get_transient( 'rwgo_gtm_last_result_' . get_current_user_id() 
 			<?php endif; ?>
 		</div>
 		<?php if ( $rwgo_gtm_connected ) : ?>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-gtm-target-form">
+			<?php if ( ! empty( $rwgo_gtm_discovery['error'] ) ) : ?>
+				<div class="notice notice-warning inline"><p><?php echo esc_html( (string) $rwgo_gtm_discovery['error'] ); ?></p></div>
+			<?php endif; ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-gtm-target-form" id="rwgo-gtm-target-form" data-rwgo-gtm-picker="1">
 				<?php wp_nonce_field( 'rwgo_gtm_save_target' ); ?>
 				<input type="hidden" name="action" value="rwgo_gtm_save_target" />
 				<div class="rwgo-field">
-					<label class="rwgo-field__label" for="rwgo_gtm_account_id"><?php esc_html_e( 'GTM account ID', 'reactwoo-geo-optimise' ); ?></label>
-					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_account_id" id="rwgo_gtm_account_id" value="<?php echo esc_attr( $rwgo_gtm_target['account_id'] ); ?>" placeholder="1234567890" />
+					<label class="rwgo-field__label" for="rwgo_gtm_account_id"><?php esc_html_e( 'GTM account', 'reactwoo-geo-optimise' ); ?></label>
+					<select class="rwgo-input" name="rwgo_gtm_account_id" id="rwgo_gtm_account_id" required>
+						<option value=""><?php esc_html_e( '— Select account —', 'reactwoo-geo-optimise' ); ?></option>
+						<?php foreach ( (array) $rwgo_gtm_discovery['accounts'] as $acc_row ) : ?>
+							<?php
+							if ( ! is_array( $acc_row ) || empty( $acc_row['id'] ) ) {
+								continue;
+							}
+							?>
+							<option value="<?php echo esc_attr( (string) $acc_row['id'] ); ?>" <?php selected( $rwgo_gtm_target['account_id'], (string) $acc_row['id'] ); ?>><?php echo esc_html( (string) ( $acc_row['label'] ?? $acc_row['id'] ) ); ?></option>
+						<?php endforeach; ?>
+					</select>
 				</div>
 				<div class="rwgo-field">
-					<label class="rwgo-field__label" for="rwgo_gtm_container_id"><?php esc_html_e( 'Container ID (numeric)', 'reactwoo-geo-optimise' ); ?></label>
-					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_container_id" id="rwgo_gtm_container_id" value="<?php echo esc_attr( $rwgo_gtm_target['container_id'] ); ?>" placeholder="9876543210" />
+					<label class="rwgo-field__label" for="rwgo_gtm_container_id"><?php esc_html_e( 'Container', 'reactwoo-geo-optimise' ); ?></label>
+					<select class="rwgo-input" name="rwgo_gtm_container_id" id="rwgo_gtm_container_id" required <?php echo '' === $rwgo_gtm_target['account_id'] ? 'disabled' : ''; ?>>
+						<option value=""><?php esc_html_e( '— Select container —', 'reactwoo-geo-optimise' ); ?></option>
+						<?php foreach ( (array) $rwgo_gtm_discovery['containers'] as $c_row ) : ?>
+							<?php
+							if ( ! is_array( $c_row ) || empty( $c_row['id'] ) ) {
+								continue;
+							}
+							?>
+							<option value="<?php echo esc_attr( (string) $c_row['id'] ); ?>" <?php selected( $rwgo_gtm_target['container_id'], (string) $c_row['id'] ); ?>><?php echo esc_html( (string) ( $c_row['label'] ?? $c_row['id'] ) ); ?></option>
+						<?php endforeach; ?>
+					</select>
 				</div>
 				<div class="rwgo-field">
-					<label class="rwgo-field__label" for="rwgo_gtm_workspace_id"><?php esc_html_e( 'Workspace ID (optional)', 'reactwoo-geo-optimise' ); ?></label>
-					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_workspace_id" id="rwgo_gtm_workspace_id" value="<?php echo esc_attr( $rwgo_gtm_target['workspace_id'] ); ?>" placeholder="<?php esc_attr_e( 'Default workspace if empty', 'reactwoo-geo-optimise' ); ?>" />
+					<label class="rwgo-field__label" for="rwgo_gtm_workspace_id"><?php esc_html_e( 'Workspace', 'reactwoo-geo-optimise' ); ?></label>
+					<select class="rwgo-input" name="rwgo_gtm_workspace_id" id="rwgo_gtm_workspace_id" <?php echo '' === $rwgo_gtm_target['container_id'] ? 'disabled' : ''; ?>>
+						<option value=""><?php esc_html_e( '— Default workspace —', 'reactwoo-geo-optimise' ); ?></option>
+						<?php foreach ( (array) $rwgo_gtm_discovery['workspaces'] as $w_row ) : ?>
+							<?php
+							if ( ! is_array( $w_row ) || empty( $w_row['id'] ) ) {
+								continue;
+							}
+							?>
+							<option value="<?php echo esc_attr( (string) $w_row['id'] ); ?>" <?php selected( $rwgo_gtm_target['workspace_id'], (string) $w_row['id'] ); ?>><?php echo esc_html( (string) ( $w_row['label'] ?? $w_row['id'] ) ); ?></option>
+						<?php endforeach; ?>
+					</select>
 				</div>
 				<div class="rwgo-field">
 					<label class="rwgo-field__label" for="rwgo_gtm_measurement_id"><?php esc_html_e( 'GA4 measurement ID (optional)', 'reactwoo-geo-optimise' ); ?></label>
@@ -106,10 +147,10 @@ $rwgo_gtm_last = get_transient( 'rwgo_gtm_last_result_' . get_current_user_id() 
 					<p class="description"><?php esc_html_e( 'Required to create GA4 event tags. Without it, only variables and triggers are pushed.', 'reactwoo-geo-optimise' ); ?></p>
 				</div>
 				<p class="rwgo-cta-row">
+					<button type="button" class="button rwgo-btn rwgo-btn--secondary" id="rwgo-gtm-refresh-accounts"><?php esc_html_e( 'Refresh accounts', 'reactwoo-geo-optimise' ); ?></button>
 					<button type="submit" class="button rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Save GTM target', 'reactwoo-geo-optimise' ); ?></button>
 				</p>
 			</form>
-			<p class="description"><?php esc_html_e( 'Tip: after connecting, call cloud GET /geo-api/v1/google/gtm/accounts (and containers) with your license Bearer token to discover IDs, or copy them from the GTM Admin URL.', 'reactwoo-geo-optimise' ); ?></p>
 		<?php endif; ?>
 		<?php if ( is_array( $rwgo_gtm_last ) ) : ?>
 			<details class="rwgo-gtm-last-result">

@@ -27,6 +27,9 @@ class RWGO_GTM_Live {
 		add_action( 'admin_post_rwgo_gtm_disconnect', array( __CLASS__, 'handle_disconnect' ) );
 		add_action( 'admin_post_rwgo_gtm_save_target', array( __CLASS__, 'handle_save_target' ) );
 		add_action( 'admin_post_rwgo_gtm_push', array( __CLASS__, 'handle_push' ) );
+		add_action( 'wp_ajax_rwgo_gtm_list_accounts', array( __CLASS__, 'ajax_list_accounts' ) );
+		add_action( 'wp_ajax_rwgo_gtm_list_containers', array( __CLASS__, 'ajax_list_containers' ) );
+		add_action( 'wp_ajax_rwgo_gtm_list_workspaces', array( __CLASS__, 'ajax_list_workspaces' ) );
 	}
 
 	/**
@@ -168,6 +171,203 @@ class RWGO_GTM_Live {
 			'dry_run'        => (bool) $dry_run,
 		);
 		return RWGO_Cloud_Client::gtm_provision( $payload );
+	}
+
+	/**
+	 * Prefetch account/container/workspace options for the Tracking Tools picker.
+	 *
+	 * @return array{accounts:array<int,array<string,string>>,containers:array<int,array<string,string>>,workspaces:array<int,array<string,string>>,error:string}
+	 */
+	public static function discovery_for_admin() {
+		$out = array(
+			'accounts'   => array(),
+			'containers' => array(),
+			'workspaces' => array(),
+			'error'      => '',
+		);
+		if ( ! self::is_connected() || ! class_exists( 'RWGO_Cloud_Client', false ) ) {
+			return $out;
+		}
+		$target = self::get_target();
+		$acc    = RWGO_Cloud_Client::gtm_accounts();
+		if ( is_wp_error( $acc ) ) {
+			$out['error'] = $acc->get_error_message();
+			return $out;
+		}
+		$out['accounts'] = self::normalize_account_rows( isset( $acc['accounts'] ) ? $acc['accounts'] : array() );
+		if ( '' === $target['account_id'] ) {
+			return $out;
+		}
+		$con = RWGO_Cloud_Client::gtm_containers( $target['account_id'] );
+		if ( is_wp_error( $con ) ) {
+			$out['error'] = $con->get_error_message();
+			return $out;
+		}
+		$out['containers'] = self::normalize_container_rows( isset( $con['containers'] ) ? $con['containers'] : array() );
+		if ( '' === $target['container_id'] ) {
+			return $out;
+		}
+		$ws = RWGO_Cloud_Client::gtm_workspaces( $target['account_id'], $target['container_id'] );
+		if ( is_wp_error( $ws ) ) {
+			$out['error'] = $ws->get_error_message();
+			return $out;
+		}
+		$out['workspaces'] = self::normalize_workspace_rows( isset( $ws['workspaces'] ) ? $ws['workspaces'] : array() );
+		return $out;
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function ajax_list_accounts() {
+		self::ajax_guard();
+		$res = RWGO_Cloud_Client::gtm_accounts();
+		if ( is_wp_error( $res ) ) {
+			wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+		}
+		wp_send_json_success(
+			array(
+				'accounts' => self::normalize_account_rows( isset( $res['accounts'] ) ? $res['accounts'] : array() ),
+			)
+		);
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function ajax_list_containers() {
+		self::ajax_guard();
+		$account_id = isset( $_GET['account_id'] ) ? sanitize_text_field( wp_unslash( $_GET['account_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' === $account_id ) {
+			wp_send_json_error( array( 'message' => __( 'Account ID required.', 'reactwoo-geo-optimise' ) ), 400 );
+		}
+		$res = RWGO_Cloud_Client::gtm_containers( $account_id );
+		if ( is_wp_error( $res ) ) {
+			wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+		}
+		wp_send_json_success(
+			array(
+				'containers' => self::normalize_container_rows( isset( $res['containers'] ) ? $res['containers'] : array() ),
+			)
+		);
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function ajax_list_workspaces() {
+		self::ajax_guard();
+		$account_id   = isset( $_GET['account_id'] ) ? sanitize_text_field( wp_unslash( $_GET['account_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$container_id = isset( $_GET['container_id'] ) ? sanitize_text_field( wp_unslash( $_GET['container_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( '' === $account_id || '' === $container_id ) {
+			wp_send_json_error( array( 'message' => __( 'Account and container IDs required.', 'reactwoo-geo-optimise' ) ), 400 );
+		}
+		$res = RWGO_Cloud_Client::gtm_workspaces( $account_id, $container_id );
+		if ( is_wp_error( $res ) ) {
+			wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+		}
+		wp_send_json_success(
+			array(
+				'workspaces' => self::normalize_workspace_rows( isset( $res['workspaces'] ) ? $res['workspaces'] : array() ),
+			)
+		);
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function ajax_guard() {
+		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
+			wp_send_json_error( array( 'message' => __( 'Forbidden.', 'reactwoo-geo-optimise' ) ), 403 );
+		}
+		check_ajax_referer( 'rwgo_gtm_discover', 'nonce' );
+		if ( ! class_exists( 'RWGO_Cloud_Client', false ) ) {
+			wp_send_json_error( array( 'message' => __( 'Cloud client unavailable.', 'reactwoo-geo-optimise' ) ), 500 );
+		}
+	}
+
+	/**
+	 * @param mixed $rows Raw.
+	 * @return array<int, array{id:string,label:string}>
+	 */
+	private static function normalize_account_rows( $rows ) {
+		$out = array();
+		if ( ! is_array( $rows ) ) {
+			return $out;
+		}
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id = isset( $row['accountId'] ) ? (string) $row['accountId'] : '';
+			if ( '' === $id ) {
+				continue;
+			}
+			$name = isset( $row['name'] ) ? (string) $row['name'] : $id;
+			$out[] = array(
+				'id'    => $id,
+				'label' => $name . ' (' . $id . ')',
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * @param mixed $rows Raw.
+	 * @return array<int, array{id:string,label:string}>
+	 */
+	private static function normalize_container_rows( $rows ) {
+		$out = array();
+		if ( ! is_array( $rows ) ) {
+			return $out;
+		}
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id = isset( $row['containerId'] ) ? (string) $row['containerId'] : '';
+			if ( '' === $id ) {
+				continue;
+			}
+			$name = isset( $row['name'] ) ? (string) $row['name'] : $id;
+			$pub  = isset( $row['publicId'] ) ? (string) $row['publicId'] : '';
+			$label = $name;
+			if ( '' !== $pub ) {
+				$label .= ' — ' . $pub;
+			}
+			$label .= ' (' . $id . ')';
+			$out[] = array(
+				'id'    => $id,
+				'label' => $label,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * @param mixed $rows Raw.
+	 * @return array<int, array{id:string,label:string}>
+	 */
+	private static function normalize_workspace_rows( $rows ) {
+		$out = array();
+		if ( ! is_array( $rows ) ) {
+			return $out;
+		}
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id = isset( $row['workspaceId'] ) ? (string) $row['workspaceId'] : '';
+			if ( '' === $id ) {
+				continue;
+			}
+			$name = isset( $row['name'] ) ? (string) $row['name'] : $id;
+			$out[] = array(
+				'id'    => $id,
+				'label' => $name . ' (' . $id . ')',
+			);
+		}
+		return $out;
 	}
 
 	/**

@@ -692,6 +692,13 @@ class RWGO_Admin {
 					'copyFailed' => __( 'Could not copy', 'reactwoo-geo-optimise' ),
 					'copyLabel'  => __( 'Copy', 'reactwoo-geo-optimise' ),
 					'copyAll'    => __( 'Copy all', 'reactwoo-geo-optimise' ),
+					'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+					'nonce'      => wp_create_nonce( 'rwgo_gtm_discover' ),
+					'loading'    => __( 'Loading…', 'reactwoo-geo-optimise' ),
+					'selectAccount'   => __( '— Select account —', 'reactwoo-geo-optimise' ),
+					'selectContainer' => __( '— Select container —', 'reactwoo-geo-optimise' ),
+					'selectWorkspace' => __( '— Default workspace —', 'reactwoo-geo-optimise' ),
+					'loadFailed'      => __( 'Could not load GTM list.', 'reactwoo-geo-optimise' ),
 				)
 			);
 		}

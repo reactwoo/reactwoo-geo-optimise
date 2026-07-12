@@ -144,16 +144,15 @@ OAuth tokens stay on **react-cloud**. Geo Optimise never stores Google secrets.
 | `integration=google_tag_manager` | Cloud OAuth scope `tagmanager.edit.containers` |
 | `GET /geo-api/v1/google/gtm/status\|accounts\|containers\|workspaces` | Discover targets |
 | `POST /geo-api/v1/google/gtm/provision` | Dry-run or create DLVs, custom-event triggers, optional GA4 tags in a **workspace** (no publish) |
-| `RWGO_GTM_Live` + `RWGO_Cloud_Client` | Connect, save account/container/measurement ID, Preview / Push per test |
+| `RWGO_GTM_Live` + `RWGO_Cloud_Client` | Connect, pick account/container/workspace from cloud lists, optional measurement ID, Preview / Push per test |
 
 Requires a valid Optimise license JWT (same Bearer used for other cloud geo routes).
 
 ## Not in this phase
 
 - Auto-publish GTM containers
-- Account/container picker UI (IDs entered manually; list APIs available on cloud)
 - Replacing physical goal/handler mapping with element-key-only matching
 
 ## Next
 
-Scheduled winner evaluation refinements; GTM account picker UI; optional container publish.
+Scheduled winner evaluation refinements; optional container publish.
