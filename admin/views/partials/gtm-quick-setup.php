@@ -55,15 +55,49 @@ $rwgo_gtm_ok   = isset( $_GET['rwgo_gtm_ok'] ); // phpcs:ignore WordPress.Securi
 $rwgo_gtm_saved = isset( $_GET['rwgo_gtm_saved'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $rwgo_gtm_preview = isset( $_GET['rwgo_gtm_preview'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 $rwgo_gtm_pushed  = isset( $_GET['rwgo_gtm_pushed'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$rwgo_gtm_flash_already_shown = ! empty( $rwgo_gtm_flash_already_shown );
+$rwgo_gtm_flash = isset( $rwgo_gtm_flash ) && is_array( $rwgo_gtm_flash )
+	? $rwgo_gtm_flash
+	: ( class_exists( 'RWGO_GTM_Live', false ) ? RWGO_GTM_Live::consume_flash() : null );
 $rwgo_gtm_last = get_transient( 'rwgo_gtm_last_result_' . get_current_user_id() );
-$rwgo_gtm_summary = ( is_array( $rwgo_gtm_last ) && class_exists( 'RWGO_GTM_Live', false ) )
-	? RWGO_GTM_Live::summarize_result( $rwgo_gtm_last )
-	: array(
-		'headline'   => '',
-		'lines'      => array(),
-		'is_preview' => true,
-		'note'       => '',
-	);
+
+if ( is_array( $rwgo_gtm_flash ) ) {
+	$flash_mode = isset( $rwgo_gtm_flash['mode'] ) ? (string) $rwgo_gtm_flash['mode'] : '';
+	if ( 'error' === $flash_mode ) {
+		$rwgo_gtm_err = isset( $rwgo_gtm_flash['message'] ) ? (string) $rwgo_gtm_flash['message'] : $rwgo_gtm_err;
+		if ( '' === $rwgo_gtm_err || '1' === $rwgo_gtm_err ) {
+			$rwgo_gtm_err = isset( $rwgo_gtm_flash['message'] ) ? (string) $rwgo_gtm_flash['message'] : __( 'GTM request failed.', 'reactwoo-geo-optimise' );
+		}
+	} elseif ( 'preview' === $flash_mode ) {
+		$rwgo_gtm_preview = true;
+	} elseif ( 'push' === $flash_mode ) {
+		$rwgo_gtm_pushed = true;
+	}
+	if ( isset( $rwgo_gtm_flash['result'] ) && is_array( $rwgo_gtm_flash['result'] ) ) {
+		$rwgo_gtm_last = $rwgo_gtm_flash['result'];
+	}
+	if ( isset( $rwgo_gtm_flash['summary'] ) && is_array( $rwgo_gtm_flash['summary'] ) ) {
+		$rwgo_gtm_summary = $rwgo_gtm_flash['summary'];
+	}
+}
+
+// Page-level banner already rendered success/error — avoid duplicate notices in this partial.
+if ( $rwgo_gtm_flash_already_shown ) {
+	$rwgo_gtm_err     = '';
+	$rwgo_gtm_preview = false;
+	$rwgo_gtm_pushed  = false;
+}
+
+if ( ! isset( $rwgo_gtm_summary ) ) {
+	$rwgo_gtm_summary = ( is_array( $rwgo_gtm_last ) && class_exists( 'RWGO_GTM_Live', false ) )
+		? RWGO_GTM_Live::summarize_result( $rwgo_gtm_last )
+		: array(
+			'headline'   => '',
+			'lines'      => array(),
+			'is_preview' => true,
+			'note'       => '',
+		);
+}
 $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo_gtm_last );
 ?>
 <textarea id="rwgo-gtm-copy-all-pack" class="rwgo-copy-source-hidden" readonly hidden><?php echo esc_textarea( $copy_all_top ); ?></textarea>
@@ -83,7 +117,7 @@ $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo
 	<?php if ( $rwgo_gtm_saved ) : ?>
 		<div class="notice notice-success inline"><p><?php esc_html_e( 'GTM target saved.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>
-	<?php if ( ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) && '' !== $rwgo_gtm_summary['headline'] ) : ?>
+	<?php if ( ! $rwgo_gtm_flash_already_shown && ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) && '' !== $rwgo_gtm_summary['headline'] ) : ?>
 		<div class="rwgo-gtm-result-frame" id="rwgo-gtm-result-notice" role="status">
 			<p class="rwgo-gtm-result-frame__eyebrow"><?php echo $rwgo_gtm_preview
 				? esc_html__( 'Preview result', 'reactwoo-geo-optimise' )
@@ -109,7 +143,7 @@ $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo
 				</details>
 			<?php endif; ?>
 		</div>
-	<?php elseif ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) : ?>
+	<?php elseif ( ! $rwgo_gtm_flash_already_shown && ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) ) : ?>
 		<div class="rwgo-gtm-result-frame" role="status">
 			<p class="rwgo-gtm-result-frame__headline"><strong><?php echo $rwgo_gtm_preview
 				? esc_html__( 'Preview completed (dry run). See the result panel below.', 'reactwoo-geo-optimise' )
@@ -396,7 +430,7 @@ $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo
 								<input type="hidden" name="rwgo_gtm_dry_run" value="1" />
 								<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Preview API push', 'reactwoo-geo-optimise' ); ?></button>
 							</form>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'Create GTM workspace entities for this test? The container will not be published.', 'reactwoo-geo-optimise' ) ); ?>');">
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form rwgo-gtm-push-form" data-rwgo-gtm-busy="<?php echo esc_attr__( 'Pushing to GTM… please wait (this can take up to a couple of minutes).', 'reactwoo-geo-optimise' ); ?>" onsubmit="if(!confirm('<?php echo esc_js( __( 'Create GTM workspace entities for this test? The container will not be published.', 'reactwoo-geo-optimise' ) ); ?>')){return false;} var b=this.querySelector('[type=submit]'); if(b){b.disabled=true; b.textContent=this.getAttribute('data-rwgo-gtm-busy')||'Pushing…';} return true;">
 								<?php wp_nonce_field( 'rwgo_gtm_push_' . (int) $exp_post->ID ); ?>
 								<input type="hidden" name="action" value="rwgo_gtm_push" />
 								<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $exp_post->ID; ?>" />

@@ -39,9 +39,10 @@ class RWGO_Cloud_Client {
 	 * @param string               $method  HTTP method.
 	 * @param string               $path    Path under cloud origin (e.g. /geo-api/v1/google/gtm/status).
 	 * @param array<string, mixed> $payload Query (GET) or JSON body (POST).
+	 * @param int                  $timeout Seconds.
 	 * @return array<string, mixed>|\WP_Error
 	 */
-	public static function request( $method, $path, array $payload = array() ) {
+	public static function request( $method, $path, array $payload = array(), $timeout = 45 ) {
 		if ( ! class_exists( 'RWGO_Platform_Client', false ) ) {
 			return new WP_Error( 'rwgo_cloud_no_platform', __( 'License client unavailable.', 'reactwoo-geo-optimise' ) );
 		}
@@ -56,8 +57,9 @@ class RWGO_Cloud_Client {
 		$norm_path = '/' . ltrim( (string) $path, '/' );
 		$url       = untrailingslashit( self::get_geo_service_base() ) . $norm_path;
 		$method_u  = strtoupper( (string) $method );
+		$timeout   = max( 15, (int) $timeout );
 		$args      = array(
-			'timeout' => 45,
+			'timeout' => $timeout,
 			'headers' => array(
 				'Accept'        => 'application/json',
 				'Authorization' => 'Bearer ' . $token,
@@ -155,6 +157,7 @@ class RWGO_Cloud_Client {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function gtm_provision( array $payload ) {
-		return self::request( 'POST', '/geo-api/v1/google/gtm/provision', $payload );
+		// Sequential GTM API creates often exceed the default 45s HTTP timeout.
+		return self::request( 'POST', '/geo-api/v1/google/gtm/provision', $payload, 180 );
 	}
 }

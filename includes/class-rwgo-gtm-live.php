@@ -17,6 +17,7 @@ class RWGO_GTM_Live {
 	const OPTION_CONNECTED = 'rwgo_gtm_connected';
 	const OPTION_TARGET    = 'rwgo_gtm_target';
 	const TRANSIENT_STATE  = 'rwgo_gtm_oauth_state_';
+	const USER_META_FLASH  = 'rwgo_gtm_admin_flash';
 
 	/**
 	 * @return void
@@ -452,9 +453,24 @@ class RWGO_GTM_Live {
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		check_admin_referer( 'rwgo_gtm_push_' . $exp_id );
 		$dry = ! empty( $_POST['rwgo_gtm_dry_run'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+
+		if ( function_exists( 'ignore_user_abort' ) ) {
+			ignore_user_abort( true );
+		}
+		if ( function_exists( 'set_time_limit' ) ) {
+			// phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- long multi-entity GTM API push.
+			@set_time_limit( 180 );
+		}
+
 		$res = self::push_experiment( $exp_id, $dry );
 		if ( is_wp_error( $res ) ) {
-			wp_safe_redirect( add_query_arg( 'rwgo_gtm_err', rawurlencode( $res->get_error_message() ), self::tracking_tools_url() ) );
+			self::set_flash(
+				array(
+					'mode'    => 'error',
+					'message' => $res->get_error_message(),
+				)
+			);
+			wp_safe_redirect( add_query_arg( 'rwgo_gtm_err', '1', self::tracking_tools_url() ) );
 			exit;
 		}
 		$key = $dry ? 'rwgo_gtm_preview' : 'rwgo_gtm_pushed';
@@ -462,14 +478,56 @@ class RWGO_GTM_Live {
 			$res = array();
 		}
 		$res['_rwgo'] = array(
-			'mode'              => $dry ? 'preview' : 'push',
-			'experiment_id'     => $exp_id,
-			'experiment_title'  => get_the_title( $exp_id ),
+			'mode'             => $dry ? 'preview' : 'push',
+			'experiment_id'    => $exp_id,
+			'experiment_title' => get_the_title( $exp_id ),
 		);
-		set_transient( 'rwgo_gtm_last_result_' . get_current_user_id(), $res, 10 * MINUTE_IN_SECONDS );
+		$stored  = self::slim_result_for_storage( $res );
+		$summary = self::summarize_result( $stored );
+		set_transient( 'rwgo_gtm_last_result_' . get_current_user_id(), $stored, 10 * MINUTE_IN_SECONDS );
+		self::set_flash(
+			array(
+				'mode'    => $dry ? 'preview' : 'push',
+				'summary' => $summary,
+				'result'  => $stored,
+			)
+		);
 		$url = add_query_arg( $key, (string) $exp_id, self::tracking_tools_url() );
 		wp_safe_redirect( $url . '#rwgo-gtm-result-notice' );
 		exit;
+	}
+
+	/**
+	 * One-shot admin flash (survives redirect even if query args are lost).
+	 *
+	 * @param array<string, mixed> $flash Flash payload.
+	 * @return void
+	 */
+	public static function set_flash( array $flash ) {
+		update_user_meta( get_current_user_id(), self::USER_META_FLASH, $flash );
+	}
+
+	/**
+	 * @return array<string, mixed>|null
+	 */
+	public static function consume_flash() {
+		$uid   = get_current_user_id();
+		$flash = get_user_meta( $uid, self::USER_META_FLASH, true );
+		delete_user_meta( $uid, self::USER_META_FLASH );
+		return is_array( $flash ) ? $flash : null;
+	}
+
+	/**
+	 * Drop bulky preview entity bodies before storing in a transient.
+	 *
+	 * @param array<string, mixed> $result API response.
+	 * @return array<string, mixed>
+	 */
+	public static function slim_result_for_storage( array $result ) {
+		if ( isset( $result['preview'] ) ) {
+			unset( $result['preview'] );
+		}
+		return $result;
 	}
 
 	/**
