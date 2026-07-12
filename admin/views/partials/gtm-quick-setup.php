@@ -34,6 +34,18 @@ $var_rows     = RWGO_GTM_Handoff::standard_variable_definitions();
 $trigger_txt  = RWGO_GTM_Handoff::trigger_block_plain();
 $ga4_txt      = RWGO_GTM_Handoff::ga4_mapping_plain();
 $vars_plain   = RWGO_GTM_Handoff::variables_plain();
+
+$rwgo_gtm_connected = class_exists( 'RWGO_GTM_Live', false ) && RWGO_GTM_Live::is_connected();
+$rwgo_gtm_target    = class_exists( 'RWGO_GTM_Live', false ) ? RWGO_GTM_Live::get_target() : array(
+	'account_id'     => '',
+	'container_id'   => '',
+	'workspace_id'   => '',
+	'measurement_id' => '',
+);
+$rwgo_gtm_err  = isset( $_GET['rwgo_gtm_err'] ) ? sanitize_text_field( wp_unslash( $_GET['rwgo_gtm_err'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$rwgo_gtm_ok   = isset( $_GET['rwgo_gtm_ok'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$rwgo_gtm_saved = isset( $_GET['rwgo_gtm_saved'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+$rwgo_gtm_last = get_transient( 'rwgo_gtm_last_result_' . get_current_user_id() );
 ?>
 <textarea id="rwgo-gtm-copy-all-pack" class="rwgo-copy-source-hidden" readonly hidden><?php echo esc_textarea( $copy_all_top ); ?></textarea>
 <textarea id="rwgo-gtm-store-vars" class="rwgo-copy-source-hidden" readonly hidden><?php echo esc_textarea( $vars_plain ); ?></textarea>
@@ -41,7 +53,72 @@ $vars_plain   = RWGO_GTM_Handoff::variables_plain();
 <section class="rwgo-panel rwgo-gtm-quick" aria-labelledby="rwgo-gtm-quick-title" data-rwgo-gtm-mode="simple">
 	<div class="rwgo-gtm-quick__head">
 		<h2 id="rwgo-gtm-quick-title" class="rwgo-section__title"><?php esc_html_e( 'GTM Quick Setup', 'reactwoo-geo-optimise' ); ?></h2>
-		<p class="rwgo-section__lead"><?php esc_html_e( 'Geo Optimise uses one shared event name and test-specific parameters so agencies can report on multiple tests safely without inventing a new event structure for every test. Download a GTM provision pack per test for offline import (variables, triggers, GA4 tags) — live Google Tag Manager API push is a later phase.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="rwgo-section__lead"><?php esc_html_e( 'Geo Optimise uses one shared event name and test-specific parameters so agencies can report on multiple tests safely without inventing a new event structure for every test. Download a GTM provision pack per test for offline import, or connect Google Tag Manager via React Cloud to push variables/triggers/tags into a workspace draft.', 'reactwoo-geo-optimise' ); ?></p>
+
+	<?php if ( '' !== $rwgo_gtm_err ) : ?>
+		<div class="notice notice-error inline"><p><?php echo esc_html( $rwgo_gtm_err ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( $rwgo_gtm_ok ) : ?>
+		<div class="notice notice-success inline"><p><?php esc_html_e( 'Google Tag Manager connected via React Cloud.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( $rwgo_gtm_saved ) : ?>
+		<div class="notice notice-success inline"><p><?php esc_html_e( 'GTM target saved.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+
+	<div class="rwgo-gtm-block rwgo-gtm-live">
+		<h3 class="rwgo-gtm-block__title"><?php esc_html_e( 'Live GTM push (React Cloud)', 'reactwoo-geo-optimise' ); ?></h3>
+		<p class="rwgo-gtm-block__hint"><?php esc_html_e( 'OAuth tokens stay on React Cloud. Push creates draft workspace entities (variables, triggers, optional GA4 tags) — it does not publish the container.', 'reactwoo-geo-optimise' ); ?></p>
+		<div class="rwgo-btn-row rwgo-btn-row--wrap">
+			<?php if ( ! $rwgo_gtm_connected ) : ?>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+					<?php wp_nonce_field( 'rwgo_gtm_connect' ); ?>
+					<input type="hidden" name="action" value="rwgo_gtm_connect" />
+					<button type="submit" class="button button-primary rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Connect Google Tag Manager', 'reactwoo-geo-optimise' ); ?></button>
+				</form>
+			<?php else : ?>
+				<span class="rwgo-meta-pill rwgo-meta-pill--ok"><?php esc_html_e( 'Connected', 'reactwoo-geo-optimise' ); ?></span>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+					<?php wp_nonce_field( 'rwgo_gtm_disconnect' ); ?>
+					<input type="hidden" name="action" value="rwgo_gtm_disconnect" />
+					<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Disconnect (local flag)', 'reactwoo-geo-optimise' ); ?></button>
+				</form>
+			<?php endif; ?>
+		</div>
+		<?php if ( $rwgo_gtm_connected ) : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-gtm-target-form">
+				<?php wp_nonce_field( 'rwgo_gtm_save_target' ); ?>
+				<input type="hidden" name="action" value="rwgo_gtm_save_target" />
+				<div class="rwgo-field">
+					<label class="rwgo-field__label" for="rwgo_gtm_account_id"><?php esc_html_e( 'GTM account ID', 'reactwoo-geo-optimise' ); ?></label>
+					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_account_id" id="rwgo_gtm_account_id" value="<?php echo esc_attr( $rwgo_gtm_target['account_id'] ); ?>" placeholder="1234567890" />
+				</div>
+				<div class="rwgo-field">
+					<label class="rwgo-field__label" for="rwgo_gtm_container_id"><?php esc_html_e( 'Container ID (numeric)', 'reactwoo-geo-optimise' ); ?></label>
+					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_container_id" id="rwgo_gtm_container_id" value="<?php echo esc_attr( $rwgo_gtm_target['container_id'] ); ?>" placeholder="9876543210" />
+				</div>
+				<div class="rwgo-field">
+					<label class="rwgo-field__label" for="rwgo_gtm_workspace_id"><?php esc_html_e( 'Workspace ID (optional)', 'reactwoo-geo-optimise' ); ?></label>
+					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_workspace_id" id="rwgo_gtm_workspace_id" value="<?php echo esc_attr( $rwgo_gtm_target['workspace_id'] ); ?>" placeholder="<?php esc_attr_e( 'Default workspace if empty', 'reactwoo-geo-optimise' ); ?>" />
+				</div>
+				<div class="rwgo-field">
+					<label class="rwgo-field__label" for="rwgo_gtm_measurement_id"><?php esc_html_e( 'GA4 measurement ID (optional)', 'reactwoo-geo-optimise' ); ?></label>
+					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_measurement_id" id="rwgo_gtm_measurement_id" value="<?php echo esc_attr( $rwgo_gtm_target['measurement_id'] ); ?>" placeholder="G-XXXXXXXX" />
+					<p class="description"><?php esc_html_e( 'Required to create GA4 event tags. Without it, only variables and triggers are pushed.', 'reactwoo-geo-optimise' ); ?></p>
+				</div>
+				<p class="rwgo-cta-row">
+					<button type="submit" class="button rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Save GTM target', 'reactwoo-geo-optimise' ); ?></button>
+				</p>
+			</form>
+			<p class="description"><?php esc_html_e( 'Tip: after connecting, call cloud GET /geo-api/v1/google/gtm/accounts (and containers) with your license Bearer token to discover IDs, or copy them from the GTM Admin URL.', 'reactwoo-geo-optimise' ); ?></p>
+		<?php endif; ?>
+		<?php if ( is_array( $rwgo_gtm_last ) ) : ?>
+			<details class="rwgo-gtm-last-result">
+				<summary><?php esc_html_e( 'Last push / preview result', 'reactwoo-geo-optimise' ); ?></summary>
+				<pre class="rwgo-code-block"><?php echo esc_html( wp_json_encode( $rwgo_gtm_last, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></pre>
+			</details>
+		<?php endif; ?>
+	</div>
+
 		<div class="rwgo-btn-row rwgo-gtm-quick__toolbar">
 			<button type="button" class="button rwgo-btn rwgo-btn--primary rwgo-copy-btn" data-rwgo-copy-target="#rwgo-gtm-copy-all-pack"><?php esc_html_e( 'Copy all GTM setup', 'reactwoo-geo-optimise' ); ?></button>
 			<p class="rwgo-gtm-mode-toggle">
@@ -211,6 +288,21 @@ $vars_plain   = RWGO_GTM_Handoff::variables_plain();
 						);
 						?>
 						<a class="button rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $pack_url ); ?>"><?php esc_html_e( 'Download GTM pack', 'reactwoo-geo-optimise' ); ?></a>
+						<?php if ( $rwgo_gtm_connected && '' !== $rwgo_gtm_target['account_id'] && '' !== $rwgo_gtm_target['container_id'] ) : ?>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form">
+								<?php wp_nonce_field( 'rwgo_gtm_push_' . (int) $exp_post->ID ); ?>
+								<input type="hidden" name="action" value="rwgo_gtm_push" />
+								<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $exp_post->ID; ?>" />
+								<input type="hidden" name="rwgo_gtm_dry_run" value="1" />
+								<button type="submit" class="button rwgo-btn rwgo-btn--secondary"><?php esc_html_e( 'Preview API push', 'reactwoo-geo-optimise' ); ?></button>
+							</form>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-inline-form" onsubmit="return confirm('<?php echo esc_js( __( 'Create GTM workspace entities for this test? The container will not be published.', 'reactwoo-geo-optimise' ) ); ?>');">
+								<?php wp_nonce_field( 'rwgo_gtm_push_' . (int) $exp_post->ID ); ?>
+								<input type="hidden" name="action" value="rwgo_gtm_push" />
+								<input type="hidden" name="rwgo_experiment_id" value="<?php echo (int) $exp_post->ID; ?>" />
+								<button type="submit" class="button button-primary rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Push to GTM workspace', 'reactwoo-geo-optimise' ); ?></button>
+							</form>
+						<?php endif; ?>
 					</div>
 				<?php endif; ?>
 			</div>

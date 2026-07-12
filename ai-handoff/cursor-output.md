@@ -6,26 +6,22 @@ done
 
 ## Files changed
 
-- `includes/class-rwgo-winner-policy.php` — sample/significance/exposure gates
-- `includes/class-rwgo-promotion-automation.php` — optional auto-promote hook
-- `includes/class-rwgo-winner-service.php` — exposure rates + attach policy + fire action
-- `includes/class-rwgo-plugin.php` — require + `Promotion_Automation::init()`
-- `includes/class-rwgo-admin.php` — enforce gate on promote (override flag)
-- `admin/views/promote-winner.php` — policy gates UI + promote anyway
-- `admin/views/reports.php` — policy summary in report headline
-- `docs/MEASUREMENT-CONTRACT.md` — Phase 6
-- Version bump → **0.4.77**
+### react-cloud (1.1.10)
+- `utils/gtmProvision.js` — pack → GTM API create bodies + provision
+- `routes/googleAds.js` — GTM OAuth integration + `/gtm/*` routes
+- `package.json` / `README.md` / `CHANGELOG.md`
+
+### reactwoo-geo-optimise (0.4.78)
+- `includes/class-rwgo-cloud-client.php`
+- `includes/class-rwgo-gtm-live.php`
+- Tracking Tools live GTM UI
+- `docs/MEASUREMENT-CONTRACT.md` Phase 7
 
 ## Not changed
 
-- Live GTM API OAuth push
-- Standalone Geo AI
+- GTM container auto-publish
+- Account/container picker dropdowns (manual IDs + cloud list APIs)
 
-## Commands
+## Ops note
 
-- `php -l` on changed PHP files — OK
-
-## Remaining
-
-- Enable `rwgo_auto_promote_when_ready` / `winner_policy.enforce` only when product wants it
-- Live GTM API later
+Deploy **react-cloud** to production and enable **Tag Manager API** on the GCP OAuth project before live push works end-to-end.

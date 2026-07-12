@@ -1,19 +1,18 @@
 # Current task
 
-> Canonical repository: `reactwoo-geo-optimise`
+> Canonical repository: `reactwoo-geo-optimise` (+ `react-cloud`)
 
 ## Problem
 
-Winner policy + promotion automation (measurement contract Phase 6).
+Live GTM API OAuth push (measurement contract Phase 7).
 
 ## Expected
 
-- Statistical gates (sample, conversions, two-proportion z-test, exposures)
-- Promote UI shows gates; enforce soft-block + override
-- Optional auto-promote via filter (default off)
-- Release **0.4.77**
+- Cloud OAuth `google_tag_manager` + provision endpoints
+- Optimise connect / target / preview / push UI
+- Release Optimise **0.4.78**; cloud **1.1.10**
 
 ## Do not touch
 
-- Live GTM API push
+- Auto-publish GTM containers
 - Standalone Geo AI

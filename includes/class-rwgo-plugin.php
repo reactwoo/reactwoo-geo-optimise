@@ -105,6 +105,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-preflight.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-provisioner.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-cloud-client.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-gtm-live.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-event-store.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-goal-registry.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-defined-goal-service.php';
@@ -147,6 +149,7 @@ class RWGO_Plugin {
 		RWGO_Core_Event_Bridge::init();
 		RWGO_Events::init();
 		RWGO_Promotion_Automation::init();
+		RWGO_GTM_Live::init();
 		RWGO_Admin::init();
 
 		add_action(

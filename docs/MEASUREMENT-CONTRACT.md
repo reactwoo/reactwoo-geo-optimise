@@ -1,6 +1,6 @@
 # Geo Optimise measurement contract
 
-**Status:** Phase 5 implemented (keys + exposure + manifest + stamp write + GTM pack + blueprint construction)  
+**Status:** Phase 7 implemented (keys + exposure + manifest + stamp write + GTM pack + blueprint + winner policy + live GTM push)  
 **Owner:** `reactwoo-geo-optimise`
 
 ## Purpose
@@ -135,11 +135,25 @@ Config: `$cfg['winner_policy']` + filters (`rwgo_winner_min_sample`, `rwgo_winne
 
 Rates in `RWGO_Winner_Service::analyze()` prefer exposure denominators when available.
 
+## Phase 7 — Live GTM API push (React Cloud)
+
+OAuth tokens stay on **react-cloud**. Geo Optimise never stores Google secrets.
+
+| Piece | Role |
+|-------|------|
+| `integration=google_tag_manager` | Cloud OAuth scope `tagmanager.edit.containers` |
+| `GET /geo-api/v1/google/gtm/status\|accounts\|containers\|workspaces` | Discover targets |
+| `POST /geo-api/v1/google/gtm/provision` | Dry-run or create DLVs, custom-event triggers, optional GA4 tags in a **workspace** (no publish) |
+| `RWGO_GTM_Live` + `RWGO_Cloud_Client` | Connect, save account/container/measurement ID, Preview / Push per test |
+
+Requires a valid Optimise license JWT (same Bearer used for other cloud geo routes).
+
 ## Not in this phase
 
-- Live GTM Tag Manager API push
+- Auto-publish GTM containers
+- Account/container picker UI (IDs entered manually; list APIs available on cloud)
 - Replacing physical goal/handler mapping with element-key-only matching
 
 ## Next
 
-Live GTM API OAuth push (optional); refine auto-promote / scheduled evaluation.
+Scheduled winner evaluation refinements; GTM account picker UI; optional container publish.

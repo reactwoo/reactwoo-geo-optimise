@@ -84,7 +84,7 @@ class RWGO_GTM_Provisioner {
 			'product'          => 'reactwoo-geo-optimise',
 			'generated_at_utc' => gmdate( 'c' ),
 			'plugin_version'   => defined( 'RWGO_VERSION' ) ? RWGO_VERSION : '',
-			'note'             => 'Offline GTM provision pack. Import manually into GTM (variables, triggers, GA4 tags). Live Google Tag Manager API push is not included in this phase.',
+			'note'             => 'GTM provision pack. Offline import (variables, triggers, GA4 tags) or live push via React Cloud OAuth (Tag Manager API — workspace draft only, no auto-publish).',
 			'experiment'       => array(
 				'id'             => (int) $exp_post->ID,
 				'title'          => get_the_title( $exp_post ),
