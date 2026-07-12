@@ -458,7 +458,7 @@ class RWGO_Admin {
 			'rwgo-create-test'    => __( 'Create Test', 'reactwoo-geo-optimise' ),
 			'rwgo-tests'          => __( 'Tests', 'reactwoo-geo-optimise' ),
 			'rwgo-reports'        => __( 'Reports', 'reactwoo-geo-optimise' ),
-			'rwgo-tracking-tools' => __( 'Tracking Tools', 'reactwoo-geo-optimise' ),
+			'rwgo-tracking-tools' => __( 'Tracking setup', 'reactwoo-geo-optimise' ),
 			'rwgo-developer'      => __( 'Developer', 'reactwoo-geo-optimise' ),
 			'rwgo-help'           => __( 'Help', 'reactwoo-geo-optimise' ),
 			'rwgo-settings'       => __( 'Settings', 'reactwoo-geo-optimise' ),

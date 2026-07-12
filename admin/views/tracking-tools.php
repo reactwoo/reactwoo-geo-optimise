@@ -1,6 +1,6 @@
 <?php
 /**
- * Tracking Tools — GTM / GA4 / dataLayer agency handoff.
+ * Tracking setup — guided workflow + technical reference.
  *
  * @package ReactWooGeoOptimise
  */
@@ -10,24 +10,70 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-tracking-tools';
+$rwgo_experiments = isset( $rwgo_experiments ) && is_array( $rwgo_experiments ) ? $rwgo_experiments : array();
+
+$rwgo_setup = class_exists( 'RWGO_Tracking_Setup', false )
+	? RWGO_Tracking_Setup::build_context( $rwgo_experiments )
+	: array(
+		'connected'       => false,
+		'target'          => array(
+			'account_id'     => '',
+			'container_id'   => '',
+			'workspace_id'   => '',
+			'measurement_id' => '',
+		),
+		'discovery'       => array(
+			'accounts'   => array(),
+			'containers' => array(),
+			'workspaces' => array(),
+			'error'      => '',
+		),
+		'account_label'   => '',
+		'container_label' => '',
+		'workspace_label' => '',
+		'has_account'     => false,
+		'has_container'   => false,
+		'has_ga4'         => false,
+		'assets_pushed'   => false,
+		'last_push'       => array(),
+		'asset_counts'    => array(
+			'variables' => 0,
+			'triggers'  => 2,
+			'tags'      => 0,
+		),
+		'mode'            => 'simple',
+		'primary'         => null,
+		'preflight_ready' => false,
+		'preview_url'     => '',
+		'next'            => array(
+			'key'   => 'connect',
+			'title' => __( 'Next step', 'reactwoo-geo-optimise' ),
+			'body'  => __( 'Connect Google Tag Manager via React Cloud to continue setup.', 'reactwoo-geo-optimise' ),
+		),
+		'status_rows'     => array(),
+	);
+
+$rwgo_gtm_page_flash = class_exists( 'RWGO_GTM_Live', false ) ? RWGO_GTM_Live::consume_flash() : null;
+$rwgo_view           = isset( $_GET['rwgo_view'] ) ? sanitize_key( wp_unslash( $_GET['rwgo_view'] ) ) : 'guide'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+if ( ! in_array( $rwgo_view, array( 'guide', 'reference' ), true ) ) {
+	$rwgo_view = 'guide';
+}
 ?>
-<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--tracking-tools">
+<div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--tracking-tools" data-rwgo-tracking-view="<?php echo esc_attr( $rwgo_view ); ?>">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
 		<?php
 		RWGC_Admin_UI::render_page_header(
-			__( 'Tracking Tools', 'reactwoo-geo-optimise' ),
-			__( 'Agency-friendly GTM and dataLayer handoff for Geo Optimise tests.', 'reactwoo-geo-optimise' )
+			__( 'Tracking setup', 'reactwoo-geo-optimise' ),
+			__( 'Connect Google Tag Manager, publish recommended tracking assets, and verify Geo Optimise events.', 'reactwoo-geo-optimise' )
 		);
 		?>
 	<?php else : ?>
-		<h1><?php esc_html_e( 'Tracking Tools', 'reactwoo-geo-optimise' ); ?></h1>
+		<h1><?php esc_html_e( 'Tracking setup', 'reactwoo-geo-optimise' ); ?></h1>
+		<p class="rwgo-section__lead"><?php esc_html_e( 'Connect Google Tag Manager, publish recommended tracking assets, and verify Geo Optimise events.', 'reactwoo-geo-optimise' ); ?></p>
 	<?php endif; ?>
 
 	<?php RWGO_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
-	<?php
-	$rwgo_gtm_page_flash = class_exists( 'RWGO_GTM_Live', false ) ? RWGO_GTM_Live::consume_flash() : null;
-	?>
 	<?php if ( is_array( $rwgo_gtm_page_flash ) && isset( $rwgo_gtm_page_flash['mode'] ) && in_array( (string) $rwgo_gtm_page_flash['mode'], array( 'preview', 'push' ), true ) ) : ?>
 		<?php
 		$rwgo_top_summary = ( isset( $rwgo_gtm_page_flash['summary'] ) && is_array( $rwgo_gtm_page_flash['summary'] ) )
@@ -60,9 +106,6 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-track
 			<?php if ( ! empty( $rwgo_top_summary['note'] ) ) : ?>
 				<p class="rwgo-gtm-result-frame__note"><?php echo esc_html( (string) $rwgo_top_summary['note'] ); ?></p>
 			<?php endif; ?>
-			<p class="rwgo-gtm-result-frame__next"><?php echo $rwgo_top_is_preview
-				? esc_html__( 'Next: click “Push to GTM workspace” on the test card to create these drafts, then open GTM → your workspace to review before publishing.', 'reactwoo-geo-optimise' )
-				: esc_html__( 'Next: open Google Tag Manager → the selected workspace, confirm the new drafts look right, then publish the container when ready.', 'reactwoo-geo-optimise' ); ?></p>
 			<?php if ( ! empty( $rwgo_gtm_page_flash['result'] ) && is_array( $rwgo_gtm_page_flash['result'] ) ) : ?>
 				<details class="rwgo-gtm-result-frame__raw">
 					<summary><?php esc_html_e( 'Raw API response', 'reactwoo-geo-optimise' ); ?></summary>
@@ -74,26 +117,49 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-track
 		<div class="notice notice-error"><p><?php echo esc_html( (string) ( $rwgo_gtm_page_flash['message'] ?? __( 'GTM request failed.', 'reactwoo-geo-optimise' ) ) ); ?></p></div>
 	<?php endif; ?>
 
+	<?php if ( isset( $_GET['rwgo_gtm_saved'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'GTM target saved.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['rwgo_gtm_ok'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Google Tag Manager connected via React Cloud.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+	<?php if ( isset( $_GET['rwgo_mode_saved'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Tracking mode saved.', 'reactwoo-geo-optimise' ); ?></p></div>
+	<?php endif; ?>
+
+	<section class="rwgo-panel rwgo-tracking-status" aria-labelledby="rwgo-tracking-status-title">
+		<h2 id="rwgo-tracking-status-title" class="rwgo-section__title"><?php esc_html_e( 'Status summary', 'reactwoo-geo-optimise' ); ?></h2>
+		<ul class="rwgo-tracking-status__list">
+			<?php foreach ( (array) $rwgo_setup['status_rows'] as $row ) : ?>
+				<?php if ( ! is_array( $row ) ) { continue; } ?>
+				<li class="rwgo-tracking-status__item is-<?php echo esc_attr( (string) ( $row['tone'] ?? 'action' ) ); ?>">
+					<span class="rwgo-tracking-status__label"><?php echo esc_html( (string) ( $row['label'] ?? '' ) ); ?></span>
+					<span class="rwgo-tracking-badge rwgo-tracking-badge--<?php echo esc_attr( (string) ( $row['tone'] ?? 'action' ) ); ?>"><?php echo esc_html( (string) ( $row['value'] ?? '' ) ); ?></span>
+				</li>
+			<?php endforeach; ?>
+		</ul>
+	</section>
+
+	<section class="rwgo-tracking-next rwgo-gtm-result-frame" aria-labelledby="rwgo-tracking-next-title">
+		<p class="rwgo-gtm-result-frame__eyebrow" id="rwgo-tracking-next-title"><?php echo esc_html( (string) ( $rwgo_setup['next']['title'] ?? __( 'Next step', 'reactwoo-geo-optimise' ) ) ); ?></p>
+		<p class="rwgo-gtm-result-frame__headline"><?php echo esc_html( (string) ( $rwgo_setup['next']['body'] ?? '' ) ); ?></p>
+	</section>
+
+	<div class="rwgo-tracking-view-toggle" role="tablist" aria-label="<?php esc_attr_e( 'Tracking setup views', 'reactwoo-geo-optimise' ); ?>">
+		<button type="button" class="button rwgo-btn rwgo-btn--secondary rwgo-tracking-view-btn<?php echo 'guide' === $rwgo_view ? ' is-active' : ''; ?>" data-rwgo-tracking-view-btn="guide" role="tab" aria-selected="<?php echo 'guide' === $rwgo_view ? 'true' : 'false'; ?>"><?php esc_html_e( 'Setup Guide', 'reactwoo-geo-optimise' ); ?></button>
+		<button type="button" class="button rwgo-btn rwgo-btn--secondary rwgo-tracking-view-btn<?php echo 'reference' === $rwgo_view ? ' is-active' : ''; ?>" data-rwgo-tracking-view-btn="reference" role="tab" aria-selected="<?php echo 'reference' === $rwgo_view ? 'true' : 'false'; ?>"><?php esc_html_e( 'Technical Reference', 'reactwoo-geo-optimise' ); ?></button>
+	</div>
+
 	<div class="rwgo-stack">
-		<section class="rwgo-panel rwgo-panel--hero rwgo-tracking-orient" aria-labelledby="rwgo-tracking-orient-title">
-			<h2 id="rwgo-tracking-orient-title" class="rwgo-section__title"><?php esc_html_e( 'Tracking & agency handoff', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="rwgo-section__lead"><?php esc_html_e( 'Use this section when handing measurement to an agency or implementing reporting in Google Tag Manager. You do not need this for a basic test unless you want external analytics reporting.', 'reactwoo-geo-optimise' ); ?></p>
-			<p class="rwgo-setting-row__hint"><?php esc_html_e( 'Need PHP hooks, raw counters, or CSV export?', 'reactwoo-geo-optimise' ); ?>
-				<a href="<?php echo esc_url( RWGO_Admin::developer_url( 'developer' ) ); ?>"><?php esc_html_e( 'Open Developer', 'reactwoo-geo-optimise' ); ?></a></p>
-		</section>
-
-		<?php
-		// Pass already-consumed flash so the GTM partial does not consume again / duplicate the banner.
-		$rwgo_gtm_flash_already_shown = is_array( $rwgo_gtm_page_flash );
-		$rwgo_gtm_flash               = is_array( $rwgo_gtm_page_flash ) ? $rwgo_gtm_page_flash : null;
-		require RWGO_PATH . 'admin/views/partials/gtm-quick-setup.php';
-		?>
-
-		<details class="rwgo-panel rwgo-tracking-technical-details">
-			<summary class="rwgo-tracking-technical-details__summary"><?php esc_html_e( 'Technical details & generated snippets', 'reactwoo-geo-optimise' ); ?></summary>
-			<div class="rwgo-tracking-technical-details__body">
-				<?php include RWGO_PATH . 'admin/views/partials/tools-section-tracking-advanced.php'; ?>
-			</div>
-		</details>
+		<div class="rwgo-tracking-panel" data-rwgo-tracking-panel="guide" <?php echo 'guide' === $rwgo_view ? '' : 'hidden'; ?>>
+			<?php
+			$rwgo_gtm_flash_already_shown = is_array( $rwgo_gtm_page_flash );
+			$rwgo_gtm_flash               = is_array( $rwgo_gtm_page_flash ) ? $rwgo_gtm_page_flash : null;
+			require RWGO_PATH . 'admin/views/partials/tracking-setup-guide.php';
+			?>
+		</div>
+		<div class="rwgo-tracking-panel" data-rwgo-tracking-panel="reference" <?php echo 'reference' === $rwgo_view ? '' : 'hidden'; ?>>
+			<?php require RWGO_PATH . 'admin/views/partials/tracking-technical-reference.php'; ?>
+		</div>
 	</div>
 </div>

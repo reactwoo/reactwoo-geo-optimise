@@ -28,6 +28,7 @@ class RWGO_GTM_Live {
 		add_action( 'admin_post_rwgo_gtm_disconnect', array( __CLASS__, 'handle_disconnect' ) );
 		add_action( 'admin_post_rwgo_gtm_save_target', array( __CLASS__, 'handle_save_target' ) );
 		add_action( 'admin_post_rwgo_gtm_push', array( __CLASS__, 'handle_push' ) );
+		add_action( 'admin_post_rwgo_tracking_mode', array( __CLASS__, 'handle_tracking_mode' ) );
 		add_action( 'wp_ajax_rwgo_gtm_list_accounts', array( __CLASS__, 'ajax_list_accounts' ) );
 		add_action( 'wp_ajax_rwgo_gtm_list_containers', array( __CLASS__, 'ajax_list_containers' ) );
 		add_action( 'wp_ajax_rwgo_gtm_list_workspaces', array( __CLASS__, 'ajax_list_workspaces' ) );
@@ -485,6 +486,9 @@ class RWGO_GTM_Live {
 		$stored  = self::slim_result_for_storage( $res );
 		$summary = self::summarize_result( $stored );
 		set_transient( 'rwgo_gtm_last_result_' . get_current_user_id(), $stored, 10 * MINUTE_IN_SECONDS );
+		if ( class_exists( 'RWGO_Tracking_Setup', false ) ) {
+			RWGO_Tracking_Setup::record_push( $exp_id, get_the_title( $exp_id ), $dry );
+		}
 		self::set_flash(
 			array(
 				'mode'    => $dry ? 'preview' : 'push',
@@ -494,6 +498,24 @@ class RWGO_GTM_Live {
 		);
 		$url = add_query_arg( $key, (string) $exp_id, self::tracking_tools_url() );
 		wp_safe_redirect( $url . '#rwgo-gtm-result-notice' );
+		exit;
+	}
+
+	/**
+	 * Persist Simple/Advanced tracking setup preference.
+	 *
+	 * @return void
+	 */
+	public static function handle_tracking_mode() {
+		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_tracking_mode' );
+		$mode = isset( $_POST['rwgo_tracking_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_tracking_mode'] ) ) : 'simple'; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+		if ( class_exists( 'RWGO_Tracking_Setup', false ) ) {
+			RWGO_Tracking_Setup::set_mode( $mode );
+		}
+		wp_safe_redirect( add_query_arg( 'rwgo_mode_saved', '1', self::tracking_tools_url() ) );
 		exit;
 	}
 

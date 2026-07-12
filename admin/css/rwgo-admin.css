@@ -2078,6 +2078,136 @@ select.rwgo-input {
   color: #15803d;
 }
 
+.rwgo-tracking-status {
+  margin: 12px 0 16px;
+}
+
+.rwgo-tracking-status__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 16px;
+}
+
+.rwgo-tracking-status__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f6f7f7;
+  border: 1px solid #e2e4e7;
+  border-radius: 8px;
+}
+
+.rwgo-tracking-status__label {
+  font-size: 13px;
+  color: #50575e;
+  font-weight: 500;
+}
+
+.rwgo-tracking-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.rwgo-tracking-badge--ok {
+  background: #edfaef;
+  border-color: #b8e6bf;
+  color: #1e4620;
+}
+
+.rwgo-tracking-badge--action {
+  background: #fcf0e3;
+  border-color: #f0c36d;
+  color: #8a6116;
+}
+
+.rwgo-tracking-next {
+  margin-top: 0;
+}
+
+.rwgo-tracking-view-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+
+.rwgo-tracking-view-btn.is-active {
+  border-color: #2271b1 !important;
+  color: #2271b1 !important;
+  background: #f0f6fc !important;
+}
+
+.rwgo-tracking-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rwgo-tracking-step__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rwgo-tracking-step__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1d2327;
+}
+
+.rwgo-tracking-step__hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #646970;
+}
+
+.rwgo-tracking-step__meta {
+  margin: 0 0 14px;
+  padding-left: 1.1em;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #1d2327;
+}
+
+.rwgo-tracking-step__meta-line,
+.rwgo-tracking-step__test-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #1d2327;
+}
+
+.rwgo-tracking-ref-block {
+  margin-bottom: 12px;
+}
+
+.rwgo-tracking-ref-block__summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 4px 0;
+}
+
+.rwgo-tracking-ref-block__body {
+  margin-top: 12px;
+}
+
 .rwgo-code-inline {
   font-size: 14px;
   background: #f0f0f1;

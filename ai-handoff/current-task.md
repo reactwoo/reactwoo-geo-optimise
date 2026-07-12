@@ -1,18 +1,19 @@
 # Current task
 
-> Canonical repository: `reactwoo-geo-optimise` (+ `react-cloud`)
+> Canonical repository: `reactwoo-geo-optimise`
 
 ## Problem
 
-Live GTM API OAuth push (measurement contract Phase 7).
+Tracking Tools page is a flat developer handoff wall — users cannot see status, next step, or what is required vs technical.
 
 ## Expected
 
-- Cloud OAuth `google_tag_manager` + provision endpoints
-- Optimise connect / target / preview / push UI
-- Release Optimise **0.4.78**; cloud **1.1.10**
+- Setup Guide | Technical Reference modes (default Setup Guide)
+- Status summary + derived next step
+- Step cards: Connect → Mode → Publish assets → Verify → Test handoff
+- Technical snippets collapsed under Technical Reference
+- No change to event names, GTM push behaviour, or goal tracking logic
 
-## Do not touch
+## Status
 
-- Auto-publish GTM containers
-- Standalone Geo AI
+**in progress** → ship as **0.4.85**

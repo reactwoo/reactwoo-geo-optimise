@@ -104,6 +104,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-blueprint-page-writer.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-handoff.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-tracking-preflight.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-tracking-setup.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-provisioner.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-cloud-client.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-gtm-live.php';

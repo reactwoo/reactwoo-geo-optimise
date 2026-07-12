@@ -82,7 +82,7 @@
 		copyText(getTextFromButton(btn), btn);
 	});
 
-	/* Simple / Advanced on Tracking Tools */
+	/* Simple / Advanced on Tracking Tools (legacy) */
 	document.querySelectorAll('[data-rwgo-gtm-mode]').forEach(function (root) {
 		var adv = root.querySelector('.rwgo-gtm-advanced-block');
 		var btns = root.querySelectorAll('[data-rwgo-gtm-mode-btn]');
@@ -101,6 +101,35 @@
 			});
 		});
 		setMode('simple');
+	});
+
+	/* Setup Guide | Technical Reference */
+	document.querySelectorAll('[data-rwgo-tracking-view]').forEach(function (root) {
+		var btns = root.querySelectorAll('[data-rwgo-tracking-view-btn]');
+		function setView(v) {
+			v = v === 'reference' ? 'reference' : 'guide';
+			root.setAttribute('data-rwgo-tracking-view', v);
+			btns.forEach(function (b) {
+				var on = b.getAttribute('data-rwgo-tracking-view-btn') === v;
+				b.classList.toggle('is-active', on);
+				b.setAttribute('aria-selected', on ? 'true' : 'false');
+			});
+			root.querySelectorAll('[data-rwgo-tracking-panel]').forEach(function (panel) {
+				panel.hidden = panel.getAttribute('data-rwgo-tracking-panel') !== v;
+			});
+			try {
+				var url = new URL(window.location.href);
+				url.searchParams.set('rwgo_view', v);
+				window.history.replaceState({}, '', url.toString());
+			} catch (e) {
+				/* ignore */
+			}
+		}
+		btns.forEach(function (b) {
+			b.addEventListener('click', function () {
+				setView(b.getAttribute('data-rwgo-tracking-view-btn') || 'guide');
+			});
+		});
 	});
 
 	/* GTM modal on Tests screen */
