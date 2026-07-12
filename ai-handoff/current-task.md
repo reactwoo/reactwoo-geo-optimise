@@ -16,4 +16,4 @@ Tracking Tools page is a flat developer handoff wall — users cannot see status
 
 ## Status
 
-**in progress** → ship as **0.4.85**
+**done** — shipped **v0.4.85**
