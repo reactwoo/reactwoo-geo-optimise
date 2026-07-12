@@ -84,29 +84,36 @@ $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo
 		<div class="notice notice-success inline"><p><?php esc_html_e( 'GTM target saved.', 'reactwoo-geo-optimise' ); ?></p></div>
 	<?php endif; ?>
 	<?php if ( ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) && '' !== $rwgo_gtm_summary['headline'] ) : ?>
-		<div class="notice notice-success inline" id="rwgo-gtm-result-notice">
-			<p><strong><?php echo esc_html( $rwgo_gtm_summary['headline'] ); ?></strong></p>
+		<div class="rwgo-gtm-result-frame" id="rwgo-gtm-result-notice" role="status">
+			<p class="rwgo-gtm-result-frame__eyebrow"><?php echo $rwgo_gtm_preview
+				? esc_html__( 'Preview result', 'reactwoo-geo-optimise' )
+				: esc_html__( 'Push result', 'reactwoo-geo-optimise' ); ?></p>
+			<p class="rwgo-gtm-result-frame__headline"><strong><?php echo esc_html( $rwgo_gtm_summary['headline'] ); ?></strong></p>
 			<?php if ( ! empty( $rwgo_gtm_summary['lines'] ) ) : ?>
-				<ul style="margin:0.5em 0 0.25em 1.25em;list-style:disc;">
+				<ul class="rwgo-gtm-result-frame__list">
 					<?php foreach ( $rwgo_gtm_summary['lines'] as $line ) : ?>
 						<li><?php echo esc_html( (string) $line ); ?></li>
 					<?php endforeach; ?>
 				</ul>
 			<?php endif; ?>
 			<?php if ( ! empty( $rwgo_gtm_summary['note'] ) ) : ?>
-				<p><?php echo esc_html( $rwgo_gtm_summary['note'] ); ?></p>
+				<p class="rwgo-gtm-result-frame__note"><?php echo esc_html( $rwgo_gtm_summary['note'] ); ?></p>
 			<?php endif; ?>
-			<?php if ( $rwgo_gtm_preview ) : ?>
-				<p><?php esc_html_e( 'Next: click “Push to GTM workspace” on the test card to create these drafts, then open GTM → your workspace to review before publishing.', 'reactwoo-geo-optimise' ); ?></p>
-			<?php else : ?>
-				<p><?php esc_html_e( 'Next: open Google Tag Manager → the selected workspace, confirm the new drafts look right, then publish the container when ready.', 'reactwoo-geo-optimise' ); ?></p>
+			<p class="rwgo-gtm-result-frame__next"><?php echo $rwgo_gtm_preview
+				? esc_html__( 'Next: click “Push to GTM workspace” on the test card to create these drafts, then open GTM → your workspace to review before publishing.', 'reactwoo-geo-optimise' )
+				: esc_html__( 'Next: open Google Tag Manager → the selected workspace, confirm the new drafts look right, then publish the container when ready.', 'reactwoo-geo-optimise' ); ?></p>
+			<?php if ( is_array( $rwgo_gtm_last ) ) : ?>
+				<details class="rwgo-gtm-result-frame__raw">
+					<summary><?php esc_html_e( 'Raw API response', 'reactwoo-geo-optimise' ); ?></summary>
+					<pre class="rwgo-code-block"><?php echo esc_html( wp_json_encode( $rwgo_gtm_last, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></pre>
+				</details>
 			<?php endif; ?>
 		</div>
 	<?php elseif ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) : ?>
-		<div class="notice notice-success inline">
-			<p><?php echo $rwgo_gtm_preview
+		<div class="rwgo-gtm-result-frame" role="status">
+			<p class="rwgo-gtm-result-frame__headline"><strong><?php echo $rwgo_gtm_preview
 				? esc_html__( 'Preview completed (dry run). See the result panel below.', 'reactwoo-geo-optimise' )
-				: esc_html__( 'Push completed. See the result panel below.', 'reactwoo-geo-optimise' ); ?></p>
+				: esc_html__( 'Push completed. See the result panel below.', 'reactwoo-geo-optimise' ); ?></strong></p>
 		</div>
 	<?php endif; ?>
 
@@ -189,28 +196,26 @@ $rwgo_gtm_show_result = $rwgo_gtm_preview || $rwgo_gtm_pushed || is_array( $rwgo
 				</p>
 			</form>
 		<?php endif; ?>
-		<?php if ( $rwgo_gtm_show_result && is_array( $rwgo_gtm_last ) ) : ?>
-			<details class="rwgo-gtm-last-result" id="rwgo-gtm-last-result" <?php echo ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) ? 'open' : ''; ?>>
-				<summary><?php echo $rwgo_gtm_preview
-					? esc_html__( 'Preview result (dry run — nothing written)', 'reactwoo-geo-optimise' )
-					: ( $rwgo_gtm_pushed
-						? esc_html__( 'Push result (draft workspace entities)', 'reactwoo-geo-optimise' )
-						: esc_html__( 'Last push / preview result', 'reactwoo-geo-optimise' ) ); ?></summary>
+		<?php if ( $rwgo_gtm_show_result && is_array( $rwgo_gtm_last ) && ! $rwgo_gtm_preview && ! $rwgo_gtm_pushed ) : ?>
+			<details class="rwgo-gtm-last-result rwgo-gtm-result-frame" id="rwgo-gtm-last-result">
+				<summary><?php esc_html_e( 'Last push / preview result', 'reactwoo-geo-optimise' ); ?></summary>
 				<?php if ( '' !== $rwgo_gtm_summary['headline'] ) : ?>
-					<p><strong><?php echo esc_html( $rwgo_gtm_summary['headline'] ); ?></strong></p>
+					<p class="rwgo-gtm-result-frame__headline"><strong><?php echo esc_html( $rwgo_gtm_summary['headline'] ); ?></strong></p>
 					<?php if ( ! empty( $rwgo_gtm_summary['lines'] ) ) : ?>
-						<ul>
+						<ul class="rwgo-gtm-result-frame__list">
 							<?php foreach ( $rwgo_gtm_summary['lines'] as $line ) : ?>
 								<li><?php echo esc_html( (string) $line ); ?></li>
 							<?php endforeach; ?>
 						</ul>
 					<?php endif; ?>
 				<?php endif; ?>
-				<details>
+				<details class="rwgo-gtm-result-frame__raw">
 					<summary><?php esc_html_e( 'Raw API response', 'reactwoo-geo-optimise' ); ?></summary>
 					<pre class="rwgo-code-block"><?php echo esc_html( wp_json_encode( $rwgo_gtm_last, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></pre>
 				</details>
 			</details>
+		<?php elseif ( $rwgo_gtm_preview || $rwgo_gtm_pushed ) : ?>
+			<span id="rwgo-gtm-last-result" hidden></span>
 		<?php endif; ?>
 	</div>
 

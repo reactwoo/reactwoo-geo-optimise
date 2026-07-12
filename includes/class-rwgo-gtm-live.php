@@ -468,7 +468,7 @@ class RWGO_GTM_Live {
 		);
 		set_transient( 'rwgo_gtm_last_result_' . get_current_user_id(), $res, 10 * MINUTE_IN_SECONDS );
 		$url = add_query_arg( $key, (string) $exp_id, self::tracking_tools_url() );
-		wp_safe_redirect( $url . '#rwgo-gtm-last-result' );
+		wp_safe_redirect( $url . '#rwgo-gtm-result-notice' );
 		exit;
 	}
 
