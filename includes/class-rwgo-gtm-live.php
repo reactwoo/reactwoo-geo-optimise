@@ -183,7 +183,8 @@ class RWGO_GTM_Live {
 			wp_safe_redirect( add_query_arg( 'rwgo_gtm_err', rawurlencode( $url->get_error_message() ), self::tracking_tools_url() ) );
 			exit;
 		}
-		wp_safe_redirect( $url );
+		// External Google OAuth host — wp_safe_redirect would bounce to admin_url().
+		wp_redirect( $url ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect
 		exit;
 	}
 
