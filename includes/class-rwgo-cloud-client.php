@@ -153,11 +153,19 @@ class RWGO_Cloud_Client {
 	}
 
 	/**
-	 * @param array<string, mixed> $payload Provision body.
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function gtm_provision( array $payload ) {
 		// Sequential GTM API creates often exceed the default 45s HTTP timeout.
 		return self::request( 'POST', '/geo-api/v1/google/gtm/provision', $payload, 180 );
+	}
+
+	/**
+	 * GA4 web-stream measurement IDs from React Cloud (same OAuth as GeoCore Pro Targeting).
+	 *
+	 * @return array<string, mixed>|\WP_Error
+	 */
+	public static function ga_measurement_ids() {
+		return self::request( 'GET', '/geo-api/v1/google/analytics/measurement-ids', array(), 60 );
 	}
 }

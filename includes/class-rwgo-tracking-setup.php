@@ -65,9 +65,33 @@ class RWGO_Tracking_Setup {
 			? count( RWGO_GTM_Handoff::standard_variable_definitions() )
 			: 0;
 		$trigger_count = 2;
-		$tag_count     = $has_ga4 ? 2 : 0;
 
 		$mode = self::get_mode();
+
+		$ga_options = self::ga_measurement_options();
+		$ga_connected = ! empty( $ga_options['connected'] );
+		$ga_streams   = isset( $ga_options['streams'] ) && is_array( $ga_options['streams'] ) ? $ga_options['streams'] : array();
+		$ga_message   = isset( $ga_options['message'] ) ? (string) $ga_options['message'] : '';
+		$ga_pro_url   = admin_url( 'admin.php?page=rwgcp-google-analytics' );
+
+		// Prefer Targeting default property's measurement ID when target is empty.
+		if ( '' === (string) $target['measurement_id'] && ! empty( $ga_streams ) ) {
+			foreach ( $ga_streams as $stream ) {
+				if ( ! is_array( $stream ) || empty( $stream['measurement_id'] ) ) {
+					continue;
+				}
+				if ( ! empty( $stream['from_selected'] ) ) {
+					$target['measurement_id'] = (string) $stream['measurement_id'];
+					$has_ga4                 = true;
+					break;
+				}
+			}
+			if ( ! $has_ga4 && ! empty( $ga_streams[0]['measurement_id'] ) ) {
+				$target['measurement_id'] = (string) $ga_streams[0]['measurement_id'];
+				$has_ga4                 = true;
+			}
+		}
+		$tag_count = $has_ga4 ? 2 : 0;
 
 		$preflight_ready = false;
 		$preview_url     = '';
@@ -86,6 +110,7 @@ class RWGO_Tracking_Setup {
 				'has_account'     => $has_account,
 				'has_container'   => $has_container,
 				'has_ga4'         => $has_ga4,
+				'ga_connected'    => $ga_connected,
 				'assets_pushed'   => $assets_pushed,
 				'preflight_ready' => $preflight_ready,
 				'has_primary'     => (bool) $primary,
@@ -114,16 +139,53 @@ class RWGO_Tracking_Setup {
 			'preflight_ready'   => $preflight_ready,
 			'preview_url'       => $preview_url,
 			'next'              => $next,
+			'ga_connected'      => $ga_connected,
+			'ga_streams'        => $ga_streams,
+			'ga_message'        => $ga_message,
+			'ga_pro_url'        => $ga_pro_url,
 			'status_rows'       => self::status_rows(
 				$connected,
 				$container_label,
 				$has_container,
 				$has_ga4,
+				$ga_connected,
 				$assets_pushed,
 				$preflight_ready,
 				$primary
 			),
 		);
+	}
+
+	/**
+	 * @return array{connected:bool,streams:array<int,array<string,mixed>>,message:string}
+	 */
+	public static function ga_measurement_options() {
+		$out = array(
+			'connected' => false,
+			'streams'   => array(),
+			'message'   => '',
+		);
+		$pro_flag = (bool) get_option( 'rwgcp_google_analytics_connected', false );
+		if ( ! class_exists( 'RWGO_Cloud_Client', false ) ) {
+			$out['connected'] = $pro_flag;
+			$out['message']   = $pro_flag
+				? ''
+				: __( 'Connect Google Analytics in GeoCore Pro Targeting to choose a measurement ID.', 'reactwoo-geo-optimise' );
+			return $out;
+		}
+		$res = RWGO_Cloud_Client::ga_measurement_ids();
+		if ( is_wp_error( $res ) ) {
+			$out['connected'] = $pro_flag;
+			$out['message']   = $res->get_error_message();
+			return $out;
+		}
+		$out['connected'] = ! empty( $res['connected'] ) || $pro_flag;
+		$out['streams']   = isset( $res['streams'] ) && is_array( $res['streams'] ) ? $res['streams'] : array();
+		$out['message']   = isset( $res['message'] ) ? (string) $res['message'] : '';
+		if ( ! $out['connected'] && '' === $out['message'] ) {
+			$out['message'] = __( 'Connect Google Analytics in GeoCore Pro (Targeting → Google Analytics) to load G-XXXX options from your property.', 'reactwoo-geo-optimise' );
+		}
+		return $out;
 	}
 
 	/**
@@ -229,10 +291,17 @@ class RWGO_Tracking_Setup {
 			);
 		}
 		if ( empty( $flags['has_ga4'] ) ) {
+			if ( empty( $flags['ga_connected'] ) ) {
+				return array(
+					'key'   => 'ga_connect',
+					'title' => __( 'Next step', 'reactwoo-geo-optimise' ),
+					'body'  => __( 'Connect Google Analytics in GeoCore Pro Targeting, then choose the GA4 property / measurement ID used for tags.', 'reactwoo-geo-optimise' ),
+				);
+			}
 			return array(
 				'key'   => 'ga4',
 				'title' => __( 'Next step', 'reactwoo-geo-optimise' ),
-				'body'  => __( 'Add your GA4 measurement ID (G-XXXX), then publish the recommended GTM assets to your workspace.', 'reactwoo-geo-optimise' ),
+				'body'  => __( 'Select the GA4 measurement ID from your connected Analytics property, then publish GTM assets.', 'reactwoo-geo-optimise' ),
 			);
 		}
 		if ( empty( $flags['assets_pushed'] ) ) {
@@ -268,12 +337,13 @@ class RWGO_Tracking_Setup {
 	 * @param string                   $container_label Label.
 	 * @param bool                     $has_container Has container.
 	 * @param bool                     $has_ga4 Has GA4.
+	 * @param bool                     $ga_connected GA OAuth connected.
 	 * @param bool                     $assets_pushed Pushed.
 	 * @param bool                     $preflight_ready Preflight.
 	 * @param array<string,mixed>|null $primary Primary test.
 	 * @return array<int, array{label:string,value:string,tone:string}>
 	 */
-	private static function status_rows( $connected, $container_label, $has_container, $has_ga4, $assets_pushed, $preflight_ready, $primary ) {
+	private static function status_rows( $connected, $container_label, $has_container, $has_ga4, $ga_connected, $assets_pushed, $preflight_ready, $primary ) {
 		$rows   = array();
 		$rows[] = array(
 			'label' => __( 'GTM connection', 'reactwoo-geo-optimise' ),
@@ -286,6 +356,11 @@ class RWGO_Tracking_Setup {
 				? ( '' !== $container_label ? $container_label : __( 'Selected', 'reactwoo-geo-optimise' ) )
 				: __( 'Not selected', 'reactwoo-geo-optimise' ),
 			'tone'  => $has_container ? 'ok' : 'action',
+		);
+		$rows[] = array(
+			'label' => __( 'GA4 (Targeting)', 'reactwoo-geo-optimise' ),
+			'value' => $ga_connected ? __( 'Connected', 'reactwoo-geo-optimise' ) : __( 'Not connected', 'reactwoo-geo-optimise' ),
+			'tone'  => $ga_connected ? 'ok' : 'action',
 		);
 		$rows[] = array(
 			'label' => __( 'GA4 measurement ID', 'reactwoo-geo-optimise' ),

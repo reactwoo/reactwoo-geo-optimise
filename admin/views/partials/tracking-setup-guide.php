@@ -110,8 +110,64 @@ if ( class_exists( 'RWGO_GTM_Handoff', false ) ) {
 				</div>
 				<div class="rwgo-field">
 					<label class="rwgo-field__label" for="rwgo_gtm_measurement_id"><?php esc_html_e( 'GA4 measurement ID', 'reactwoo-geo-optimise' ); ?></label>
-					<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_measurement_id" id="rwgo_gtm_measurement_id" value="<?php echo esc_attr( (string) ( $target['measurement_id'] ?? '' ) ); ?>" placeholder="G-XXXXXXXX" />
-					<p class="description"><?php esc_html_e( 'Required to create GA4 event tags. Without it, only variables and triggers are pushed.', 'reactwoo-geo-optimise' ); ?></p>
+					<?php
+					$ga_streams   = isset( $rwgo_setup['ga_streams'] ) && is_array( $rwgo_setup['ga_streams'] ) ? $rwgo_setup['ga_streams'] : array();
+					$ga_connected = ! empty( $rwgo_setup['ga_connected'] );
+					$ga_pro_url   = isset( $rwgo_setup['ga_pro_url'] ) ? (string) $rwgo_setup['ga_pro_url'] : admin_url( 'admin.php?page=rwgcp-google-analytics' );
+					$cur_mid      = (string) ( $target['measurement_id'] ?? '' );
+					$known_ids    = array();
+					foreach ( $ga_streams as $gs ) {
+						if ( is_array( $gs ) && ! empty( $gs['measurement_id'] ) ) {
+							$known_ids[] = (string) $gs['measurement_id'];
+						}
+					}
+					$manual_mode = ( '' !== $cur_mid && ! in_array( $cur_mid, $known_ids, true ) );
+					?>
+					<?php if ( ! $ga_connected ) : ?>
+						<p class="description"><?php echo esc_html( ! empty( $rwgo_setup['ga_message'] ) ? (string) $rwgo_setup['ga_message'] : __( 'Connect Google Analytics in GeoCore Pro Targeting to load measurement IDs from your property.', 'reactwoo-geo-optimise' ) ); ?></p>
+						<p class="rwgo-btn-row">
+							<a class="button button-primary rwgo-btn rwgo-btn--primary" href="<?php echo esc_url( $ga_pro_url ); ?>"><?php esc_html_e( 'Connect Google Analytics', 'reactwoo-geo-optimise' ); ?></a>
+						</p>
+						<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_measurement_id" id="rwgo_gtm_measurement_id" value="<?php echo esc_attr( $cur_mid ); ?>" placeholder="G-XXXXXXXX" />
+						<p class="description"><?php esc_html_e( 'Or enter a measurement ID manually if you already know it.', 'reactwoo-geo-optimise' ); ?></p>
+					<?php elseif ( ! empty( $ga_streams ) ) : ?>
+						<select class="rwgo-input" name="rwgo_gtm_measurement_id" id="rwgo_gtm_measurement_id">
+							<option value=""><?php esc_html_e( '— Select measurement ID —', 'reactwoo-geo-optimise' ); ?></option>
+							<?php foreach ( $ga_streams as $gs ) : ?>
+								<?php
+								if ( ! is_array( $gs ) || empty( $gs['measurement_id'] ) ) {
+									continue;
+								}
+								$mid   = (string) $gs['measurement_id'];
+								$label = $mid;
+								$pdn   = isset( $gs['property_display_name'] ) ? (string) $gs['property_display_name'] : '';
+								$sdn   = isset( $gs['display_name'] ) ? (string) $gs['display_name'] : '';
+								if ( '' !== $pdn && '' !== $sdn ) {
+									$label = $pdn . ' — ' . $sdn . ' (' . $mid . ')';
+								} elseif ( '' !== $pdn ) {
+									$label = $pdn . ' (' . $mid . ')';
+								} elseif ( '' !== $sdn ) {
+									$label = $sdn . ' (' . $mid . ')';
+								}
+								if ( ! empty( $gs['from_selected'] ) ) {
+									$label .= ' — ' . __( 'Targeting default', 'reactwoo-geo-optimise' );
+								}
+								?>
+								<option value="<?php echo esc_attr( $mid ); ?>" <?php selected( $cur_mid, $mid ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+							<?php if ( $manual_mode ) : ?>
+								<option value="<?php echo esc_attr( $cur_mid ); ?>" selected><?php echo esc_html( $cur_mid . ' — ' . __( 'custom', 'reactwoo-geo-optimise' ) ); ?></option>
+							<?php endif; ?>
+						</select>
+						<p class="description"><?php esc_html_e( 'Loaded from your connected GA4 property (Targeting). Required to create GA4 event tags in GTM.', 'reactwoo-geo-optimise' ); ?>
+							<a href="<?php echo esc_url( $ga_pro_url ); ?>"><?php esc_html_e( 'Manage GA4 in Targeting', 'reactwoo-geo-optimise' ); ?></a>
+						</p>
+					<?php else : ?>
+						<p class="description"><?php esc_html_e( 'GA4 is connected, but no web-stream measurement IDs were found. Choose a default property in Targeting, or enter G-XXXX manually.', 'reactwoo-geo-optimise' ); ?>
+							<a href="<?php echo esc_url( $ga_pro_url ); ?>"><?php esc_html_e( 'Open Google Analytics', 'reactwoo-geo-optimise' ); ?></a>
+						</p>
+						<input class="rwgo-input regular-text" type="text" name="rwgo_gtm_measurement_id" id="rwgo_gtm_measurement_id" value="<?php echo esc_attr( $cur_mid ); ?>" placeholder="G-XXXXXXXX" />
+					<?php endif; ?>
 				</div>
 				<p class="rwgo-cta-row">
 					<button type="button" class="button rwgo-btn rwgo-btn--secondary" id="rwgo-gtm-refresh-accounts"><?php esc_html_e( 'Refresh status', 'reactwoo-geo-optimise' ); ?></button>
