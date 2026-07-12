@@ -148,7 +148,7 @@ $rwgo_gtm_last = get_transient( 'rwgo_gtm_last_result_' . get_current_user_id() 
 				</div>
 				<p class="rwgo-cta-row">
 					<button type="button" class="button rwgo-btn rwgo-btn--secondary" id="rwgo-gtm-refresh-accounts"><?php esc_html_e( 'Refresh accounts', 'reactwoo-geo-optimise' ); ?></button>
-					<button type="submit" class="button rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Save GTM target', 'reactwoo-geo-optimise' ); ?></button>
+					<button type="submit" class="button button-primary rwgo-btn rwgo-btn--primary"><?php esc_html_e( 'Save GTM target', 'reactwoo-geo-optimise' ); ?></button>
 				</p>
 			</form>
 		<?php endif; ?>
