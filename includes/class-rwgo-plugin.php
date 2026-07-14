@@ -126,6 +126,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-ai-hub-views.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-optimise-history.php';
 		RWGO_AI_Module::boot();
+		require_once RWGO_PATH . 'includes/class-rwgo-ai-connector-diagnostics.php';
+		RWGO_AI_Connector_Diagnostics::init();
 		require_once RWGO_PATH . 'includes/class-rwgo-legacy-redirects.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-merge-bridge.php';
 		RWGO_Legacy_Redirects::init();

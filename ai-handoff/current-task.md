@@ -4,16 +4,12 @@
 
 ## Problem
 
-Tracking Tools page is a flat developer handoff wall — users cannot see status, next step, or what is required vs technical.
+AI Review shows local deterministic + remote Geo AI connected, but running review returns `This workflow requires pro tier or higher`. No UI to test local / remote API / remote workflow separately.
 
 ## Expected
 
-- Setup Guide | Technical Reference modes (default Setup Guide)
-- Status summary + derived next step
-- Step cards: Connect → Mode → Publish assets → Verify → Test handoff
-- Technical snippets collapsed under Technical Reference
-- No change to event names, GTM push behaviour, or goal tracking logic
+Diagnostics panel under Settings → AI Connector with separate tests and status rows.
 
 ## Status
 
-**done** — shipped **v0.4.85**
+**done** — shipped **v0.4.88**

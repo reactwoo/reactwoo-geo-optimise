@@ -50,7 +50,17 @@ class RWGA_Engine {
 	public static function get_mode() {
 		$s = RWGA_Settings::get_settings();
 		$m = isset( $s['workflow_engine'] ) ? sanitize_key( (string) $s['workflow_engine'] ) : 'automatic';
-		return in_array( $m, self::allowed_modes(), true ) ? $m : 'automatic';
+		if ( ! in_array( $m, self::allowed_modes(), true ) ) {
+			$m = 'automatic';
+		}
+		/**
+		 * Override resolved workflow engine mode (diagnostics / tests).
+		 *
+		 * @param string $mode Stored or default mode.
+		 */
+		$filtered = apply_filters( 'rwga_workflow_engine_mode', $m );
+		$filtered = sanitize_key( (string) $filtered );
+		return in_array( $filtered, self::allowed_modes(), true ) ? $filtered : $m;
 	}
 
 	/**
