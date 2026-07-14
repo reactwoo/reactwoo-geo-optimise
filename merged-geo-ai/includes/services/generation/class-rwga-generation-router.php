@@ -123,7 +123,14 @@ class RWGA_Generation_Router {
 
 			$result = $transport->dispatch( $workflow_key, $request );
 			if ( is_wp_error( $result ) ) {
-				// Generation already started or contract failed — do not try another transport.
+				// Tier / entitlement gates are safe to fall through in automatic modes —
+				// the remote call never started billable generation. Other post-dispatch
+				// failures stay hard stops (do not silently switch engines mid-run).
+				if ( self::allows_preflight_skip( $mode ) && self::is_fallback_eligible_error( $result ) ) {
+					$skipped[ $transport_key ] = $result->get_error_message();
+					$last_unavailable          = $result;
+					continue;
+				}
 				return self::finish_error( $result, $mode, $skipped, $transport_key );
 			}
 
@@ -153,6 +160,39 @@ class RWGA_Generation_Router {
 	private static function allows_preflight_skip( $mode ) {
 		$mode = sanitize_key( (string) $mode );
 		return in_array( $mode, array( 'automatic', 'remote_fallback' ), true );
+	}
+
+	/**
+	 * Errors that mean “this transport cannot run” rather than a failed generation mid-flight.
+	 *
+	 * Includes Pro-tier gates from reactwoo-api (`This workflow requires pro tier or higher`).
+	 *
+	 * @param \WP_Error $error Error from availability or dispatch.
+	 * @return bool
+	 */
+	public static function is_fallback_eligible_error( $error ) {
+		if ( ! ( $error instanceof WP_Error ) ) {
+			return false;
+		}
+		$code = $error->get_error_code();
+		if ( in_array( $code, array( 'rwga_transport_unavailable', 'rwga_transport_unsupported' ), true ) ) {
+			return true;
+		}
+		$data = $error->get_error_data();
+		if ( is_array( $data ) && ( ! empty( $data['required_tier'] ) || ! empty( $data['min_tier'] ) ) ) {
+			return true;
+		}
+		$msg = strtolower( $error->get_error_message() );
+		if ( '' === $msg ) {
+			return false;
+		}
+		if ( false !== strpos( $msg, 'requires' ) && false !== strpos( $msg, 'tier' ) ) {
+			return true;
+		}
+		if ( false !== strpos( $msg, 'entitlement' ) || false !== strpos( $msg, 'not included in your plan' ) ) {
+			return true;
+		}
+		return false;
 	}
 
 	/**

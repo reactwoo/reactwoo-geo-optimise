@@ -1,4 +1,4 @@
-# Cursor output — AI Connector diagnostics
+# Cursor output — AI Review local fallback + engine control
 
 ## Status
 
@@ -6,31 +6,24 @@ done
 
 ## Root cause
 
-After the Geo AI merge, `rwga-advanced` redirects to Optimise → Settings, but the Advanced UI (execution mode + connection checks) was never embedded there. AI Review still preferred managed/remote; Pro-tier API errors looked like a broken local connector.
+1. Automatic mode called managed remote successfully past preflight (JWT OK), then API returned `This workflow requires pro tier or higher`. Router treated that as a hard generation failure and never tried local.
+2. Execution mode lived only under Settings → AI Connector; AI Review itself had no local/remote control, so users stayed on broken automatic/remote path.
 
 ## Files changed
 
-- `includes/class-rwgo-ai-connector-diagnostics.php` — status rows + four separate tests + save engine
-- `admin/views/partials/ai-connector-diagnostics.php` — Settings panel UI
-- `admin/views/optimise/tab-settings.php` — includes the panel
-- `includes/class-rwgo-plugin.php` — boot diagnostics
-- `merged-geo-ai/includes/services/class-rwga-engine.php` — `rwga_workflow_engine_mode` filter for forced test modes
-- Version **0.4.88** (header, constant, readme Stable tag)
-
-## Behaviour
-
-1. **Run local test** — forces `local` mode; no reactwoo-api call
-2. **Check remote API** — JWT + usage endpoint (not a billable workflow)
-3. **Run remote workflow test** — managed only; Pro tier message does not mark local as failed
-4. **Test remote fallback** — `remote_fallback` chain; clear remote-blocked / local-ok messaging
-5. Execution mode select writes `rwga_settings[workflow_engine]`
+- `merged-geo-ai/.../class-rwga-generation-router.php` — Pro-tier / entitlement errors fall through in `automatic` / `remote_fallback`
+- `merged-geo-ai/admin/views/partials/ux-reviewer-workspace.php` — “How should this review run?” select + AI Connector link
+- `merged-geo-ai/includes/class-rwga-ux-reviewer-ui.php` — pass engine + connector URL
+- `merged-geo-ai/includes/class-rwga-admin.php` — persist `workflow_engine` from Run review
+- `admin/views/optimise/tab-settings.php` — AI Connector panel first
+- `tests/Generation/RWGAGenerationRouterTest.php` — tier fallthrough test
+- Version **0.4.89**
 
 ## What was not changed
 
-- Remote Pro tier policy on reactwoo-api
-- AI Review UX / event names
-- Standalone Geo AI packaging
+- API Pro-tier policy
+- Event names / GTM
 
 ## Commands
 
-- `php -l` on new/changed PHP — clean
+- `composer test -- --filter RWGAGenerationRouterTest`

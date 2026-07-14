@@ -4,12 +4,8 @@
 
 ## Problem
 
-AI Review shows local deterministic + remote Geo AI connected, but running review returns `This workflow requires pro tier or higher`. No UI to test local / remote API / remote workflow separately.
-
-## Expected
-
-Diagnostics panel under Settings → AI Connector with separate tests and status rows.
+AI Review still showed Pro-tier error; no local workflow control on the review screen.
 
 ## Status
 
-**done** — shipped **v0.4.88**
+**done** — shipped **v0.4.89**

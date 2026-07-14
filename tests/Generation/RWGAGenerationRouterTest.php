@@ -248,6 +248,59 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 	}
 
 	/**
+	 * Pro-tier remote failures must fall through to local in automatic mode.
+	 *
+	 * @return void
+	 */
+	public function test_automatic_falls_through_on_pro_tier_gate() {
+		update_option( 'rwga_settings', array( 'workflow_engine' => 'automatic' ) );
+		$wp = new RWGA_Fake_Generation_Transport(
+			'wordpress_ai',
+			true,
+			new WP_Error( 'rwga_transport_unavailable', 'no WP AI' ),
+			new WP_Error( 'rwga_generation_failed', 'should not dispatch' )
+		);
+		$mg = new RWGA_Fake_Generation_Transport(
+			'managed',
+			true,
+			true,
+			new WP_Error(
+				'rwga_generation_failed',
+				'This workflow requires pro tier or higher',
+				array( 'required_tier' => 'pro' )
+			)
+		);
+		$local_calls = 0;
+		RWGA_Generation_Router::set_transport_overrides(
+			array(
+				'wordpress_ai' => $wp,
+				'managed'      => $mg,
+				'local'        => new RWGA_Local_AI_Transport(),
+			)
+		);
+
+		$out = RWGA_Generation_Router::generate(
+			'ux_opportunity_review',
+			array(
+				'payload'        => array( 'page_id' => 3 ),
+				'local_callback' => static function () use ( &$local_calls ) {
+					$local_calls++;
+					return array(
+						'summary' => 'local ok',
+						'cards'   => array(),
+					);
+				},
+			)
+		);
+
+		$this->assertIsArray( $out );
+		$this->assertSame( 'local', $out['transport'] );
+		$this->assertSame( 1, $mg->dispatch_calls );
+		$this->assertSame( 1, $local_calls );
+		$this->assertTrue( RWGA_Generation_Router::is_fallback_eligible_error( new WP_Error( 'x', 'This workflow requires pro tier or higher' ) ) );
+	}
+
+	/**
 	 * @return void
 	 */
 	public function test_explicit_wordpress_ai_unsupported_workflow() {

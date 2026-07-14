@@ -1074,7 +1074,19 @@ class RWGA_UX_Reviewer_UI {
 			$engine_label = __( 'Remote Geo AI', 'reactwoo-geo-ai' );
 		} elseif ( 'local_deterministic' === $ctx['engine_source'] ) {
 			$engine_label = __( 'Local deterministic review', 'reactwoo-geo-ai' );
+		} elseif ( 'wordpress_ai' === $ctx['engine_source'] ) {
+			$engine_label = __( 'WordPress AI', 'reactwoo-geo-ai' );
 		}
+
+		$workflow_engine = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_public_mode() : 'automatic';
+		if ( 'remote_fallback' === $workflow_engine ) {
+			$workflow_engine = 'remote_fallback';
+		} elseif ( ! in_array( $workflow_engine, array( 'automatic', 'wordpress_ai', 'managed', 'local' ), true ) ) {
+			$workflow_engine = 'automatic';
+		}
+		$ai_connector_url = ( defined( 'RWGO_AI_EMBEDDED' ) && RWGO_AI_EMBEDDED && class_exists( 'RWGO_Optimise_Hub', false ) )
+			? RWGO_Optimise_Hub::tab_url( 'settings' ) . '#rwgo-ai-connector'
+			: admin_url( 'admin.php?page=rwga-advanced#rwgo-ai-connector' );
 
 		$pages = get_posts(
 			array(

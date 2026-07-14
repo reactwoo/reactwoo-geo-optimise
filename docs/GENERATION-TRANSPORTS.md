@@ -7,7 +7,7 @@
 
 | Stored value | Behaviour |
 |--------------|-----------|
-| `automatic` (default for new installs) | WordPress AI → ReactWoo managed → local deterministic (preflight skip only) |
+| `automatic` (default for new installs) | WordPress AI → ReactWoo managed → local deterministic. Preflight skips unavailable transports; **Pro-tier / entitlement gates after a managed attempt also fall through to local**. |
 | `wordpress_ai` | WordPress 7 AI Client / site BYOK provider only |
 | `managed` | ReactWoo `/api/v5/geo-optimise/workflow` only |
 | `local` | Deterministic workflow callback only |

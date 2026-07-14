@@ -133,6 +133,9 @@ if ( $has_review ) {
 		<?php if ( $engine_label ) : ?>
 			<span class="rwgc-geo-badge rwgc-geo-badge--neutral"><?php echo esc_html( $engine_label ); ?></span>
 		<?php endif; ?>
+		<?php if ( ! empty( $ai_connector_url ) ) : ?>
+			<a class="button-link" href="<?php echo esc_url( (string) $ai_connector_url ); ?>"><?php esc_html_e( 'AI Connector settings', 'reactwoo-geo-ai' ); ?></a>
+		<?php endif; ?>
 	</div>
 
 	<?php if ( 'ran' === $flash ) : ?>
@@ -248,6 +251,23 @@ if ( $has_review ) {
 		<div class="rwga-ux-reviewer__setup-summary" id="rwga-ux-setup-summary" aria-live="polite">
 			<span class="rwga-ux-reviewer__setup-summary-label"><?php esc_html_e( 'Detected setup', 'reactwoo-geo-ai' ); ?></span>
 			<span class="rwga-ux-reviewer__setup-summary-value" id="rwga-ux-setup-summary-value"><?php echo esc_html( $review_type_label . ' · ' . $review_target_label . ' · ' . __( 'All visitors', 'reactwoo-geo-ai' ) . ' · ' . __( 'Desktop', 'reactwoo-geo-ai' ) ); ?></span>
+		</div>
+
+		<div class="rwgc-field rwga-ux-reviewer__engine-field" style="max-width:420px;margin:12px 0;">
+			<label class="rwgc-field__label" for="rwga_ux_workflow_engine"><?php esc_html_e( 'How should this review run?', 'reactwoo-geo-ai' ); ?></label>
+			<select id="rwga_ux_workflow_engine" name="workflow_engine" class="rwgc-select rwgc-input">
+				<option value="automatic" <?php selected( ! empty( $workflow_engine ) ? $workflow_engine : 'automatic', 'automatic' ); ?>><?php esc_html_e( 'Automatic — try remote, then local if Pro is required', 'reactwoo-geo-ai' ); ?></option>
+				<option value="local" <?php selected( ! empty( $workflow_engine ) ? $workflow_engine : '', 'local' ); ?>><?php esc_html_e( 'Local deterministic only (no API / no Pro required)', 'reactwoo-geo-ai' ); ?></option>
+				<option value="managed" <?php selected( in_array( ! empty( $workflow_engine ) ? $workflow_engine : '', array( 'managed', 'remote' ), true ) ); ?>><?php esc_html_e( 'Remote Geo AI only (Pro tier or higher)', 'reactwoo-geo-ai' ); ?></option>
+				<option value="remote_fallback" <?php selected( ! empty( $workflow_engine ) ? $workflow_engine : '', 'remote_fallback' ); ?>><?php esc_html_e( 'Remote with local fallback', 'reactwoo-geo-ai' ); ?></option>
+				<option value="wordpress_ai" <?php selected( ! empty( $workflow_engine ) ? $workflow_engine : '', 'wordpress_ai' ); ?>><?php esc_html_e( 'WordPress AI (BYOK)', 'reactwoo-geo-ai' ); ?></option>
+			</select>
+			<p class="description">
+				<?php esc_html_e( 'Remote workflows need Pro. Local runs on this WordPress site only.', 'reactwoo-geo-ai' ); ?>
+				<?php if ( ! empty( $ai_connector_url ) ) : ?>
+					<a href="<?php echo esc_url( (string) $ai_connector_url ); ?>"><?php esc_html_e( 'Open AI Connector diagnostics', 'reactwoo-geo-ai' ); ?></a>
+				<?php endif; ?>
+			</p>
 		</div>
 
 		<p class="rwga-ux-reviewer__setup-actions">

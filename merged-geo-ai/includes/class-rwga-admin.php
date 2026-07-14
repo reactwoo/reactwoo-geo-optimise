@@ -1698,6 +1698,19 @@ class RWGA_Admin {
 		}
 		check_admin_referer( 'rwga_run_ux_opportunity_review' );
 
+		if ( isset( $_POST['workflow_engine'] ) && class_exists( 'RWGA_Settings', false ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$mode = sanitize_key( wp_unslash( (string) $_POST['workflow_engine'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$allowed = class_exists( 'RWGA_Engine', false )
+				? RWGA_Engine::allowed_modes()
+				: array( 'automatic', 'wordpress_ai', 'managed', 'local', 'remote', 'remote_fallback' );
+			if ( in_array( $mode, $allowed, true ) ) {
+				$settings                    = RWGA_Settings::get_settings();
+				$settings['workflow_engine'] = $mode;
+				$settings['rwga_form_scope'] = 'advanced';
+				update_option( RWGA_Settings::OPTION_KEY, RWGA_Settings::sanitize_settings( $settings ) );
+			}
+		}
+
 		$audit_scopes = class_exists( 'RWGA_UX_Reviewer_UI', false )
 			? RWGA_UX_Reviewer_UI::parse_audit_scopes_from_input(
 				isset( $_POST['audit_scopes'] ) ? wp_unslash( $_POST['audit_scopes'] ) : 'full' // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized

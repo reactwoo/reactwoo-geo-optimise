@@ -17,9 +17,9 @@ $rwgc_nav_current        = 'rwgo-optimise';
 $rwgo_optimise_hub_embed = true;
 ?>
 <div class="rwgo-optimise-hub__settings-stack">
+	<?php include RWGO_PATH . 'admin/views/partials/ai-connector-diagnostics.php'; ?>
 	<?php include RWGO_PATH . 'admin/views/settings-optimisation.php'; ?>
 	<?php include RWGO_PATH . 'admin/views/license-settings.php'; ?>
-	<?php include RWGO_PATH . 'admin/views/partials/ai-connector-diagnostics.php'; ?>
 
 	<div class="rwgo-panel">
 		<h2 class="rwgo-section__title"><?php esc_html_e( 'More options', 'reactwoo-geo-optimise' ); ?></h2>
