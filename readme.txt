@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.89
+Stable tag: 0.4.90
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.90 =
+* **Local AI Review CTAs:** Deterministic review names the current button (when detected), proposes concrete primary/secondary labels from page + geo cues, and shows paste-ready copy on findings.
 
 = 0.4.89 =
 * **AI Review:** Execution mode control on the review screen (Local / Automatic / Remote). Automatic now falls through to local when remote returns Pro-tier gate. AI Connector panel moved to top of Settings.

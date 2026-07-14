@@ -1,4 +1,4 @@
-# Cursor output — AI Review local fallback + engine control
+# Cursor output — concrete local CTA recommendations
 
 ## Status
 
@@ -6,24 +6,23 @@ done
 
 ## Root cause
 
-1. Automatic mode called managed remote successfully past preflight (JWT OK), then API returned `This workflow requires pro tier or higher`. Router treated that as a hard generation failure and never tried local.
-2. Execution mode lived only under Settings → AI Connector; AI Review itself had no local/remote control, so users stayed on broken automatic/remote path.
+`produce_local_cards()` used a hardcoded generic CTA finding with no page extraction and no proposed button labels.
 
 ## Files changed
 
-- `merged-geo-ai/.../class-rwga-generation-router.php` — Pro-tier / entitlement errors fall through in `automatic` / `remote_fallback`
-- `merged-geo-ai/admin/views/partials/ux-reviewer-workspace.php` — “How should this review run?” select + AI Connector link
-- `merged-geo-ai/includes/class-rwga-ux-reviewer-ui.php` — pass engine + connector URL
-- `merged-geo-ai/includes/class-rwga-admin.php` — persist `workflow_engine` from Run review
-- `admin/views/optimise/tab-settings.php` — AI Connector panel first
-- `tests/Generation/RWGAGenerationRouterTest.php` — tier fallthrough test
-- Version **0.4.89**
+- `merged-geo-ai/includes/workflows/class-rwga-workflow-ux-opportunity-review.php` — context-aware CTA card + paste-ready `suggested_copy`
+- `merged-geo-ai/admin/views/partials/ux-reviewer-workspace.php` — render paste-ready copy block
+- Version **0.4.90**
+
+## Behaviour
+
+Local review now:
+1. Reads page builder context (headline + CTAs)
+2. Names current primary CTA when present
+3. Proposes specific primary/secondary labels from page type / title / geo cues
+4. Shows alternatives + proof line in the finding UI
 
 ## What was not changed
 
-- API Pro-tier policy
-- Event names / GTM
-
-## Commands
-
-- `composer test -- --filter RWGAGenerationRouterTest`
+- Remote Pro tier policy
+- Non-CTA local cards (targeting / experiment / commerce stubs)

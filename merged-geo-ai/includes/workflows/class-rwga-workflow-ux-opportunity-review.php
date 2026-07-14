@@ -217,6 +217,7 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 			'problem'           => isset( $card['problem'] ) ? wp_kses_post( (string) $card['problem'] ) : '',
 			'audience'          => isset( $card['audience'] ) ? sanitize_text_field( (string) $card['audience'] ) : '',
 			'recommendation'    => isset( $card['recommendation'] ) ? wp_kses_post( (string) $card['recommendation'] ) : '',
+			'suggested_copy'    => $this->normalise_suggested_copy( isset( $card['suggested_copy'] ) ? $card['suggested_copy'] : array() ),
 			'ux_area'           => isset( $card['ux_area'] ) ? sanitize_key( (string) $card['ux_area'] ) : 'general',
 			'expected_impact'   => isset( $card['expected_impact'] ) ? sanitize_text_field( (string) $card['expected_impact'] ) : 'medium',
 			'confidence'        => isset( $card['confidence'] ) ? (float) $card['confidence'] : 0.7,
@@ -232,6 +233,35 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 			'admin_page'        => isset( $card['admin_page'] ) ? sanitize_key( (string) $card['admin_page'] ) : '',
 			'query_args'        => isset( $card['query_args'] ) && is_array( $card['query_args'] ) ? $card['query_args'] : array(),
 		);
+	}
+
+	/**
+	 * @param mixed $raw Suggested copy blob.
+	 * @return array<string, string>
+	 */
+	private function normalise_suggested_copy( $raw ) {
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( array( 'replace_this', 'headline', 'subheadline', 'primary_cta_label', 'secondary_cta_label', 'supporting_snippet', 'rationale' ) as $key ) {
+			if ( ! empty( $raw[ $key ] ) && is_scalar( $raw[ $key ] ) ) {
+				$out[ $key ] = sanitize_text_field( (string) $raw[ $key ] );
+			}
+		}
+		if ( ! empty( $raw['cta_alternatives'] ) && is_array( $raw['cta_alternatives'] ) ) {
+			$alts = array();
+			foreach ( $raw['cta_alternatives'] as $alt ) {
+				$alt = sanitize_text_field( (string) $alt );
+				if ( '' !== $alt ) {
+					$alts[] = $alt;
+				}
+			}
+			if ( ! empty( $alts ) ) {
+				$out['cta_alternatives'] = implode( ' | ', array_slice( $alts, 0, 5 ) );
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -357,39 +387,35 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 		$page_id    = (int) ( $payload['page_id'] ?? 0 );
 		$product_id = (int) ( $payload['product_id'] ?? 0 );
 		$variant_id = (int) ( $payload['variant_page_id'] ?? 0 );
+		$context_id = $page_id > 0 ? $page_id : ( $variant_id > 0 ? $variant_id : $product_id );
 		$title      = '';
-		if ( $page_id > 0 ) {
-			$title = get_the_title( $page_id );
-		} elseif ( $product_id > 0 ) {
-			$title = get_the_title( $product_id );
+		if ( $context_id > 0 ) {
+			$title = get_the_title( $context_id );
 		}
 
 		$audience = __( 'Geo-targeted visitors', 'reactwoo-geo-ai' );
 		if ( ! empty( $payload['audience_context']['label'] ) ) {
 			$audience = sanitize_text_field( (string) $payload['audience_context']['label'] );
+		} elseif ( ! empty( $payload['geo_target'] ) ) {
+			$audience = sanitize_text_field( (string) $payload['geo_target'] );
 		}
 
-		$cards = array(
+		$page_context = array();
+		if ( $context_id > 0 && class_exists( 'RWGA_Page_Context_Builder', false ) ) {
+			$page_context = RWGA_Page_Context_Builder::build( $context_id );
+		}
+
+		$cards   = array();
+		$cards[] = $this->build_local_cta_card(
 			array(
-				'title'            => __( 'Strengthen primary CTA and offer clarity', 'reactwoo-geo-ai' ),
-				'problem'          => $title
-					? sprintf(
-						/* translators: %s: content title */
-						__( 'Visitors on “%s” may not see a clear next step aligned with their segment.', 'reactwoo-geo-ai' ),
-						$title
-					)
-					: __( 'The primary conversion path may lack a clear next step for geo-targeted visitors.', 'reactwoo-geo-ai' ),
-				'audience'         => $audience,
-				'recommendation'   => __( 'Tighten headline-to-CTA messaging, add segment-specific proof near the decision point, and ensure the hero CTA matches the visitor intent for this geo rule.', 'reactwoo-geo-ai' ),
-				'ux_area'          => 'copy_cta',
-				'expected_impact'  => 'high',
-				'confidence'       => 0.75,
-				'effort'           => 'low',
-				'suggested_action' => 'create_implementation_draft',
-				'page_id'          => $page_id,
-				'product_id'       => $product_id,
-				'variant_page_id'  => $variant_id,
-			),
+				'title'         => $title,
+				'audience'      => $audience,
+				'page_id'       => $page_id,
+				'product_id'    => $product_id,
+				'variant_id'    => $variant_id,
+				'page_context'  => $page_context,
+				'payload'       => $payload,
+			)
 		);
 
 		if ( ! empty( $capabilities['geocore_pro_licensed'] ) ) {
@@ -497,6 +523,371 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 				)
 				: __( 'UX opportunity review (local deterministic analysis).', 'reactwoo-geo-ai' ),
 			'cards'   => $cards,
+		);
+	}
+
+	/**
+	 * Context-aware primary CTA opportunity (paste-ready labels, not generic advice).
+	 *
+	 * @param array<string, mixed> $args Build args.
+	 * @return array<string, mixed>
+	 */
+	private function build_local_cta_card( array $args ) {
+		$title        = isset( $args['title'] ) ? (string) $args['title'] : '';
+		$audience     = isset( $args['audience'] ) ? (string) $args['audience'] : '';
+		$page_id      = isset( $args['page_id'] ) ? (int) $args['page_id'] : 0;
+		$product_id   = isset( $args['product_id'] ) ? (int) $args['product_id'] : 0;
+		$variant_id   = isset( $args['variant_id'] ) ? (int) $args['variant_id'] : 0;
+		$page_context = isset( $args['page_context'] ) && is_array( $args['page_context'] ) ? $args['page_context'] : array();
+		$payload      = isset( $args['payload'] ) && is_array( $args['payload'] ) ? $args['payload'] : array();
+
+		$extracted = $this->extract_page_messaging( $page_context, $title );
+		$current_cta = $extracted['primary_cta'];
+		$headline    = $extracted['headline'];
+		$page_type   = $extracted['page_type'];
+		$weak_cta    = $extracted['weak_cta'];
+		$cta_count   = $extracted['cta_count'];
+
+		$geo_label = '';
+		if ( ! empty( $payload['geo_target'] ) && class_exists( 'RWGC_Countries', false ) ) {
+			$iso = strtoupper( sanitize_text_field( (string) $payload['geo_target'] ) );
+			if ( preg_match( '/^[A-Z]{2}$/', $iso ) ) {
+				$opts = RWGC_Countries::get_options();
+				$geo_label = isset( $opts[ $iso ] ) ? (string) $opts[ $iso ] : $iso;
+			}
+		}
+		if ( '' === $geo_label && '' !== $audience && __( 'Geo-targeted visitors', 'reactwoo-geo-ai' ) !== $audience ) {
+			$geo_label = $audience;
+		}
+
+		$proposals = $this->propose_cta_labels(
+			array(
+				'title'       => $title,
+				'headline'    => $headline,
+				'page_type'   => $page_type,
+				'current_cta' => $current_cta,
+				'geo_label'   => $geo_label,
+				'audience'    => $audience,
+				'product_id'  => $product_id,
+			)
+		);
+		$primary   = $proposals['primary'];
+		$secondary = $proposals['secondary'];
+		$alts      = $proposals['alternatives'];
+
+		if ( '' === $current_cta ) {
+			$problem = $title
+				? sprintf(
+					/* translators: %s: page title */
+					__( 'No primary CTA button was detected on “%s”. Visitors reach the hero without a clear next step.', 'reactwoo-geo-ai' ),
+					$title
+				)
+				: __( 'No primary CTA button was detected. Visitors need one clear action above the fold.', 'reactwoo-geo-ai' );
+		} elseif ( $weak_cta ) {
+			$problem = sprintf(
+				/* translators: 1: current CTA label, 2: page title */
+				__( 'The primary CTA on “%2$s” is currently “%1$s” — a weak/generic label that does not state the outcome for this audience.', 'reactwoo-geo-ai' ),
+				$current_cta,
+				$title ? $title : __( 'this page', 'reactwoo-geo-ai' )
+			);
+		} else {
+			$problem = sprintf(
+				/* translators: 1: current CTA, 2: page title, 3: audience */
+				__( 'Primary CTA on “%2$s” is “%1$s”. For %3$s it should state the outcome more explicitly and match the hero promise.', 'reactwoo-geo-ai' ),
+				$current_cta,
+				$title ? $title : __( 'this page', 'reactwoo-geo-ai' ),
+				$audience
+			);
+			if ( $cta_count > 2 ) {
+				$problem .= ' ' . sprintf(
+					/* translators: %d: CTA count */
+					__( '%d CTA-like buttons compete for attention — keep one primary and demote the rest.', 'reactwoo-geo-ai' ),
+					$cta_count
+				);
+			}
+		}
+
+		$rec_bits = array();
+		if ( '' !== $headline ) {
+			$rec_bits[] = sprintf(
+				/* translators: %s: headline text */
+				__( 'Hero headline detected: “%s”.', 'reactwoo-geo-ai' ),
+				$headline
+			);
+		}
+		if ( '' !== $current_cta ) {
+			$rec_bits[] = sprintf(
+				/* translators: 1: current label, 2: proposed label */
+				__( 'Change the primary button from “%1$s” to “%2$s”.', 'reactwoo-geo-ai' ),
+				$current_cta,
+				$primary
+			);
+		} else {
+			$rec_bits[] = sprintf(
+				/* translators: %s: proposed CTA */
+				__( 'Add a primary hero button labelled “%s”.', 'reactwoo-geo-ai' ),
+				$primary
+			);
+		}
+		$rec_bits[] = sprintf(
+			/* translators: %s: secondary CTA */
+			__( 'Keep a quieter secondary action as “%s”.', 'reactwoo-geo-ai' ),
+			$secondary
+		);
+		if ( '' !== $geo_label ) {
+			$rec_bits[] = sprintf(
+				/* translators: %s: market/audience */
+				__( 'Place one segment-specific proof line near the button (e.g. delivery, currency, or trust for %s).', 'reactwoo-geo-ai' ),
+				$geo_label
+			);
+		} else {
+			$rec_bits[] = __( 'Add one proof line directly under the primary button (rating, customer count, or guarantee).', 'reactwoo-geo-ai' );
+		}
+		if ( count( $alts ) > 1 ) {
+			$quoted = array();
+			foreach ( array_slice( $alts, 0, 4 ) as $alt ) {
+				$quoted[] = '“' . $alt . '”';
+			}
+			$rec_bits[] = __( 'Other paste-ready options:', 'reactwoo-geo-ai' ) . ' ' . implode( ' · ', $quoted );
+		}
+
+		$recommendation = implode( ' ', $rec_bits );
+
+		$suggested = array(
+			'replace_this'        => '' !== $current_cta
+				? sprintf(
+					/* translators: %s: current CTA */
+					__( 'Current primary button label: “%s”', 'reactwoo-geo-ai' ),
+					$current_cta
+				)
+				: __( 'No primary CTA detected — add a button in the hero.', 'reactwoo-geo-ai' ),
+			'headline'            => '' !== $headline
+				? $headline
+				: ( $title
+					? sprintf(
+						/* translators: %s: page title */
+						__( '%s — clearer outcome, faster next step', 'reactwoo-geo-ai' ),
+						$title
+					)
+					: __( 'Get the outcome you came for — start in one click', 'reactwoo-geo-ai' ) ),
+			'subheadline'         => '' !== $geo_label
+				? sprintf(
+					/* translators: %s: market */
+					__( 'Built for visitors in %s: one promise, one proof point, one primary action.', 'reactwoo-geo-ai' ),
+					$geo_label
+				)
+				: __( 'Lead with the outcome, then the proof — keep one primary action above the fold.', 'reactwoo-geo-ai' ),
+			'primary_cta_label'   => $primary,
+			'secondary_cta_label' => $secondary,
+			'supporting_snippet'  => '' !== $geo_label
+				? sprintf(
+					/* translators: %s: market */
+					__( 'Trusted by customers in %s — fast setup, measurable results.', 'reactwoo-geo-ai' ),
+					$geo_label
+				)
+				: __( '4.9★ average · cancel anytime · setup in minutes', 'reactwoo-geo-ai' ),
+			'rationale'           => $proposals['rationale'],
+			'cta_alternatives'    => $alts,
+		);
+
+		return array(
+			'title'            => '' !== $current_cta
+				? sprintf(
+					/* translators: %s: current CTA label */
+					__( 'Replace “%s” with an outcome-led CTA', 'reactwoo-geo-ai' ),
+					$current_cta
+				)
+				: __( 'Add a specific primary CTA above the fold', 'reactwoo-geo-ai' ),
+			'problem'          => $problem,
+			'audience'         => $audience,
+			'recommendation'   => $recommendation,
+			'suggested_copy'   => $suggested,
+			'ux_area'          => 'copy_cta',
+			'expected_impact'  => 'high',
+			'confidence'       => '' !== $current_cta || '' !== $headline ? 0.82 : 0.7,
+			'effort'           => 'low',
+			'suggested_action' => 'create_implementation_draft',
+			'page_id'          => $page_id,
+			'product_id'       => $product_id,
+			'variant_page_id'  => $variant_id,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $page_context Builder AI context.
+	 * @param string               $fallback_title Page title.
+	 * @return array{primary_cta:string,headline:string,page_type:string,weak_cta:bool,cta_count:int}
+	 */
+	private function extract_page_messaging( array $page_context, $fallback_title ) {
+		$ctas      = isset( $page_context['ctas'] ) && is_array( $page_context['ctas'] ) ? $page_context['ctas'] : array();
+		$widgets   = isset( $page_context['widgets'] ) && is_array( $page_context['widgets'] ) ? $page_context['widgets'] : array();
+		$page_type = isset( $page_context['page_type'] ) ? sanitize_key( (string) $page_context['page_type'] ) : '';
+		$headline  = '';
+		$primary   = '';
+
+		foreach ( $widgets as $w ) {
+			if ( ! is_array( $w ) ) {
+				continue;
+			}
+			$type = isset( $w['type'] ) ? sanitize_key( (string) $w['type'] ) : '';
+			$text = isset( $w['text'] ) ? trim( wp_strip_all_tags( (string) $w['text'] ) ) : '';
+			if ( '' === $text && isset( $w['title'] ) ) {
+				$text = trim( wp_strip_all_tags( (string) $w['title'] ) );
+			}
+			if ( '' === $headline && in_array( $type, array( 'heading', 'heading.default', 'title', 'h1' ), true ) && '' !== $text ) {
+				$headline = $text;
+			}
+			if ( '' === $headline && ! empty( $w['tag'] ) && 'h1' === strtolower( (string) $w['tag'] ) && '' !== $text ) {
+				$headline = $text;
+			}
+		}
+
+		if ( '' === $headline && ! empty( $page_context['content_blocks'] ) && is_array( $page_context['content_blocks'] ) ) {
+			foreach ( $page_context['content_blocks'] as $block ) {
+				if ( ! is_array( $block ) ) {
+					continue;
+				}
+				$text = isset( $block['text'] ) ? trim( wp_strip_all_tags( (string) $block['text'] ) ) : '';
+				if ( '' !== $text && strlen( $text ) < 160 ) {
+					$headline = $text;
+					break;
+				}
+			}
+		}
+
+		if ( '' === $headline ) {
+			$headline = sanitize_text_field( (string) $fallback_title );
+		}
+
+		foreach ( $ctas as $cta ) {
+			if ( ! is_array( $cta ) ) {
+				continue;
+			}
+			$label = '';
+			foreach ( array( 'label', 'text', 'title', 'content' ) as $k ) {
+				if ( ! empty( $cta[ $k ] ) ) {
+					$label = trim( wp_strip_all_tags( (string) $cta[ $k ] ) );
+					if ( '' !== $label ) {
+						break;
+					}
+				}
+			}
+			if ( '' === $label ) {
+				continue;
+			}
+			$primary = $label;
+			break;
+		}
+
+		$weak = '' === $primary;
+		if ( ! $weak && class_exists( 'RWGA_Builder_Normalize', false ) ) {
+			$weak = RWGA_Builder_Normalize::is_weak_cta_label( $primary );
+		}
+
+		$headline_out = $headline;
+		if ( class_exists( 'RWGA_Builder_Normalize', false ) ) {
+			$headline_out = RWGA_Builder_Normalize::trim_text( $headline, 120 );
+		} elseif ( strlen( $headline_out ) > 120 ) {
+			$headline_out = substr( $headline_out, 0, 120 ) . '…';
+		}
+
+		return array(
+			'primary_cta' => $primary,
+			'headline'    => $headline_out,
+			'page_type'   => $page_type,
+			'weak_cta'    => $weak,
+			'cta_count'   => count( $ctas ),
+		);
+	}
+
+	/**
+	 * Deterministic CTA label proposals from page/geo cues.
+	 *
+	 * @param array<string, mixed> $args Context.
+	 * @return array{primary:string,secondary:string,alternatives:array<int,string>,rationale:string}
+	 */
+	private function propose_cta_labels( array $args ) {
+		$title       = isset( $args['title'] ) ? (string) $args['title'] : '';
+		$headline    = isset( $args['headline'] ) ? (string) $args['headline'] : '';
+		$page_type   = isset( $args['page_type'] ) ? sanitize_key( (string) $args['page_type'] ) : '';
+		$current     = isset( $args['current_cta'] ) ? (string) $args['current_cta'] : '';
+		$geo_label   = isset( $args['geo_label'] ) ? (string) $args['geo_label'] : '';
+		$product_id  = isset( $args['product_id'] ) ? (int) $args['product_id'] : 0;
+		$haystack    = strtolower( $title . ' ' . $headline . ' ' . $current . ' ' . $page_type );
+
+		$primary   = __( 'Get started', 'reactwoo-geo-ai' );
+		$secondary = __( 'See how it works', 'reactwoo-geo-ai' );
+		$rationale = __( 'Default outcome-led CTA for an unclear funnel stage.', 'reactwoo-geo-ai' );
+
+		if ( $product_id > 0 || false !== strpos( $haystack, 'product' ) || false !== strpos( $haystack, 'shop' ) || false !== strpos( $haystack, 'buy' ) ) {
+			$primary   = __( 'Add to cart', 'reactwoo-geo-ai' );
+			$secondary = __( 'View details', 'reactwoo-geo-ai' );
+			$rationale = __( 'Product/commerce page — CTA should complete the purchase intent.', 'reactwoo-geo-ai' );
+		} elseif ( false !== strpos( $haystack, 'demo' ) || false !== strpos( $haystack, 'book' ) || false !== strpos( $haystack, 'consult' ) ) {
+			$primary   = __( 'Book a demo', 'reactwoo-geo-ai' );
+			$secondary = __( 'Talk to sales', 'reactwoo-geo-ai' );
+			$rationale = __( 'Demo/sales language detected — CTA should schedule a conversation.', 'reactwoo-geo-ai' );
+		} elseif ( false !== strpos( $haystack, 'pricing' ) || false !== strpos( $haystack, 'price' ) || false !== strpos( $haystack, 'plan' ) ) {
+			$primary   = __( 'See pricing', 'reactwoo-geo-ai' );
+			$secondary = __( 'Compare plans', 'reactwoo-geo-ai' );
+			$rationale = __( 'Pricing intent — CTA should open plans without a hard commitment.', 'reactwoo-geo-ai' );
+		} elseif ( false !== strpos( $haystack, 'trial' ) || false !== strpos( $haystack, 'free' ) || false !== strpos( $haystack, 'signup' ) || false !== strpos( $haystack, 'sign up' ) ) {
+			$primary   = __( 'Start free trial', 'reactwoo-geo-ai' );
+			$secondary = __( 'Explore features', 'reactwoo-geo-ai' );
+			$rationale = __( 'Trial/signup cues — CTA should start the product experience.', 'reactwoo-geo-ai' );
+		} elseif ( false !== strpos( $haystack, 'download' ) || false !== strpos( $haystack, 'guide' ) || false !== strpos( $haystack, 'ebook' ) || false !== strpos( $haystack, 'whitepaper' ) ) {
+			$primary   = __( 'Download the guide', 'reactwoo-geo-ai' );
+			$secondary = __( 'Preview contents', 'reactwoo-geo-ai' );
+			$rationale = __( 'Lead-magnet cues — CTA should promise the asset.', 'reactwoo-geo-ai' );
+		} elseif ( false !== strpos( $haystack, 'contact' ) || false !== strpos( $haystack, 'support' ) || false !== strpos( $haystack, 'help' ) ) {
+			$primary   = __( 'Contact us', 'reactwoo-geo-ai' );
+			$secondary = __( 'Browse help centre', 'reactwoo-geo-ai' );
+			$rationale = __( 'Support/contact page — CTA should open a conversation channel.', 'reactwoo-geo-ai' );
+		} elseif ( 'landing' === $page_type || 'home' === $page_type || false !== strpos( $haystack, 'home' ) ) {
+			$primary   = __( 'Start now', 'reactwoo-geo-ai' );
+			$secondary = __( 'See what’s included', 'reactwoo-geo-ai' );
+			$rationale = __( 'Homepage/landing — CTA should invite the primary conversion path immediately.', 'reactwoo-geo-ai' );
+		}
+
+		if ( '' !== $geo_label && '' !== $title ) {
+			$localized = sprintf(
+				/* translators: 1: short action verb phrase, 2: market */
+				__( '%1$s — %2$s', 'reactwoo-geo-ai' ),
+				$primary,
+				$geo_label
+			);
+			// Keep button labels short for UI; only use market suffix when short.
+			if ( strlen( $localized ) <= 32 ) {
+				$primary = $localized;
+			}
+		}
+
+		$alts = array_values(
+			array_unique(
+				array_filter(
+					array(
+						$primary,
+						$secondary,
+						__( 'Get started today', 'reactwoo-geo-ai' ),
+						__( 'Claim your offer', 'reactwoo-geo-ai' ),
+						__( 'Continue', 'reactwoo-geo-ai' ),
+					)
+				)
+			)
+		);
+
+		// Prefer not repeating the current weak label as a "proposal".
+		if ( '' !== $current && strtolower( $current ) === strtolower( $primary ) && $primary === __( 'Get started', 'reactwoo-geo-ai' ) ) {
+			$primary = __( 'Start free trial', 'reactwoo-geo-ai' );
+			array_unshift( $alts, $primary );
+			$alts = array_values( array_unique( $alts ) );
+		}
+
+		return array(
+			'primary'      => $primary,
+			'secondary'    => $secondary,
+			'alternatives' => array_slice( $alts, 0, 5 ),
+			'rationale'    => $rationale,
 		);
 	}
 
@@ -639,6 +1030,16 @@ class RWGA_Workflow_UX_Opportunity_Review extends RWGA_Workflow_Base {
 		}
 		if ( ! empty( $card['recommendation'] ) ) {
 			$parts[] = '<p><strong>' . esc_html__( 'Recommendation', 'reactwoo-geo-ai' ) . '</strong>: ' . wp_kses_post( (string) $card['recommendation'] ) . '</p>';
+		}
+		$copy = isset( $card['suggested_copy'] ) && is_array( $card['suggested_copy'] ) ? $card['suggested_copy'] : array();
+		if ( ! empty( $copy['primary_cta_label'] ) ) {
+			$parts[] = '<p><strong>' . esc_html__( 'Paste-ready primary CTA', 'reactwoo-geo-ai' ) . '</strong>: <code>' . esc_html( (string) $copy['primary_cta_label'] ) . '</code></p>';
+		}
+		if ( ! empty( $copy['secondary_cta_label'] ) ) {
+			$parts[] = '<p><strong>' . esc_html__( 'Secondary CTA', 'reactwoo-geo-ai' ) . '</strong>: <code>' . esc_html( (string) $copy['secondary_cta_label'] ) . '</code></p>';
+		}
+		if ( ! empty( $copy['cta_alternatives'] ) ) {
+			$parts[] = '<p><strong>' . esc_html__( 'Alternatives', 'reactwoo-geo-ai' ) . '</strong>: ' . esc_html( (string) $copy['cta_alternatives'] ) . '</p>';
 		}
 		if ( ! empty( $card['upgrade_label'] ) && empty( $card['available_now'] ) ) {
 			$parts[] = '<p class="rwga-upgrade-label"><span class="rwgc-geo-badge rwgc-geo-badge--locked">' . esc_html( (string) $card['upgrade_label'] ) . '</span></p>';

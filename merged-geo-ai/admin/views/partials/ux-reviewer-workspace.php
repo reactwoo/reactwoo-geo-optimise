@@ -497,6 +497,52 @@ if ( $has_review ) {
 					<?php if ( ! empty( $card['recommendation'] ) && ! empty( $card['problem'] ) ) : ?>
 						<p class="rwga-ux-finding__rec"><strong><?php esc_html_e( 'Suggestion', 'reactwoo-geo-ai' ); ?></strong> <?php echo wp_kses_post( (string) $card['recommendation'] ); ?></p>
 					<?php endif; ?>
+					<?php
+					$copy = isset( $card['suggested_copy'] ) && is_array( $card['suggested_copy'] ) ? $card['suggested_copy'] : array();
+					if ( ! empty( $copy ) ) :
+						?>
+						<div class="rwga-ux-finding__copy">
+							<p class="rwga-ux-finding__copy-title"><strong><?php esc_html_e( 'Paste-ready copy', 'reactwoo-geo-ai' ); ?></strong></p>
+							<ul class="rwga-ux-finding__copy-list">
+								<?php if ( ! empty( $copy['replace_this'] ) ) : ?>
+									<li><span class="description"><?php echo esc_html( (string) $copy['replace_this'] ); ?></span></li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['primary_cta_label'] ) ) : ?>
+									<li>
+										<strong><?php esc_html_e( 'Primary CTA:', 'reactwoo-geo-ai' ); ?></strong>
+										<code><?php echo esc_html( (string) $copy['primary_cta_label'] ); ?></code>
+									</li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['secondary_cta_label'] ) ) : ?>
+									<li>
+										<strong><?php esc_html_e( 'Secondary CTA:', 'reactwoo-geo-ai' ); ?></strong>
+										<code><?php echo esc_html( (string) $copy['secondary_cta_label'] ); ?></code>
+									</li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['cta_alternatives'] ) ) : ?>
+									<li>
+										<strong><?php esc_html_e( 'Alternatives:', 'reactwoo-geo-ai' ); ?></strong>
+										<?php echo esc_html( (string) $copy['cta_alternatives'] ); ?>
+									</li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['headline'] ) ) : ?>
+									<li>
+										<strong><?php esc_html_e( 'Headline draft:', 'reactwoo-geo-ai' ); ?></strong>
+										<?php echo esc_html( (string) $copy['headline'] ); ?>
+									</li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['supporting_snippet'] ) ) : ?>
+									<li>
+										<strong><?php esc_html_e( 'Proof line:', 'reactwoo-geo-ai' ); ?></strong>
+										<?php echo esc_html( (string) $copy['supporting_snippet'] ); ?>
+									</li>
+								<?php endif; ?>
+								<?php if ( ! empty( $copy['rationale'] ) ) : ?>
+									<li class="description"><?php echo esc_html( (string) $copy['rationale'] ); ?></li>
+								<?php endif; ?>
+							</ul>
+						</div>
+					<?php endif; ?>
 					<footer class="rwga-ux-finding__actions">
 						<?php if ( $primary_action ) : ?>
 							<a class="<?php echo esc_attr( (string) $primary_action['class'] ); ?>" href="<?php echo esc_url( (string) $primary_action['url'] ); ?>"><?php echo esc_html( (string) $primary_action['label'] ); ?></a>
