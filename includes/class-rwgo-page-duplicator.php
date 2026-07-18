@@ -624,7 +624,10 @@ class RWGO_Page_Duplicator {
 			if ( '' === $v || false === $v ) {
 				delete_post_meta( $to_id, $ek );
 			} else {
-				update_post_meta( $to_id, $ek, $v );
+				// Re-slash: get_post_meta() is unslashed, update_post_meta()
+				// expects slashed data, otherwise Elementor JSON backslashes
+				// are stripped and _elementor_data becomes malformed.
+				update_post_meta( $to_id, $ek, wp_slash( $v ) );
 			}
 		}
 		delete_post_meta( $to_id, '_elementor_css' );
@@ -751,12 +754,24 @@ class RWGO_Page_Duplicator {
 		if ( ! is_array( $meta ) ) {
 			return;
 		}
+		$elementor_keys = array(
+			'_elementor_data',
+			'_elementor_edit_mode',
+			'_elementor_page_settings',
+			'_elementor_template_type',
+			'_elementor_version',
+			'_wp_page_template',
+		);
 		$skip_keys = array(
 			'_edit_lock',
 			'_edit_last',
 			'_elementor_css',
 			'_elementor_screenshot',
 		);
+		// Elementor meta is copied explicitly below with correct slashing; never
+		// let the generic loop write it unslashed (that strips backslashes from
+		// the stored JSON and corrupts _elementor_data / _elementor_page_settings).
+		$skip_keys = array_merge( $skip_keys, $elementor_keys );
 		/**
 		 * Meta keys to skip when copying to a duplicate (avoid stale generated assets).
 		 *
@@ -779,24 +794,18 @@ class RWGO_Page_Duplicator {
 				continue;
 			}
 			foreach ( $values as $v ) {
-				add_post_meta( $dest_id, $key, maybe_unserialize( $v ) );
+				add_post_meta( $dest_id, $key, wp_slash( maybe_unserialize( $v ) ) );
 			}
 		}
 
-		$elementor_keys = array(
-			'_elementor_data',
-			'_elementor_edit_mode',
-			'_elementor_page_settings',
-			'_elementor_template_type',
-			'_elementor_version',
-			'_wp_page_template',
-		);
 		foreach ( $elementor_keys as $ek ) {
 			$one = get_post_meta( $source_id, $ek, true );
 			if ( '' === $one || false === $one ) {
 				continue;
 			}
-			update_post_meta( $dest_id, $ek, $one );
+			// get_post_meta() returns unslashed data; update_post_meta() expects
+			// slashed data, so re-slash to preserve backslashes in Elementor JSON.
+			update_post_meta( $dest_id, $ek, wp_slash( $one ) );
 		}
 	}
 

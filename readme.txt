@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.90
+Stable tag: 0.4.91
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.91 =
+* **Fix (Elementor 4 compatibility):** Page duplication and promote/replace now re-slash Elementor meta (`_elementor_data`, `_elementor_page_settings`) when copying between posts. Previously the copy stripped backslashes from the stored JSON, which could corrupt widget settings on variant pages and surface as `Controls_Stack::sanitize_settings()` type errors after switching between the Atomic and classic editors. Existing valid pages are unaffected; re-duplicate any variant created before this fix to repair it.
 
 = 0.4.90 =
 * **Local AI Review CTAs:** Deterministic review names the current button (when detected), proposes concrete primary/secondary labels from page + geo cues, and shows paste-ready copy on findings.
