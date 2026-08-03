@@ -68,6 +68,8 @@ jobs:
           CHANNEL="${{ github.event.inputs.channel || 'stable' }}"
           ROLLOUT="${{ github.event.inputs.rollout_percentage || '100' }}"
           ARTIFACT_KEY="plugins/${PLUGIN_SLUG}/${VERSION}/${PLUGIN_SLUG}.zip"
+          LATEST_KEY="plugins/${PLUGIN_SLUG}/latest/${PLUGIN_SLUG}.zip"
+          LATEST_META_KEY="plugins/${PLUGIN_SLUG}/latest.json"
           SHA256="$(sha256sum "${PLUGIN_SLUG}.zip" | awk '{print $1}')"
 
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -76,6 +78,8 @@ jobs:
           echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
           echo "rollout=${ROLLOUT}" >> "$GITHUB_OUTPUT"
           echo "artifact_key=${ARTIFACT_KEY}" >> "$GITHUB_OUTPUT"
+          echo "latest_key=${LATEST_KEY}" >> "$GITHUB_OUTPUT"
+          echo "latest_meta_key=${LATEST_META_KEY}" >> "$GITHUB_OUTPUT"
           echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS CLI for R2
@@ -112,7 +116,56 @@ jobs:
         run: |
           set -euo pipefail
           aws s3 cp "${PLUGIN_SLUG}.zip" "s3://${{ secrets.R2_BUCKET }}/${{ steps.meta.outputs.artifact_key }}" \
-            --endpoint-url "${{ steps.r2.outputs.endpoint }}"
+            --endpoint-url "${{ steps.r2.outputs.endpoint }}" \
+            --content-type "application/zip" \
+            --cache-control "public, max-age=31536000, immutable"
+
+      - name: Upload latest pointer artifacts to R2
+        shell: bash
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          CHANNEL: ${{ steps.meta.outputs.channel }}
+          ARTIFACT_KEY: ${{ steps.meta.outputs.artifact_key }}
+          LATEST_KEY: ${{ steps.meta.outputs.latest_key }}
+          LATEST_META_KEY: ${{ steps.meta.outputs.latest_meta_key }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
+          MIN_PHP: ${{ steps.meta.outputs.min_php }}
+          TESTED_UP_TO: ${{ steps.meta.outputs.tested_up_to }}
+        run: |
+          set -euo pipefail
+          export META_FILE="${RUNNER_TEMP}/latest.json"
+          python3 << 'PY'
+          import json
+          import os
+          import pathlib
+          from datetime import datetime, timezone
+
+          payload = {
+              "slug": os.environ["PLUGIN_SLUG"],
+              "version": os.environ["VERSION"],
+              "channel": os.environ["CHANNEL"],
+              "artifact_key": os.environ["ARTIFACT_KEY"],
+              "latest_key": os.environ["LATEST_KEY"],
+              "sha256": os.environ["SHA256"],
+              "min_php": os.environ.get("MIN_PHP", ""),
+              "tested_up_to": os.environ.get("TESTED_UP_TO", ""),
+              "published_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+          }
+          pathlib.Path(os.environ["META_FILE"]).write_text(
+              json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+          aws s3 cp "${PLUGIN_SLUG}.zip" "s3://${{ secrets.R2_BUCKET }}/${LATEST_KEY}" \
+            --endpoint-url "${{ steps.r2.outputs.endpoint }}" \
+            --content-type "application/zip" \
+            --cache-control "no-cache, max-age=0, must-revalidate"
+
+          aws s3 cp "${META_FILE}" "s3://${{ secrets.R2_BUCKET }}/${LATEST_META_KEY}" \
+            --endpoint-url "${{ steps.r2.outputs.endpoint }}" \
+            --content-type "application/json" \
+            --cache-control "no-cache, max-age=0, must-revalidate"
 
       - name: Publish release metadata to API
         shell: bash
