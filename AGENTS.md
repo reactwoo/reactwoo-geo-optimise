@@ -17,6 +17,7 @@ New AI work belongs under **`merged-geo-ai/`** until a later controlled prefix c
 ## Defaults
 
 - Prefer **one coherent thread** (read → change → verify). Match Geo Core `docs/AGENTS.md` for suite work.
+- **Platform / Cloud plan:** Geo Core `docs/architecture/` — experiments/goals/events become shared capabilities; Cloud authors, Core executes locally. See `.cursor/rules/reactwoo-platform.mdc`.
 - **Do not** duplicate visitor detection or Core routing — consume Geo Core hooks, REST `/capabilities`, and assignment events.
 - Generation uses `RWGA_Generation_Router` (WordPress AI → managed → local). See `docs/GENERATION-TRANSPORTS.md`.
 - WordPress AI / BYOK does **not** consume the ReactWoo managed AI allowance.
