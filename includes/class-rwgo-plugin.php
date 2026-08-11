@@ -153,6 +153,8 @@ class RWGO_Plugin {
 		RWGO_Events::init();
 		RWGO_Promotion_Automation::init();
 		RWGO_GTM_Live::init();
+		require_once RWGO_PATH . 'includes/class-rwgo-platform-capabilities.php';
+		RWGO_Platform_Capabilities::init();
 		RWGO_Admin::init();
 
 		add_action(
