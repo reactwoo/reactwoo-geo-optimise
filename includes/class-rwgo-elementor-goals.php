@@ -188,6 +188,10 @@ class RWGO_Elementor_Goals {
 		if ( ! class_exists( '\Elementor\Plugin', false ) ) {
 			return;
 		}
+		if ( class_exists( 'RWGC_Elementor_Ajax', false ) && RWGC_Elementor_Ajax::is_heavy_elementor_ajax() ) {
+			return;
+		}
+
 		self::$hooks_registered = true;
 
 		self::debug_log(

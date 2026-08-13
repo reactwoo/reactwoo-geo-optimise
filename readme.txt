@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.92
+Stable tag: 0.4.93
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.93 =
+* **Elementor:** Skip goal / page-goal control injection during heavy `elementor_ajax` (widgets-config LiteSpeed 503).
 
 = 0.4.92 =
 * **Release:** CI dual-uploads mutable R2 `latest/{slug}.zip` + `latest.json` for My Account store downloads.
