@@ -165,12 +165,28 @@ class RWGA_AI_Snapshot {
 	 */
 	private static function compact_messaging( array $messaging ) {
 		return array(
-			'uvp'           => isset( $messaging['uvp'] ) ? sanitize_text_field( (string) $messaging['uvp'] ) : '',
+			'uvp'           => self::messaging_text( $messaging['uvp'] ?? null ),
 			'cta_strength'  => isset( $messaging['cta_strength'] ) ? (int) $messaging['cta_strength'] : 0,
 			'objections'    => isset( $messaging['objections'] ) && is_array( $messaging['objections'] )
 				? array_slice( array_map( 'sanitize_key', $messaging['objections'] ), 0, 6 )
 				: array(),
 		);
+	}
+
+	/**
+	 * Analyzer UVP is `{ text, confidence }`; older snapshots may store a string.
+	 *
+	 * @param mixed $value Raw UVP.
+	 * @return string
+	 */
+	private static function messaging_text( $value ) {
+		if ( is_array( $value ) && isset( $value['text'] ) ) {
+			return sanitize_text_field( (string) $value['text'] );
+		}
+		if ( is_scalar( $value ) ) {
+			return sanitize_text_field( (string) $value );
+		}
+		return '';
 	}
 
 	/**

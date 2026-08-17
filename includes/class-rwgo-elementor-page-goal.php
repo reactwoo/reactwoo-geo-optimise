@@ -94,7 +94,7 @@ class RWGO_Elementor_Page_Goal {
 	 * @return void
 	 */
 	public static function register_controls( $document ) {
-		if ( class_exists( 'RWGC_Elementor_Ajax', false ) && RWGC_Elementor_Ajax::is_heavy_elementor_ajax() ) {
+		if ( class_exists( 'RWGO_Elementor_Goals', false ) && RWGO_Elementor_Goals::skip_for_heavy_elementor_ajax() ) {
 			return;
 		}
 		if ( ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) ) {

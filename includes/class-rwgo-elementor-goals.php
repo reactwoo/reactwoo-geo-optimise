@@ -188,7 +188,7 @@ class RWGO_Elementor_Goals {
 		if ( ! class_exists( '\Elementor\Plugin', false ) ) {
 			return;
 		}
-		if ( class_exists( 'RWGC_Elementor_Ajax', false ) && RWGC_Elementor_Ajax::is_heavy_elementor_ajax() ) {
+		if ( self::skip_for_heavy_elementor_ajax() ) {
 			return;
 		}
 
@@ -204,6 +204,21 @@ class RWGO_Elementor_Goals {
 		add_action( 'elementor/element/common/_section_style/after_section_end', array( __CLASS__, 'register_goal_section_on_common_stack' ), 30, 2 );
 		add_action( 'elementor/element/common-optimized/_section_style/after_section_end', array( __CLASS__, 'register_goal_section_on_common_stack' ), 30, 2 );
 		add_action( 'elementor/frontend/widget/before_render', array( __CLASS__, 'before_render_widget' ), 10, 1 );
+	}
+
+	/**
+	 * Geo Core removed is_heavy_elementor_ajax(); calling it fatals admin/ajax.
+	 *
+	 * @return bool
+	 */
+	public static function skip_for_heavy_elementor_ajax() {
+		if ( ! class_exists( 'RWGC_Elementor_Ajax', false ) ) {
+			return false;
+		}
+		if ( ! method_exists( 'RWGC_Elementor_Ajax', 'is_heavy_elementor_ajax' ) ) {
+			return false;
+		}
+		return (bool) RWGC_Elementor_Ajax::is_heavy_elementor_ajax();
 	}
 
 	/**
