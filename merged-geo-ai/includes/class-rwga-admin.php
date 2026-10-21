@@ -278,8 +278,9 @@ class RWGA_Admin {
 			'rwga-help'                  => __( 'Help', 'reactwoo-geo-ai' ),
 		);
 
-		if ( function_exists( 'rw_geo_render_inner_nav' ) ) {
-			rw_geo_render_inner_nav(
+		$rwgc_render_nav = function_exists( 'rwgc_render_inner_nav' ) ? 'rwgc_render_inner_nav' : 'rw_geo_render_inner_nav';
+		if ( function_exists( $rwgc_render_nav ) ) {
+			$rwgc_render_nav(
 				$items,
 				(string) $current,
 				array(
@@ -341,8 +342,14 @@ class RWGA_Admin {
 		if ( empty( $args['menu_title'] ) && ! empty( $args['label'] ) ) {
 			$args['menu_title'] = (string) $args['label'];
 		}
+		if ( function_exists( 'rwgc_register_app_route' ) ) {
+			return rwgc_register_app_route( $args );
+		}
 		if ( function_exists( 'rw_geo_register_app_route' ) ) {
 			return rw_geo_register_app_route( $args );
+		}
+		if ( function_exists( 'rwgc_register_admin_submenu' ) ) {
+			return rwgc_register_admin_submenu( $args );
 		}
 		if ( function_exists( 'rw_geo_register_admin_submenu' ) ) {
 			return rw_geo_register_admin_submenu( $args );

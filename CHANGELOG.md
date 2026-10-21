@@ -5,6 +5,11 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.96] - 2026-10-21
+
+### Fixed
+- Geo AI admin navigation and screen registration prefer the `rwgc_*` Geo Core APIs. The product-editor weather suggest button hooks `rwgc_product_tab_after_weather` on current Geo Core, and the deprecated `geocore_product_tab_after_weather` hook only on older Core.
+
 ## [0.4.95] - 2026-10-20
 
 ### Added

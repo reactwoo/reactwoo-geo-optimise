@@ -21,7 +21,11 @@ class RWGA_Commerce_Weather {
 		if ( ! class_exists( 'WooCommerce', false ) || ! class_exists( 'RWGCM_Weather_Affinity', false ) ) {
 			return;
 		}
-		add_action( 'geocore_product_tab_after_weather', array( __CLASS__, 'render_suggest_button' ), 10 );
+		if ( function_exists( 'rwgc_register_module' ) ) {
+			add_action( 'rwgc_product_tab_after_weather', array( __CLASS__, 'render_suggest_button' ), 10 );
+		} else {
+			add_action( 'geocore_product_tab_after_weather', array( __CLASS__, 'render_suggest_button' ), 10 );
+		}
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_product_editor' ) );
 	}
 

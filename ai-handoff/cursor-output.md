@@ -3,6 +3,14 @@
 ## Status
 done
 
+## Follow-up 0.4.96
+Geo Core 1.9.6 renamed admin helpers to `rwgc_*` and product-tab hooks to `rwgc_product_tab_*`. The old names still run, and each call logs a deprecation. Geo AI admin screens and the weather-facet suggest button now use the current names, with the old names kept for older Core.
+
+The weather suggest feature itself is already shipped: button, script, and `POST /geo-ai/v1/products/{id}/suggest-weather-facets`. The merchandising plan marks “Geo AI: suggest product facets from catalog” done. No plan text needed a change. Geo Core’s hook doc still lists `rw_geo_*`; that checkout is behind `origin/main`, so it was not edited.
+
+## Status
+done
+
 ## Task
 Site-wide design split test — audit, then implement the gaps in Geo Optimise only. Staging only. Geo Core and Geo Core Pro were not changed.
 

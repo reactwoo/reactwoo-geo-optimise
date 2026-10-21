@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.95
+Stable tag: 0.4.96
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.96 =
+* **Fix:** Geo AI admin screens register through `rwgc_register_app_route` on Geo Core 1.9.6+. The weather-facet suggest button uses `rwgc_product_tab_after_weather`.
 
 = 0.4.95 =
 * **Added:** Site-wide design test. One sticky arm per visitor, original URLs kept, variant URLs redirect back, LiteSpeed vary, and conversions reported per arm.
