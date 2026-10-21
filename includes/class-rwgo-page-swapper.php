@@ -27,6 +27,9 @@ class RWGO_Page_Swapper {
 	 * @return void
 	 */
 	public static function maybe_redirect() {
+		if ( class_exists( 'RWGO_Sitewide', false ) && RWGO_Sitewide::request_handled() ) {
+			return;
+		}
 		if ( is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
 			return;
 		}
@@ -57,6 +60,9 @@ class RWGO_Page_Swapper {
 		foreach ( $items as $row ) {
 			$cfg = isset( $row['config'] ) && is_array( $row['config'] ) ? $row['config'] : array();
 			if ( empty( $cfg['experiment_key'] ) ) {
+				continue;
+			}
+			if ( class_exists( 'RWGO_Sitewide', false ) && RWGO_Sitewide::is_sitewide_config( $cfg ) ) {
 				continue;
 			}
 			$exp_post_id = isset( $row['post'] ) && $row['post'] instanceof \WP_Post ? (int) $row['post']->ID : 0;

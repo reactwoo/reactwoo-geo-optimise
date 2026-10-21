@@ -54,6 +54,9 @@ class RWGO_Runtime {
 			if ( empty( $cfg['experiment_key'] ) ) {
 				continue;
 			}
+			if ( class_exists( 'RWGO_Sitewide', false ) && RWGO_Sitewide::is_sitewide_config( $cfg ) ) {
+				continue;
+			}
 			$exp_post = isset( $row['post'] ) && $row['post'] instanceof \WP_Post ? $row['post'] : null;
 			$variant  = RWGO_Experiment_Service::resolve_variant_for_context( $cfg, $pid, $exp_post ? (int) $exp_post->ID : 0 );
 			if ( '' === $variant ) {

@@ -11,5 +11,8 @@
 		<testsuite name="Geo Optimise generation">
 			<directory suffix="Test.php">tests/Generation</directory>
 		</testsuite>
+		<testsuite name="Geo Optimise sitewide">
+			<directory suffix="Test.php">tests/Sitewide</directory>
+		</testsuite>
 	</testsuites>
 </phpunit>

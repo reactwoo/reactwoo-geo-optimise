@@ -90,6 +90,32 @@ class RWGO_Assignment {
 	}
 
 	/**
+	 * Store a known variant for an experiment without rolling a new one.
+	 *
+	 * @param string $experiment_slug Experiment key.
+	 * @param string $variant         Variant slug.
+	 * @return void
+	 */
+	public static function remember( $experiment_slug, $variant ) {
+		$slug    = sanitize_key( (string) $experiment_slug );
+		$variant = is_string( $variant ) ? $variant : (string) $variant;
+		if ( '' === $slug || '' === $variant ) {
+			return;
+		}
+		$map = self::read_map();
+		if ( isset( $map[ $slug ] ) && (string) $map[ $slug ] === $variant ) {
+			return;
+		}
+		$is_new         = ! isset( $map[ $slug ] );
+		$map[ $slug ]   = $variant;
+		self::persist( $map );
+		if ( $is_new ) {
+			self::bump_assignment_count();
+			self::bump_experiment_distribution( $slug, $variant );
+		}
+	}
+
+	/**
 	 * @param array<string, string> $map Experiment => variant.
 	 * @return void
 	 */
