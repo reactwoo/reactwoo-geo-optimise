@@ -58,6 +58,10 @@ class RWGA_Commerce_Weather {
 		if ( ! $screen || 'product' !== $screen->post_type ) {
 			return;
 		}
+		$script = RWGA_PATH . 'assets/js/commerce-weather-suggest.js';
+		if ( ! is_readable( $script ) ) {
+			return;
+		}
 		wp_enqueue_script(
 			'rwga-commerce-weather',
 			RWGA_URL . 'assets/js/commerce-weather-suggest.js',

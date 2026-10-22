@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.96
+Stable tag: 0.4.97
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,12 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.4.97 =
+* **Fix:** Site-wide split tests send `Cache-Control: private, no-store` and `Vary: Cookie`, and define `DONOTCACHEPAGE`, whenever an arm is assigned or served. Returning visitors who already have an assignment cookie are included, so a page cache cannot store one arm and serve it to the next visitor.
+* **Fix:** The product-editor weather suggest button loads `commerce-weather-suggest.js`, which posts to the suggest-weather-facets route and checks the matching Geo Commerce facet boxes. The script is enqueued only when the file is present.
+* **Fix:** Deactivation clears the automation cron and the weather catalog audit cron, including follow-up single events.
+* **Fix:** Admin screens wrap instead of overflowing a 390px-wide viewport.
 
 = 0.4.96 =
 * **Fix:** Geo AI admin screens register through `rwgc_register_app_route` on Geo Core 1.9.6+. The weather-facet suggest button uses `rwgc_product_tab_after_weather`.

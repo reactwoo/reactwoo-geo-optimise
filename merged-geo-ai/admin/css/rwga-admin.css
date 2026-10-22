@@ -377,3 +377,21 @@
 .rwga-wrap.rwgc-suite .rwga-license-primary-actions > .rwgc-btn--primary {
   flex: 0 0 auto;
 }
+
+@media (max-width: 480px) {
+  .rwga-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .rwga-wrap.rwgc-suite .rwga-license-primary-actions.rwgc-actions {
+    flex-wrap: wrap;
+  }
+
+  .rwga-wrap a,
+  .rwga-wrap pre,
+  .rwga-wrap code {
+    overflow-wrap: anywhere;
+  }
+}

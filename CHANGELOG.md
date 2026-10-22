@@ -5,6 +5,14 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.97] - 2026-10-22
+
+### Fixed
+- Site-wide split tests send `Cache-Control: private, no-store` and `Vary: Cookie`, and define `DONOTCACHEPAGE`, when an arm is assigned or served. Returning visitors with an assignment cookie get the same bypass, so a page cache cannot replay one arm to another visitor.
+- The product-editor weather suggest control now ships `commerce-weather-suggest.js`. It calls `POST /geo-ai/v1/products/{id}/suggest-weather-facets` and checks the Geo Commerce facet boxes for the merchant to review and save. The enqueue is skipped when the file is missing.
+- Deactivation clears `rwga_automation_cron_tick` and `rwga_weather_catalog_audit_tick` with `wp_clear_scheduled_hook`.
+- Admin layout wraps license actions, preflight rows, and review summaries on a 390px-wide viewport.
+
 ## [0.4.96] - 2026-10-21
 
 ### Fixed
