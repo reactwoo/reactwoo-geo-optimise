@@ -2614,6 +2614,44 @@ a.rwgo-history-timeline__title:hover {
   }
 }
 
+/* 390px-wide admin QA: keep plugin screens inside the viewport. */
+@media (max-width: 480px) {
+  .rwgo-wrap,
+  .rwga-wrap {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .rwgo-wrap .widefat.rwgo-table-comfortable,
+  .rwgo-code-block,
+  .rwgo-table-wrap {
+    max-width: 100%;
+  }
+
+  .rwgo-gtm-preflight__list li {
+    grid-template-columns: 1fr;
+  }
+
+  .rwgo-version-row__label,
+  .rwgo-version-row__page {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  select.rwgo-input,
+  .rwgo-input--lg {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .rwgo-code-inline,
+  .rwgo-wrap a {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* When Geo Core suite shell is present, prefer shared border/shadow tokens */
 .rwgo-wrap.rwgc-suite {
   --rwgo-border: 1px solid var(--rw-suite-border, #e5e7eb);

@@ -62,4 +62,23 @@ foreach ( array( 'admin', 'ajax', 'cron', 'rest', 'cli', 'preview', 'json' ) as 
 }
 $check( 'html context assigns', ! RWGO_Sitewide::context_skips_assignment( array() ) );
 
+$valid = wp_json_encode( array( 'id' => $id, 'arm' => $arm, 'exp' => 'rwgo_sitewide' ) );
+$kept  = RWGO_Sitewide::repair_cookie( $valid, 'rwgo_sitewide', 0.5, '' );
+$check( 'returning cookie kept', $kept['id'] === $id && $kept['arm'] === $arm && ! $kept['assigning'] && ! $kept['rewritten'] );
+$check(
+	'returning visitor uncacheable',
+	RWGO_Sitewide::served_arm_needs_cache_bypass( $kept['assigning'], $kept['rewritten'], $kept['arm'], false )
+);
+$check( 'source with cookie bypasses cache', RWGO_Sitewide::mapped_response_needs_cache_bypass( 'source', true ) );
+$check( 'variant url bypasses cache', RWGO_Sitewide::mapped_response_needs_cache_bypass( 'variant', false ) );
+$check( 'unmapped stays cacheable', ! RWGO_Sitewide::mapped_response_needs_cache_bypass( 'none', true ) );
+$headers = RWGO_Sitewide::cache_bypass_headers();
+$check(
+	'cache headers',
+	isset( $headers['Cache-Control'], $headers['Vary'] )
+	&& false !== strpos( $headers['Cache-Control'], 'private' )
+	&& false !== strpos( $headers['Cache-Control'], 'no-store' )
+	&& 'Cookie' === $headers['Vary']
+);
+
 exit( $fail > 0 ? 1 : 0 );

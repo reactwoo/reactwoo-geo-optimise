@@ -11,6 +11,10 @@
  * 3. This class renders the arm at priority 1.
  * 4. Existing per-page tests still redirect at priority 5.
  *
+ * A mapped response that assigns an arm, or serves one already stored in the
+ * assignment cookie, is private and no-store with Vary: Cookie. Returning
+ * visitors are not cacheable.
+ *
  * @package ReactWooGeoOptimise
  */
 
@@ -335,6 +339,9 @@ class RWGO_Sitewide {
 	/**
 	 * Mark mapped URLs uncacheable before a full-page cache can store an arm.
 	 *
+	 * A returning visitor with a valid assignment cookie still receives one arm.
+	 * That response needs the same bypass as a fresh assignment.
+	 *
 	 * @return void
 	 */
 	public static function maybe_mark_uncacheable() {
@@ -349,7 +356,9 @@ class RWGO_Sitewide {
 		if ( 'none' === $role ) {
 			return;
 		}
-		if ( 'variant' === $role || ! self::incoming_cookie_matches( $cfg ) || self::is_editor_request() || self::qa_arm_from_request() !== '' ) {
+		// Source pages always assign or serve. A matching cookie is the serve case.
+		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
+		if ( self::mapped_response_needs_cache_bypass( $role, $serves_or_assigns ) ) {
 			self::send_uncacheable();
 		}
 	}
@@ -375,10 +384,11 @@ class RWGO_Sitewide {
 		if ( 'none' === $role ) {
 			return;
 		}
-		if ( 'variant' === $role || ! self::incoming_cookie_matches( $cfg ) || self::is_editor_request() || self::qa_arm_from_request() !== '' ) {
-			do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-assign' );
+		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
+		if ( ! self::mapped_response_needs_cache_bypass( $role, $serves_or_assigns ) ) {
 			return;
 		}
+		do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-assign' );
 		$arm = self::arm_from_raw_cookie( self::raw_cookie(), $cfg );
 		if ( in_array( $arm, array( 'control', 'variant' ), true ) ) {
 			do_action( 'litespeed_vary_add', 'rwgo_arm_' . $arm ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- LiteSpeed public API.
@@ -948,9 +958,10 @@ class RWGO_Sitewide {
 			);
 		}
 		$fixed = self::ensure_assignment( $cfg );
+		$arm   = self::serving_arm( $fixed['arm'], false, $qa );
 		return array(
-			'arm'     => self::serving_arm( $fixed['arm'], false, $qa ),
-			'nocache' => $fixed['assigning'] || $fixed['rewritten'] || '' !== $qa,
+			'arm'     => $arm,
+			'nocache' => self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa ),
 		);
 	}
 
@@ -1158,6 +1169,58 @@ class RWGO_Sitewide {
 	}
 
 	/**
+	 * Whether a mapped URL must bypass shared page caches.
+	 *
+	 * Variant URLs redirect. Source URLs assign an arm, or serve the arm already
+	 * stored for a returning visitor. Either response can be replayed as the wrong arm.
+	 *
+	 * @param string $role              source|variant|none.
+	 * @param bool   $serves_or_assigns True when this response assigns an arm or serves a stored one.
+	 * @return bool
+	 */
+	public static function mapped_response_needs_cache_bypass( $role, $serves_or_assigns ) {
+		if ( 'variant' === (string) $role ) {
+			return true;
+		}
+		if ( 'source' === (string) $role && $serves_or_assigns ) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Whether the arm about to be rendered must not be stored.
+	 *
+	 * A returning visitor has assigning and rewritten false. The response still
+	 * serves control or variant, so it needs the same bypass as a new assignment.
+	 *
+	 * @param bool   $assigning Fresh visitor id.
+	 * @param bool   $rewritten Cookie repaired.
+	 * @param string $arm       Arm this response will serve.
+	 * @param bool   $qa        QA override active.
+	 * @return bool
+	 */
+	public static function served_arm_needs_cache_bypass( $assigning, $rewritten, $arm, $qa ) {
+		if ( $assigning || $rewritten || $qa ) {
+			return true;
+		}
+		return in_array( (string) $arm, array( 'control', 'variant' ), true );
+	}
+
+	/**
+	 * Headers sent whenever an arm is assigned or served.
+	 *
+	 * @return array<string, string>
+	 */
+	public static function cache_bypass_headers() {
+		return array(
+			'Cache-Control'             => 'private, no-store, max-age=0',
+			'Vary'                      => 'Cookie',
+			'X-LiteSpeed-Cache-Control' => 'no-cache',
+		);
+	}
+
+	/**
 	 * @return void
 	 */
 	private static function send_uncacheable() {
@@ -1168,8 +1231,9 @@ class RWGO_Sitewide {
 			nocache_headers();
 		}
 		if ( ! headers_sent() ) {
-			header( 'Cache-Control: no-store, private, max-age=0' );
-			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+			foreach ( self::cache_bypass_headers() as $name => $value ) {
+				header( $name . ': ' . $value, 'Vary' !== $name );
+			}
 		}
 		do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide' );
 	}

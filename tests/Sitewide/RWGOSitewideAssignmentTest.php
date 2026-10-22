@@ -74,6 +74,34 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertFalse( RWGO_Sitewide::context_skips_assignment( array() ) );
 	}
 
+	public function test_returning_visitor_with_assignment_cookie_is_uncacheable(): void {
+		$id  = '0123456789abcdef0123456789abcdef';
+		$arm = RWGO_Sitewide::bucket_arm( $id, 'rwgo_sitewide', 0.5 );
+		$raw = wp_json_encode(
+			array(
+				'id'  => $id,
+				'arm' => $arm,
+				'exp' => 'rwgo_sitewide',
+			)
+		);
+		$fixed = RWGO_Sitewide::repair_cookie( $raw, 'rwgo_sitewide', 0.5, '' );
+		$this->assertFalse( $fixed['assigning'] );
+		$this->assertFalse( $fixed['rewritten'] );
+		$this->assertTrue(
+			RWGO_Sitewide::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $fixed['arm'], false )
+		);
+		$this->assertTrue( RWGO_Sitewide::served_arm_needs_cache_bypass( true, false, 'control', false ) );
+		$this->assertTrue( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'source', true ) );
+		$this->assertTrue( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'variant', false ) );
+		$this->assertFalse( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'none', true ) );
+		$this->assertFalse( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'source', false ) );
+		$headers = RWGO_Sitewide::cache_bypass_headers();
+		$this->assertSame( 'private, no-store, max-age=0', $headers['Cache-Control'] );
+		$this->assertSame( 'Cookie', $headers['Vary'] );
+		$this->assertStringContainsString( 'no-store', $headers['Cache-Control'] );
+		$this->assertStringContainsString( 'private', $headers['Cache-Control'] );
+	}
+
 	public function test_path_role_ignores_empty_paths(): void {
 		$map = array(
 			array(

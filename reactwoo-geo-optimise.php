@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ReactWoo Geo Optimise
  * Description: Experiments, CRO, and analytics on top of ReactWoo Geo Core. Requires Geo Core.
- * Version: 0.4.96
+ * Version: 0.4.97
  * Author: ReactWoo
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 if ( ! defined( 'RWGO_VERSION' ) ) {
-	define( 'RWGO_VERSION', '0.4.96' );
+	define( 'RWGO_VERSION', '0.4.97' );
 }
 if ( ! defined( 'RWGO_TRACKING_DEBUG' ) ) {
 	define( 'RWGO_TRACKING_DEBUG', false );
@@ -64,6 +64,18 @@ function rwgo_activate() {
 }
 
 register_activation_hook( RWGO_FILE, 'rwgo_activate' );
+
+/**
+ * Deactivation: clear every cron event this plugin scheduled.
+ *
+ * @return void
+ */
+function rwgo_deactivate() {
+	require_once RWGO_PATH . 'includes/class-rwgo-deactivation.php';
+	RWGO_Deactivation::clear_scheduled_crons();
+}
+
+register_deactivation_hook( RWGO_FILE, 'rwgo_deactivate' );
 
 /**
  * Bootstrap after Geo Core.

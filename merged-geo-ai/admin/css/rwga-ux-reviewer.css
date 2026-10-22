@@ -695,3 +695,20 @@
 		grid-template-columns: 1fr;
 	}
 }
+
+@media (max-width: 480px) {
+	.rwga-ux-reviewer__current-review-actions {
+		white-space: normal;
+	}
+
+	.rwga-ux-reviewer__categories {
+		flex-basis: 100%;
+		min-width: 0;
+	}
+
+	.rwga-ux-reviewer__overall-score {
+		min-width: 0;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+}
