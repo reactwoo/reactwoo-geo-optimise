@@ -105,4 +105,83 @@ $check(
 $globals = RWGO_Sitewide::content_globals_for_post( 'Just the variant' );
 $check( 'variant content globals', isset( $globals['pages'][0] ) && 'Just the variant' === $globals['pages'][0] && 1 === $globals['more'] );
 
+$head = RWGO_Sitewide::head_meta_from_fields(
+	'Variant page',
+	'Source page excerpt that must not win',
+	'Source page body that must not win',
+	array(
+		'rank_math_title'                => '%title% %sep% %sitename%',
+		'rank_math_description'          => 'Variant SEO description',
+		'rank_math_facebook_description' => 'Variant Open Graph description',
+		'rank_math_twitter_description'  => 'Variant Twitter description',
+		'rank_math_snippet_desc'         => 'Variant schema description',
+	),
+	array(
+		'site_name' => 'Example',
+		'sep'       => '-',
+	)
+);
+$check(
+	'variant head uses rank math',
+	'Variant page - Example' === $head['title']
+	&& 'Variant SEO description' === $head['description']
+	&& 'Variant Open Graph description' === $head['og_description']
+	&& 'Variant Twitter description' === $head['twitter_description']
+	&& 'Variant schema description' === $head['schema_description']
+	&& false === strpos( $head['description'], 'Source page' )
+);
+$yoast = RWGO_Sitewide::head_meta_from_fields(
+	'Variant page',
+	'',
+	'<p>Variant body sentence for the description.</p>',
+	array(
+		'_yoast_wpseo_metadesc' => 'Yoast variant description',
+	)
+);
+$check(
+	'variant head uses yoast then content',
+	'Yoast variant description' === $yoast['description']
+	&& 'Variant page' === RWGO_Sitewide::head_meta_from_fields( 'Variant page', '', '<p>Variant body sentence for the description.</p>', array() )['title']
+	&& false !== strpos( RWGO_Sitewide::head_meta_from_fields( 'Variant page', '', '<p>Variant body sentence for the description.</p>', array() )['description'], 'Variant body sentence' )
+);
+$graph = array(
+	'@graph' => array(
+		array(
+			'@type'       => 'WebSite',
+			'description' => 'Site tagline',
+			'url'         => 'https://example.com/',
+		),
+		array(
+			'@type'       => 'WebPage',
+			'name'        => 'Source title',
+			'description' => 'Source description',
+			'url'         => 'https://example.com/original/',
+		),
+		array(
+			'@type'       => 'Article',
+			'headline'    => 'Source title',
+			'description' => 'Source description',
+			'url'         => 'https://example.com/original/',
+		),
+	),
+);
+$updated = RWGO_Sitewide::apply_variant_head_to_json_ld( $graph, 'Variant page', 'Variant schema description' );
+$check(
+	'json ld description follows variant',
+	'Site tagline' === $updated['@graph'][0]['description']
+	&& 'https://example.com/' === $updated['@graph'][0]['url']
+	&& 'Variant schema description' === $updated['@graph'][1]['description']
+	&& 'Variant page' === $updated['@graph'][1]['name']
+	&& 'https://example.com/original/' === $updated['@graph'][1]['url']
+	&& 'Variant page' === $updated['@graph'][2]['headline']
+	&& 'https://example.com/original/' === $updated['@graph'][2]['url']
+);
+$check( 'idle title filter', 'Source title' === RWGO_Sitewide::filter_seo_title( 'Source title' ) );
+$check( 'idle description filter', 'Source description' === RWGO_Sitewide::filter_seo_description( 'Source description' ) );
+$check(
+	'canonical stays original for variant arm',
+	'https://example.com/original/' === RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/variant-page/', 'variant', 'https://example.com/original/' )
+	&& 'https://example.com/variant-page/' === RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/variant-page/', 'control', 'https://example.com/original/' )
+);
+
 exit( $fail > 0 ? 1 : 0 );

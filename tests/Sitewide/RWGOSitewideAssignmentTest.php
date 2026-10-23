@@ -198,4 +198,212 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( 'source', RWGO_Sitewide::path_role( '/contact', $map ) );
 		$this->assertSame( 'none', RWGO_Sitewide::path_role( '/about/', $map ) );
 	}
+
+	public function test_variant_head_uses_rank_math_title_and_description(): void {
+		$meta = RWGO_Sitewide::head_meta_from_fields(
+			'Variant page',
+			'Source page excerpt that must not win',
+			'Source page body that must not win',
+			array(
+				'rank_math_title'                => '%title% %sep% %sitename%',
+				'rank_math_description'          => 'Variant SEO description',
+				'rank_math_facebook_title'       => 'Variant Open Graph title',
+				'rank_math_facebook_description' => 'Variant Open Graph description',
+				'rank_math_twitter_title'        => 'Variant Twitter title',
+				'rank_math_twitter_description'  => 'Variant Twitter description',
+				'rank_math_snippet_desc'         => 'Variant schema description',
+				'_yoast_wpseo_title'             => 'Yoast title that must not win',
+				'_yoast_wpseo_metadesc'          => 'Yoast description that must not win',
+			),
+			array(
+				'site_name' => 'Example',
+				'sep'       => '-',
+			)
+		);
+
+		$this->assertSame( 'Variant page - Example', $meta['title'] );
+		$this->assertTrue( $meta['has_custom_title'] );
+		$this->assertSame( 'Variant SEO description', $meta['description'] );
+		$this->assertSame( 'Variant schema description', $meta['schema_description'] );
+		$this->assertSame( 'Variant Open Graph title', $meta['og_title'] );
+		$this->assertSame( 'Variant Open Graph description', $meta['og_description'] );
+		$this->assertSame( 'Variant Twitter title', $meta['twitter_title'] );
+		$this->assertSame( 'Variant Twitter description', $meta['twitter_description'] );
+		$this->assertStringNotContainsString( 'Source page', $meta['description'] );
+		$this->assertStringNotContainsString( 'Yoast', $meta['title'] );
+	}
+
+	public function test_variant_head_falls_back_to_yoast_then_excerpt(): void {
+		$yoast = RWGO_Sitewide::head_meta_from_fields(
+			'Variant page',
+			'Variant excerpt',
+			'<p>Variant body</p>',
+			array(
+				'rank_math_title'       => '',
+				'_yoast_wpseo_title'    => '%%title%% %%sep%% %%sitename%%',
+				'_yoast_wpseo_metadesc' => 'Yoast variant description',
+				'_yoast_wpseo_opengraph-description' => 'Yoast OG description',
+			),
+			array(
+				'site_name' => 'Example',
+				'sep'       => '|',
+			)
+		);
+		$this->assertSame( 'Variant page | Example', $yoast['title'] );
+		$this->assertSame( 'Yoast variant description', $yoast['description'] );
+		$this->assertSame( 'Yoast OG description', $yoast['og_description'] );
+		$this->assertSame( 'Yoast OG description', $yoast['twitter_description'] );
+
+		$excerpt = RWGO_Sitewide::head_meta_from_fields(
+			'Variant page',
+			'Variant excerpt',
+			'<p>Source body should not be the description</p>',
+			array(),
+			array( 'site_name' => 'Example', 'sep' => '-' )
+		);
+		$this->assertSame( 'Variant page - Example', $excerpt['title'] );
+		$this->assertFalse( $excerpt['has_custom_title'] );
+		$this->assertSame( 'Variant excerpt', $excerpt['description'] );
+		$this->assertSame( 'Variant excerpt', $excerpt['schema_description'] );
+		$this->assertStringNotContainsString( 'Source body', $excerpt['description'] );
+
+		$long    = trim( str_repeat( 'variantword ', 40 ) );
+		$content = RWGO_Sitewide::head_meta_from_fields( 'Variant page', '', '<p>' . $long . '</p>', array() );
+		$this->assertSame( 'Variant page', $content['title'] );
+		$this->assertLessThanOrEqual( 160, strlen( $content['description'] ) );
+		$this->assertStringStartsWith( 'variantword', $content['description'] );
+		$this->assertStringNotContainsString( '<p>', $content['description'] );
+	}
+
+	public function test_json_ld_description_follows_the_variant_and_keeps_urls(): void {
+		$graph = array(
+			'@context' => 'https://schema.org',
+			'@graph'   => array(
+				array(
+					'@type'       => 'WebSite',
+					'name'        => 'Example',
+					'description' => 'Site tagline',
+					'url'         => 'https://example.com/',
+				),
+				array(
+					'@type'       => 'WebPage',
+					'name'        => 'Source title',
+					'description' => 'Source description',
+					'url'         => 'https://example.com/original/',
+					'@id'         => 'https://example.com/original/#webpage',
+				),
+				array(
+					'@type'       => 'Article',
+					'headline'    => 'Source title',
+					'name'        => 'Source title',
+					'description' => 'Source description',
+					'url'         => 'https://example.com/original/',
+					'publisher'   => array(
+						'@type' => 'Organization',
+						'name'  => 'Example',
+					),
+				),
+				array(
+					'@type'       => 'Product',
+					'name'        => 'Source product name',
+					'description' => 'Source product description',
+				),
+				array(
+					'@type'           => 'BreadcrumbList',
+					'itemListElement' => array(
+						array(
+							'@type'    => 'ListItem',
+							'name'     => 'Home',
+							'item'     => 'https://example.com/',
+						),
+					),
+				),
+			),
+		);
+
+		$updated = RWGO_Sitewide::apply_variant_head_to_json_ld( $graph, 'Variant page - Example', 'Variant schema description' );
+		$nodes   = $updated['@graph'];
+		$this->assertSame( 'Site tagline', $nodes[0]['description'] );
+		$this->assertSame( 'Example', $nodes[0]['name'] );
+		$this->assertSame( 'https://example.com/', $nodes[0]['url'] );
+		$this->assertSame( 'Variant page - Example', $nodes[1]['name'] );
+		$this->assertSame( 'Variant schema description', $nodes[1]['description'] );
+		$this->assertSame( 'https://example.com/original/', $nodes[1]['url'] );
+		$this->assertSame( 'https://example.com/original/#webpage', $nodes[1]['@id'] );
+		$this->assertSame( 'Variant page - Example', $nodes[2]['headline'] );
+		$this->assertSame( 'Variant page - Example', $nodes[2]['name'] );
+		$this->assertSame( 'Variant schema description', $nodes[2]['description'] );
+		$this->assertSame( 'https://example.com/original/', $nodes[2]['url'] );
+		$this->assertSame( 'Example', $nodes[2]['publisher']['name'] );
+		$this->assertSame( 'Source product name', $nodes[3]['name'] );
+		$this->assertSame( 'Variant schema description', $nodes[3]['description'] );
+		$this->assertSame( 'Home', $nodes[4]['itemListElement'][0]['name'] );
+		$this->assertSame( 'https://example.com/', $nodes[4]['itemListElement'][0]['item'] );
+
+		$map = array(
+			'WebPage' => array(
+				'@type'       => 'WebPage',
+				'description' => 'Source description',
+				'url'         => 'https://example.com/original/',
+			),
+		);
+		$mapped = RWGO_Sitewide::apply_variant_head_to_json_ld( $map, 'Variant page', 'Variant schema description' );
+		$this->assertSame( 'Variant schema description', $mapped['WebPage']['description'] );
+		$this->assertSame( 'https://example.com/original/', $mapped['WebPage']['url'] );
+	}
+
+	public function test_head_filters_stay_idle_until_a_variant_is_served(): void {
+		$this->assertSame( 'Source title', RWGO_Sitewide::filter_seo_title( 'Source title' ) );
+		$this->assertSame( 'Source description', RWGO_Sitewide::filter_seo_description( 'Source description' ) );
+		$this->assertSame( 'Source Open Graph title', RWGO_Sitewide::filter_og_title( 'Source Open Graph title' ) );
+		$this->assertSame( 'Source Open Graph description', RWGO_Sitewide::filter_og_description( 'Source Open Graph description' ) );
+		$this->assertSame( 'Source Twitter title', RWGO_Sitewide::filter_twitter_title( 'Source Twitter title' ) );
+		$this->assertSame( 'Source Twitter description', RWGO_Sitewide::filter_twitter_description( 'Source Twitter description' ) );
+		$this->assertSame( 'Source excerpt', RWGO_Sitewide::filter_head_excerpt( 'Source excerpt' ) );
+		$parts = array(
+			'title' => 'Source title',
+			'site'  => 'Example',
+		);
+		$this->assertSame( $parts, RWGO_Sitewide::filter_document_title_parts( $parts ) );
+		$graph = array(
+			array(
+				'@type'       => 'WebPage',
+				'description' => 'Source description',
+				'url'         => 'https://example.com/original/',
+			),
+		);
+		$this->assertSame( $graph, RWGO_Sitewide::filter_json_ld_graph( $graph ) );
+		$this->assertSame(
+			'https://example.com/original/',
+			RWGO_Sitewide::filter_canonical_url( 'https://example.com/original/' )
+		);
+	}
+
+	public function test_canonical_and_og_url_stay_on_the_original_page(): void {
+		$this->assertSame(
+			'https://example.com/original/',
+			RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/variant-page/', 'variant', 'https://example.com/original/' )
+		);
+		$this->assertSame(
+			'https://example.com/variant-page/',
+			RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/variant-page/', 'control', 'https://example.com/original/' )
+		);
+		$this->assertSame(
+			'https://example.com/control/',
+			RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/control/', 'variant', '' )
+		);
+		$parts = RWGO_Sitewide::document_title_parts_for_variant(
+			array(
+				'title'   => 'Source title',
+				'site'    => 'Example',
+				'tagline' => 'Tag',
+				'page'    => '2',
+			),
+			array( 'title' => 'Variant page - Example' )
+		);
+		$this->assertSame( 'Variant page - Example', $parts['title'] );
+		$this->assertSame( '2', $parts['page'] );
+		$this->assertArrayNotHasKey( 'site', $parts );
+		$this->assertArrayNotHasKey( 'tagline', $parts );
+	}
 }

@@ -21,6 +21,10 @@
  * globals are rebuilt from the variant page, and the source page's more-marker
  * is removed, so that marker and its teaser are not written into the variant HTML.
  *
+ * The document title and SEO description then come from that variant page:
+ * Rank Math, Yoast, then the variant title and excerpt. The canonical URL and
+ * og:url stay on the original page. Bots still receive the control page.
+ *
  * @package ReactWooGeoOptimise
  */
 
@@ -83,6 +87,20 @@ class RWGO_Sitewide {
 	private static $variant_swapped = false;
 
 	/**
+	 * Published variant page rendered for this request.
+	 *
+	 * @var int
+	 */
+	private static $variant_page_id = 0;
+
+	/**
+	 * Title and description resolved for the swapped variant.
+	 *
+	 * @var array<string, mixed>|null
+	 */
+	private static $variant_head_meta = null;
+
+	/**
 	 * @return void
 	 */
 	public static function init() {
@@ -96,6 +114,30 @@ class RWGO_Sitewide {
 		add_filter( 'get_canonical_url', array( __CLASS__, 'filter_canonical' ), 10, 2 );
 		add_filter( 'wpseo_canonical', array( __CLASS__, 'filter_canonical_url' ) );
 		add_filter( 'rank_math/frontend/canonical', array( __CLASS__, 'filter_canonical_url' ) );
+		add_filter( 'wpseo_opengraph_url', array( __CLASS__, 'filter_canonical_url' ) );
+		add_filter( 'rank_math/opengraph/url', array( __CLASS__, 'filter_canonical_url' ) );
+		add_filter( 'rank_math/opengraph/facebook/og_url', array( __CLASS__, 'filter_canonical_url' ) );
+		add_filter( 'pre_get_document_title', array( __CLASS__, 'filter_seo_title' ), 9999 );
+		add_filter( 'wp_title', array( __CLASS__, 'filter_seo_title' ), 9999 );
+		add_filter( 'document_title_parts', array( __CLASS__, 'filter_document_title_parts' ) );
+		add_filter( 'rank_math/frontend/title', array( __CLASS__, 'filter_seo_title' ) );
+		add_filter( 'rank_math/frontend/description', array( __CLASS__, 'filter_seo_description' ) );
+		add_filter( 'rank_math/opengraph/facebook/og_title', array( __CLASS__, 'filter_og_title' ) );
+		add_filter( 'rank_math/opengraph/facebook/og_description', array( __CLASS__, 'filter_og_description' ) );
+		add_filter( 'rank_math/opengraph/twitter/twitter_title', array( __CLASS__, 'filter_twitter_title' ) );
+		add_filter( 'rank_math/opengraph/twitter/twitter_description', array( __CLASS__, 'filter_twitter_description' ) );
+		add_filter( 'rank_math/json_ld', array( __CLASS__, 'filter_json_ld_graph' ), 9999 );
+		add_filter( 'rank_math/schema/validated_data', array( __CLASS__, 'filter_json_ld_graph' ), 9999 );
+		add_filter( 'wpseo_title', array( __CLASS__, 'filter_seo_title' ) );
+		add_filter( 'wpseo_metadesc', array( __CLASS__, 'filter_seo_description' ) );
+		add_filter( 'wpseo_opengraph_title', array( __CLASS__, 'filter_og_title' ) );
+		add_filter( 'wpseo_opengraph_desc', array( __CLASS__, 'filter_og_description' ) );
+		add_filter( 'wpseo_twitter_title', array( __CLASS__, 'filter_twitter_title' ) );
+		add_filter( 'wpseo_twitter_description', array( __CLASS__, 'filter_twitter_description' ) );
+		add_filter( 'wpseo_schema_graph', array( __CLASS__, 'filter_json_ld_graph' ), 9999 );
+		add_filter( 'wpseo_schema_webpage', array( __CLASS__, 'filter_json_ld_graph' ), 9999 );
+		add_filter( 'wpseo_schema_article', array( __CLASS__, 'filter_json_ld_graph' ), 9999 );
+		add_filter( 'get_the_excerpt', array( __CLASS__, 'filter_head_excerpt' ), 20, 2 );
 		add_filter( 'wp_robots', array( __CLASS__, 'robots' ) );
 		add_filter( 'wp_sitemaps_posts_query_args', array( __CLASS__, 'exclude_core_sitemap' ) );
 		add_filter( 'wpseo_exclude_from_sitemap_by_post_ids', array( __CLASS__, 'exclude_yoast_sitemap' ) );
@@ -498,6 +540,8 @@ class RWGO_Sitewide {
 		self::$source_post_content  = self::post_content_for( $pid );
 		self::$variant_post_content = '';
 		self::$variant_swapped      = false;
+		self::$variant_page_id      = 0;
+		self::$variant_head_meta    = null;
 		$decision                   = self::decide( $cfg );
 		$arm                   = $decision['arm'];
 		self::$rendered_arm    = $arm;
@@ -535,8 +579,7 @@ class RWGO_Sitewide {
 	 */
 	public static function filter_canonical( $canonical, $post = null ) {
 		unset( $post );
-		$url = self::original_permalink();
-		return '' !== $url ? $url : $canonical;
+		return self::canonical_url_for_variant( $canonical, self::$rendered_arm, self::original_permalink() );
 	}
 
 	/**
@@ -544,8 +587,242 @@ class RWGO_Sitewide {
 	 * @return string
 	 */
 	public static function filter_canonical_url( $canonical ) {
-		$url = self::original_permalink();
-		return '' !== $url ? $url : $canonical;
+		return self::canonical_url_for_variant( $canonical, self::$rendered_arm, self::original_permalink() );
+	}
+
+	/**
+	 * Keep the public URL when a variant arm is rendered. Any other arm keeps the candidate.
+	 *
+	 * @param mixed  $candidate    URL a plugin or core generated.
+	 * @param string $rendered_arm control|variant.
+	 * @param string $original_url Permalink of the original page.
+	 * @return mixed
+	 */
+	public static function canonical_url_for_variant( $candidate, $rendered_arm, $original_url ) {
+		if ( 'variant' === $rendered_arm && is_string( $original_url ) && '' !== $original_url ) {
+			return $original_url;
+		}
+		return $candidate;
+	}
+
+	/**
+	 * Title and descriptions for one variant page.
+	 *
+	 * Rank Math values win, then Yoast, then the variant title and excerpt.
+	 * Social tags use their own meta when that page has it, and otherwise the
+	 * same title and description. Tokens such as %title% and %%sitename%% are expanded.
+	 *
+	 * @param string               $post_title   Variant post_title.
+	 * @param string               $post_excerpt Variant post_excerpt.
+	 * @param string               $post_content Variant post_content.
+	 * @param array<string, mixed> $meta         SEO post meta for the variant.
+	 * @param array<string, string> $context     site_name, site_description, sep.
+	 * @return array{title:string,plain_title:string,has_custom_title:bool,description:string,schema_description:string,og_title:string,og_description:string,twitter_title:string,twitter_description:string}
+	 */
+	public static function head_meta_from_fields( $post_title, $post_excerpt, $post_content, $meta, $context = array() ) {
+		$plain_title = trim( self::plain_text( $post_title ) );
+		$site_name   = isset( $context['site_name'] ) ? trim( (string) $context['site_name'] ) : '';
+		$site_desc   = isset( $context['site_description'] ) ? trim( (string) $context['site_description'] ) : '';
+		$sep         = isset( $context['sep'] ) ? trim( (string) $context['sep'] ) : '-';
+		if ( '' === $sep ) {
+			$sep = '-';
+		}
+		$excerpt = self::plain_text( $post_excerpt );
+		if ( '' === $excerpt ) {
+			$excerpt = self::plain_text( $post_content );
+		}
+		$excerpt = self::clamp_meta_text( $excerpt, 160 );
+
+		$title_vars = array(
+			'title'            => $plain_title,
+			'post_title'       => $plain_title,
+			'seo_title'        => $plain_title,
+			'sep'              => $sep,
+			'separator'        => $sep,
+			'sitename'         => $site_name,
+			'sitetitle'        => $site_name,
+			'blogname'         => $site_name,
+			'sitedesc'         => $site_desc,
+			'tagline'          => $site_desc,
+			'excerpt'          => $excerpt,
+			'excerpt_only'     => $excerpt,
+			'wc_shortdesc'     => $excerpt,
+		);
+		$custom_title = self::first_filled_meta( $meta, array( 'rank_math_title', '_yoast_wpseo_title' ) );
+		$has_custom   = '' !== $custom_title;
+		if ( $has_custom ) {
+			$title = self::clean_seo_value( self::expand_seo_template( $custom_title, $title_vars ) );
+		} elseif ( '' !== $plain_title && '' !== $site_name && $plain_title !== $site_name ) {
+			$title = $plain_title . ' ' . $sep . ' ' . $site_name;
+		} else {
+			$title = $plain_title;
+		}
+		if ( '' === $title ) {
+			$title = $plain_title;
+		}
+
+		$desc_vars              = $title_vars;
+		$desc_vars['seo_title'] = $title;
+		$desc_vars['title']     = $plain_title;
+		$custom_description     = self::first_filled_meta( $meta, array( 'rank_math_description', '_yoast_wpseo_metadesc' ) );
+		$description            = '' !== $custom_description ? self::clean_seo_value( self::expand_seo_template( $custom_description, $desc_vars ) ) : $excerpt;
+		$custom_schema          = self::first_filled_meta( $meta, array( 'rank_math_snippet_desc', 'rank_math_description', '_yoast_wpseo_metadesc' ) );
+		$schema_description     = '' !== $custom_schema ? self::clean_seo_value( self::expand_seo_template( $custom_schema, $desc_vars ) ) : $description;
+
+		$og_title_custom = self::first_filled_meta( $meta, array( 'rank_math_facebook_title', '_yoast_wpseo_opengraph-title' ) );
+		$og_title        = '' !== $og_title_custom ? self::clean_seo_value( self::expand_seo_template( $og_title_custom, $title_vars ) ) : $title;
+		$og_desc_custom  = self::first_filled_meta( $meta, array( 'rank_math_facebook_description', '_yoast_wpseo_opengraph-description' ) );
+		$og_description  = '' !== $og_desc_custom ? self::clean_seo_value( self::expand_seo_template( $og_desc_custom, $desc_vars ) ) : $description;
+
+		$twitter_title_custom = self::first_filled_meta( $meta, array( 'rank_math_twitter_title', '_yoast_wpseo_twitter-title' ) );
+		$twitter_title        = '' !== $twitter_title_custom ? self::clean_seo_value( self::expand_seo_template( $twitter_title_custom, $title_vars ) ) : $og_title;
+		$twitter_desc_custom  = self::first_filled_meta( $meta, array( 'rank_math_twitter_description', '_yoast_wpseo_twitter-description' ) );
+		$twitter_description  = '' !== $twitter_desc_custom ? self::clean_seo_value( self::expand_seo_template( $twitter_desc_custom, $desc_vars ) ) : $og_description;
+
+		return array(
+			'title'                => $title,
+			'plain_title'          => $plain_title,
+			'has_custom_title'     => $has_custom,
+			'description'          => $description,
+			'schema_description'   => $schema_description,
+			'og_title'             => $og_title,
+			'og_description'       => $og_description,
+			'twitter_title'        => $twitter_title,
+			'twitter_description'  => $twitter_description,
+		);
+	}
+
+	/**
+	 * Replace page and article descriptions in a JSON-LD graph. URLs are left as given.
+	 *
+	 * @param mixed  $data        Schema graph, entity map, or one entity.
+	 * @param string $title       Variant title.
+	 * @param string $description Variant schema description.
+	 * @return mixed
+	 */
+	public static function apply_variant_head_to_json_ld( $data, $title, $description ) {
+		if ( ! is_array( $data ) ) {
+			return $data;
+		}
+		return self::walk_json_ld( $data, trim( (string) $title ), trim( (string) $description ) );
+	}
+
+	/**
+	 * @param array<string, string> $parts Title parts.
+	 * @param array<string, mixed>  $head  Resolved head meta.
+	 * @return array<string, string>
+	 */
+	public static function document_title_parts_for_variant( $parts, $head ) {
+		if ( ! is_array( $parts ) ) {
+			return $parts;
+		}
+		$title = ( is_array( $head ) && isset( $head['title'] ) ) ? trim( (string) $head['title'] ) : '';
+		if ( '' === $title ) {
+			return $parts;
+		}
+		$parts['title'] = $title;
+		unset( $parts['site'], $parts['tagline'] );
+		return $parts;
+	}
+
+	/**
+	 * @param string $title Title a plugin already generated.
+	 * @return string
+	 */
+	public static function filter_seo_title( $title ) {
+		return self::replace_head_string( $title, 'title' );
+	}
+
+	/**
+	 * @param string $description Description a plugin already generated.
+	 * @return string
+	 */
+	public static function filter_seo_description( $description ) {
+		return self::replace_head_string( $description, 'description' );
+	}
+
+	/**
+	 * @param string $title Open Graph title.
+	 * @return string
+	 */
+	public static function filter_og_title( $title ) {
+		return self::replace_head_string( $title, 'og_title' );
+	}
+
+	/**
+	 * @param string $description Open Graph description.
+	 * @return string
+	 */
+	public static function filter_og_description( $description ) {
+		return self::replace_head_string( $description, 'og_description' );
+	}
+
+	/**
+	 * @param string $title Twitter title.
+	 * @return string
+	 */
+	public static function filter_twitter_title( $title ) {
+		return self::replace_head_string( $title, 'twitter_title' );
+	}
+
+	/**
+	 * @param string $description Twitter description.
+	 * @return string
+	 */
+	public static function filter_twitter_description( $description ) {
+		return self::replace_head_string( $description, 'twitter_description' );
+	}
+
+	/**
+	 * @param mixed $data   JSON-LD graph.
+	 * @param mixed $unused Plugin context.
+	 * @return mixed
+	 */
+	public static function filter_json_ld_graph( $data, $unused = null ) {
+		unset( $unused );
+		if ( ! self::serving_variant_head() || ! is_array( $data ) ) {
+			return $data;
+		}
+		$meta = self::current_variant_head_meta();
+		return self::apply_variant_head_to_json_ld( $data, $meta['title'], $meta['schema_description'] );
+	}
+
+	/**
+	 * @param array<string, string> $parts Document title parts.
+	 * @return array<string, string>
+	 */
+	public static function filter_document_title_parts( $parts ) {
+		if ( ! self::serving_variant_head() ) {
+			return $parts;
+		}
+		return self::document_title_parts_for_variant( $parts, self::current_variant_head_meta() );
+	}
+
+	/**
+	 * Core and some themes print the excerpt as a meta description during wp_head.
+	 *
+	 * @param string $excerpt Excerpt.
+	 * @param mixed  $post    Post object when WordPress passes one.
+	 * @return string
+	 */
+	public static function filter_head_excerpt( $excerpt, $post = null ) {
+		if ( ! self::serving_variant_head() || ! self::rendering_document_head() ) {
+			return $excerpt;
+		}
+		$post_id = 0;
+		if ( is_object( $post ) && isset( $post->ID ) ) {
+			$post_id = (int) $post->ID;
+		} elseif ( is_numeric( $post ) ) {
+			$post_id = (int) $post;
+		}
+		if ( $post_id > 0 && $post_id !== (int) self::$variant_page_id && $post_id !== (int) self::$original_page_id ) {
+			return $excerpt;
+		}
+		$meta = self::current_variant_head_meta();
+		if ( '' === $meta['description'] ) {
+			return $excerpt;
+		}
+		return $meta['description'];
 	}
 
 	/**
@@ -1237,7 +1514,401 @@ class RWGO_Sitewide {
 		$GLOBALS['more']         = $globals['more'];
 		$GLOBALS['multipage']    = $globals['multipage'];
 		$GLOBALS['numpages']     = $globals['numpages'];
-		self::$variant_swapped  = true;
+		self::$variant_page_id   = $variant_id;
+		self::$variant_head_meta = null;
+		self::$variant_swapped   = true;
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function serving_variant_head() {
+		return self::$variant_swapped && 'variant' === self::$rendered_arm && self::$original_page_id > 0 && self::$variant_page_id > 0;
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function rendering_document_head() {
+		if ( ! function_exists( 'doing_action' ) ) {
+			return false;
+		}
+		return doing_action( 'wp_head' ) || doing_action( 'rank_math/head' ) || doing_action( 'wpseo_head' );
+	}
+
+	/**
+	 * @param mixed  $incoming Incoming string.
+	 * @param string $key      Head meta key.
+	 * @return mixed
+	 */
+	private static function replace_head_string( $incoming, $key ) {
+		if ( ! self::serving_variant_head() ) {
+			return $incoming;
+		}
+		$meta = self::current_variant_head_meta();
+		if ( ! isset( $meta[ $key ] ) || ! is_string( $meta[ $key ] ) || '' === $meta[ $key ] ) {
+			return $incoming;
+		}
+		return $meta[ $key ];
+	}
+
+	/**
+	 * @return array{title:string,plain_title:string,has_custom_title:bool,description:string,schema_description:string,og_title:string,og_description:string,twitter_title:string,twitter_description:string}
+	 */
+	private static function current_variant_head_meta() {
+		if ( is_array( self::$variant_head_meta ) ) {
+			return self::$variant_head_meta;
+		}
+		$empty = self::empty_head_meta();
+		if ( ! self::serving_variant_head() || ! function_exists( 'get_post' ) ) {
+			return $empty;
+		}
+		$post = get_post( self::$variant_page_id );
+		if ( ! is_object( $post ) ) {
+			self::$variant_head_meta = $empty;
+			return $empty;
+		}
+		$title   = isset( $post->post_title ) ? (string) $post->post_title : '';
+		$excerpt = isset( $post->post_excerpt ) ? (string) $post->post_excerpt : '';
+		$content = isset( $post->post_content ) ? (string) $post->post_content : '';
+		$meta    = self::head_meta_from_fields( $title, $excerpt, $content, self::variant_seo_meta( self::$variant_page_id ), self::seo_replacement_context() );
+		self::$variant_head_meta = $meta;
+		return $meta;
+	}
+
+	/**
+	 * @return array{title:string,plain_title:string,has_custom_title:bool,description:string,schema_description:string,og_title:string,og_description:string,twitter_title:string,twitter_description:string}
+	 */
+	private static function empty_head_meta() {
+		return array(
+			'title'               => '',
+			'plain_title'         => '',
+			'has_custom_title'    => false,
+			'description'         => '',
+			'schema_description'  => '',
+			'og_title'            => '',
+			'og_description'      => '',
+			'twitter_title'       => '',
+			'twitter_description' => '',
+		);
+	}
+
+	/**
+	 * @param int $post_id Variant post id.
+	 * @return array<string, string>
+	 */
+	private static function variant_seo_meta( $post_id ) {
+		$keys = array(
+			'rank_math_title',
+			'rank_math_description',
+			'rank_math_snippet_desc',
+			'rank_math_facebook_title',
+			'rank_math_facebook_description',
+			'rank_math_twitter_title',
+			'rank_math_twitter_description',
+			'_yoast_wpseo_title',
+			'_yoast_wpseo_metadesc',
+			'_yoast_wpseo_opengraph-title',
+			'_yoast_wpseo_opengraph-description',
+			'_yoast_wpseo_twitter-title',
+			'_yoast_wpseo_twitter-description',
+		);
+		$meta = array();
+		if ( ! function_exists( 'get_post_meta' ) ) {
+			return $meta;
+		}
+		foreach ( $keys as $key ) {
+			$value = get_post_meta( (int) $post_id, $key, true );
+			if ( is_string( $value ) || is_numeric( $value ) ) {
+				$meta[ $key ] = (string) $value;
+			}
+		}
+		return $meta;
+	}
+
+	/**
+	 * @return array{site_name:string,site_description:string,sep:string}
+	 */
+	private static function seo_replacement_context() {
+		$site_name        = '';
+		$site_description = '';
+		if ( function_exists( 'get_bloginfo' ) ) {
+			$site_name        = (string) get_bloginfo( 'name' );
+			$site_description = (string) get_bloginfo( 'description' );
+		}
+		return array(
+			'site_name'        => $site_name,
+			'site_description' => $site_description,
+			'sep'              => self::seo_title_separator(),
+		);
+	}
+
+	/**
+	 * Separator used by Rank Math or Yoast title templates. Defaults to a hyphen.
+	 *
+	 * @return string
+	 */
+	private static function seo_title_separator() {
+		$codes  = array(
+			'sc-dash'  => '-',
+			'sc-ndash' => '–',
+			'sc-mdash' => '—',
+			'sc-bull'  => '•',
+			'sc-pipe'  => '|',
+			'sc-tilde' => '~',
+			'sc-laquo' => '«',
+			'sc-raquo' => '»',
+			'sc-lt'    => '<',
+			'sc-gt'    => '>',
+		);
+		$stored = '';
+		if ( function_exists( 'get_option' ) ) {
+			$rank = get_option( 'rank-math-options-titles' );
+			if ( is_array( $rank ) && isset( $rank['title_separator'] ) && is_string( $rank['title_separator'] ) ) {
+				$stored = $rank['title_separator'];
+			}
+			if ( '' === $stored ) {
+				$yoast = get_option( 'wpseo_titles' );
+				if ( is_array( $yoast ) && isset( $yoast['separator'] ) && is_string( $yoast['separator'] ) ) {
+					$stored = $yoast['separator'];
+				}
+			}
+		}
+		if ( isset( $codes[ $stored ] ) ) {
+			return $codes[ $stored ];
+		}
+		$stored = trim( $stored );
+		if ( '' !== $stored && strlen( $stored ) <= 3 ) {
+			return $stored;
+		}
+		return '-';
+	}
+
+	/**
+	 * @param string $value SEO field value.
+	 * @return string
+	 */
+	private static function clean_seo_value( $value ) {
+		$value = html_entity_decode( strip_tags( (string) $value ), ENT_QUOTES, 'UTF-8' );
+		$value = trim( preg_replace( '/\s+/', ' ', (string) $value ) );
+		return is_string( $value ) ? $value : '';
+	}
+
+	/**
+	 * @param array<string, mixed> $meta Meta.
+	 * @param array<int, string>   $keys Keys in preference order.
+	 * @return string
+	 */
+	private static function first_filled_meta( $meta, $keys ) {
+		if ( ! is_array( $meta ) ) {
+			return '';
+		}
+		foreach ( $keys as $key ) {
+			if ( ! isset( $meta[ $key ] ) || is_array( $meta[ $key ] ) ) {
+				continue;
+			}
+			$value = trim( (string) $meta[ $key ] );
+			if ( '' !== $value ) {
+				return $value;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * @param string               $template Template.
+	 * @param array<string, string> $vars    Replacement values.
+	 * @return string
+	 */
+	private static function expand_seo_template( $template, $vars ) {
+		$template = trim( (string) $template );
+		if ( '' === $template ) {
+			return '';
+		}
+		if ( false !== strpos( $template, '%' ) ) {
+			$replace = array();
+			foreach ( $vars as $key => $value ) {
+				$replace[ '%%' . $key . '%%' ] = (string) $value;
+				$replace[ '%' . $key . '%' ]   = (string) $value;
+			}
+			$template = strtr( $template, $replace );
+		}
+		$template = trim( preg_replace( '/\s+/', ' ', $template ) );
+		return is_string( $template ) ? $template : '';
+	}
+
+	/**
+	 * @param string $html HTML or text.
+	 * @return string
+	 */
+	private static function plain_text( $html ) {
+		$html = (string) $html;
+		$html = preg_replace( '/<!--.*?-->/s', ' ', $html );
+		$html = preg_replace( '/\[[^\]]+\]/', ' ', (string) $html );
+		$html = html_entity_decode( strip_tags( (string) $html ), ENT_QUOTES, 'UTF-8' );
+		$html = trim( preg_replace( '/\s+/', ' ', (string) $html ) );
+		return is_string( $html ) ? $html : '';
+	}
+
+	/**
+	 * @param string $text  Plain text.
+	 * @param int    $limit Maximum length.
+	 * @return string
+	 */
+	private static function clamp_meta_text( $text, $limit ) {
+		$text  = trim( (string) $text );
+		$limit = (int) $limit;
+		if ( $limit < 1 || '' === $text ) {
+			return $text;
+		}
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $text ) : strlen( $text );
+		if ( $length <= $limit ) {
+			return $text;
+		}
+		$slice = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, $limit ) : substr( $text, 0, $limit );
+		$space = function_exists( 'mb_strrpos' ) ? mb_strrpos( $slice, ' ' ) : strrpos( $slice, ' ' );
+		if ( false !== $space && $space > (int) ( $limit * 0.6 ) ) {
+			$slice = function_exists( 'mb_substr' ) ? mb_substr( $slice, 0, $space ) : substr( $slice, 0, $space );
+		}
+		return rtrim( (string) $slice, " \t\n\r\0\x0B,.;:-" );
+	}
+
+	/**
+	 * @param array<mixed> $data        Schema node.
+	 * @param string       $title       Variant title.
+	 * @param string       $description Variant description.
+	 * @return array<mixed>
+	 */
+	private static function walk_json_ld( $data, $title, $description ) {
+		if ( self::is_list_array( $data ) ) {
+			foreach ( $data as $index => $item ) {
+				if ( is_array( $item ) ) {
+					$data[ $index ] = self::walk_json_ld( $item, $title, $description );
+				}
+			}
+			return $data;
+		}
+
+		$types = self::json_ld_types( isset( $data['@type'] ) ? $data['@type'] : null );
+		if ( ! empty( $types ) ) {
+			$replace_copy = self::json_ld_replaces_description( $types );
+			$has_headline = isset( $data['headline'] ) && is_string( $data['headline'] );
+			if ( $replace_copy && '' !== $description && isset( $data['description'] ) && is_string( $data['description'] ) ) {
+				$data['description'] = $description;
+			}
+			if ( '' !== $title && $replace_copy && $has_headline ) {
+				$data['headline'] = $title;
+			}
+			if ( '' !== $title && $replace_copy && ( self::json_ld_is_page_type( $types ) || $has_headline ) && isset( $data['name'] ) && is_string( $data['name'] ) ) {
+				$data['name'] = $title;
+			}
+		}
+
+		foreach ( $data as $key => $value ) {
+			if ( is_array( $value ) ) {
+				$data[ $key ] = self::walk_json_ld( $value, $title, $description );
+			}
+		}
+		return $data;
+	}
+
+	/**
+	 * @param mixed $type Schema @type.
+	 * @return array<int, string>
+	 */
+	private static function json_ld_types( $type ) {
+		if ( is_string( $type ) && '' !== $type ) {
+			return array( $type );
+		}
+		if ( ! is_array( $type ) ) {
+			return array();
+		}
+		$types = array();
+		foreach ( $type as $item ) {
+			if ( is_string( $item ) && '' !== $item ) {
+				$types[] = $item;
+			}
+		}
+		return $types;
+	}
+
+	/**
+	 * @param array<int, string> $types Schema types.
+	 * @return bool
+	 */
+	private static function json_ld_replaces_description( $types ) {
+		$keep = array(
+			'WebSite',
+			'Organization',
+			'Person',
+			'BreadcrumbList',
+			'ImageObject',
+			'ListItem',
+			'SearchAction',
+			'Offer',
+			'Review',
+			'AggregateRating',
+			'Question',
+			'Answer',
+			'HowToStep',
+			'HowToDirection',
+			'Brand',
+			'Place',
+			'PostalAddress',
+			'SiteNavigationElement',
+			'EntryPoint',
+			'PropertyValue',
+			'MonetaryAmount',
+			'QuantitativeValue',
+		);
+		foreach ( $types as $type ) {
+			if ( in_array( $type, $keep, true ) ) {
+				return false;
+			}
+		}
+		return ! empty( $types );
+	}
+
+	/**
+	 * @param array<int, string> $types Schema types.
+	 * @return bool
+	 */
+	private static function json_ld_is_page_type( $types ) {
+		$pages = array(
+			'WebPage',
+			'AboutPage',
+			'ContactPage',
+			'ItemPage',
+			'CollectionPage',
+			'ProfilePage',
+			'SearchResultsPage',
+			'FAQPage',
+			'QAPage',
+			'MedicalWebPage',
+			'CheckoutPage',
+		);
+		foreach ( $types as $type ) {
+			if ( in_array( $type, $pages, true ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param array<mixed> $data Array.
+	 * @return bool
+	 */
+	private static function is_list_array( $data ) {
+		$index = 0;
+		foreach ( $data as $key => $unused ) {
+			unset( $unused );
+			if ( $key !== $index ) {
+				return false;
+			}
+			$index++;
+		}
+		return true;
 	}
 
 	/**

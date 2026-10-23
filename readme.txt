@@ -29,6 +29,7 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 * **Fix:** Split-test responses send `Vary: Cookie` once. A second cache pass no longer appends another copy of the header.
 * **Fix:** Bot visitors on a mapped split-test page get `DONOTCACHEPAGE` and the same private, no-store headers as assigned visitors, so a page cache cannot store the bot response and serve it to someone else.
 * **Fix:** A variant arm no longer prints the source page's more-marker or the text in front of it. Copied Elementor render cache is discarded instead of being served as the variant body.
+* **Fix:** When the variant arm is served, the document title, meta description, Open Graph description, Twitter description, and JSON-LD description come from the variant page. Rank Math and Yoast fields are used when they are set. The canonical URL and og:url stay on the original page.
 
 = 0.4.97 =
 * **Fix:** Site-wide split tests send `Cache-Control: private, no-store` and `Vary: Cookie`, and define `DONOTCACHEPAGE`, whenever an arm is assigned or served. Returning visitors who already have an assignment cookie are included, so a page cache cannot store one arm and serve it to the next visitor.

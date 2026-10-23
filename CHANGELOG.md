@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split-test responses send a single `Vary: Cookie` header. The early cache hook and the later template hook no longer each append `Cookie`.
 - Bot visitors excluded from split tests still receive `DONOTCACHEPAGE` and `Cache-Control: private, no-store` on mapped pages, matching assigned visitors. A page cache cannot store the bot response and replay it.
 - Variant HTML no longer includes the source page's `<!--more-->` marker, its `more-{sourceId}` anchor, or the teaser that belongs only to the source. Elementor's copied `_elementor_element_cache` is not reused as the variant body.
+- A variant arm uses that variant page's title and SEO description in the document title, meta description, Open Graph description, Twitter description, and JSON-LD description. Rank Math and Yoast meta are used when present, then the variant title and excerpt. The canonical URL and `og:url` stay on the original page.
 
 ## [0.4.97] - 2026-10-22
 

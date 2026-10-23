@@ -4,25 +4,25 @@
 done
 
 ## Task
-Draft 0.4.98 from main (merge 252439d, 0.4.97). Staging QA follow-ups only. No merge and no `v*` tag.
+Staging QA follow-up on draft PR #2 (`241a1dc`). The variant body is correct. The document head still used the source page title and SEO description from Rank Math. The variant must supply those, while the canonical URL, `og:url`, variant URL redirect, and bot control page stay as they are. No merge and no `v*` tag.
 
 ## Files changed and why
-- `includes/class-rwgo-sitewide.php` — one `Vary: Cookie` header per response; bots on mapped split-test URLs get `DONOTCACHEPAGE` and the same private no-store headers as assigned visitors; variant swaps rebuild content globals from the variant page and strip the source page more-marker and its teaser.
-- `includes/class-rwgo-page-duplicator.php` — do not copy `_elementor_element_cache` (or other generated Elementor files) onto a variant. That cache is the source page's rendered HTML.
-- `readme.txt`, `CHANGELOG.md`, `README.md`, plugin header and `RWGO_VERSION` — 0.4.98.
-- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php` — Vary-once, bot cache bypass, and source-marker stripping.
+- `includes/class-rwgo-sitewide.php` — when the variant arm is rendered, the document title, meta description, Open Graph title/description, Twitter title/description, and JSON-LD description are resolved from the variant page. Rank Math meta is used first, then Yoast, then the variant title and excerpt. Canonical and `og:url` filters still return the original permalink. Head filters do nothing unless the variant swap succeeded, so bots stay on the control page.
+- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php` — variant head resolution, JSON-LD description replacement that keeps URLs, idle filters, and original canonical URL.
+- `CHANGELOG.md`, `readme.txt` — 0.4.98 note for the head fix. Version stays 0.4.98.
 
 ## What was not changed
-- No Geo Core or Geo Core Pro edits.
-- No `v*` tag and no merge. Publish workflow stays tag-only.
+- Variant URL redirect (`maybe_redirect_variant_url`).
+- Bot assignment: bots still receive the control page and do not swap.
+- Body more-marker stripping and Elementor cache skipping.
+- Single `Vary: Cookie` header and bot `DONOTCACHEPAGE` behaviour.
+- No Geo Core edits. No `v*` tag and no merge.
 - 390px admin layout CSS was not edited.
-- Existing per-page `rwgo_ab` redirects.
-- Text domain on existing Geo AI strings stays `reactwoo-geo-ai`. Plugin header text domain remains `reactwoo-geo-optimise`.
 
 ## Commands run and results
-- `php -l` on `includes/class-rwgo-sitewide.php` and `includes/class-rwgo-page-duplicator.php` — no syntax errors.
-- `php tests/sitewide-assert.php` — all checks passed, including single Vary, bot bypass, and source-marker stripping.
-- `phpunit --configuration phpunit.xml.dist` — OK (30 tests, 141 assertions).
+- `php -l includes/class-rwgo-sitewide.php` — no syntax errors.
+- `php tests/sitewide-assert.php` — all checks passed, including variant head, JSON-LD, and original canonical URL.
+- `phpunit --configuration phpunit.xml.dist` — OK (35 tests, 200 assertions).
 
 ## Remaining errors
-None.
+None. Staging still needs to confirm Rank Math's rendered `<head>` for a variant arm.
