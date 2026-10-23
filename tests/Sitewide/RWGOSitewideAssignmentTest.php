@@ -6,6 +6,7 @@
  */
 
 require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-sitewide.php';
+require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-page-duplicator.php';
 
 /**
  * @covers RWGO_Sitewide
@@ -100,6 +101,81 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( 'Cookie', $headers['Vary'] );
 		$this->assertStringContainsString( 'no-store', $headers['Cache-Control'] );
 		$this->assertStringContainsString( 'private', $headers['Cache-Control'] );
+	}
+
+	public function test_vary_cookie_is_emitted_once(): void {
+		$this->assertSame( 'Cookie', RWGO_Sitewide::single_vary_header( array() ) );
+		$this->assertSame(
+			'Accept-Encoding, Cookie',
+			RWGO_Sitewide::single_vary_header( array( 'Vary: Accept-Encoding' ) )
+		);
+		$this->assertSame(
+			'Cookie',
+			RWGO_Sitewide::single_vary_header( array( 'Vary: Cookie', 'Vary: Cookie' ) )
+		);
+		$this->assertSame(
+			'Accept-Encoding, Cookie',
+			RWGO_Sitewide::single_vary_header(
+				array(
+					'Cache-Control: private, no-store',
+					'Vary: Accept-Encoding, Cookie',
+					'Vary: cookie',
+				)
+			)
+		);
+	}
+
+	public function test_bots_on_mapped_pages_bypass_cache(): void {
+		$this->assertTrue( RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'source' ) );
+		$this->assertTrue( RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'variant' ) );
+		$this->assertFalse( RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'none' ) );
+	}
+
+	public function test_variant_html_drops_source_more_marker_and_teaser(): void {
+		$source  = "Welcome from the source page\n<!--more-->\nSource only details";
+		$variant = 'Variant headline that replaced the source.';
+		$html    = $source . '<div id="more-41"></div><span id="more-41"></span><p>' . $variant . '</p><a href="https://example.com/home/#more-41">more</a>';
+		$clean   = RWGO_Sitewide::strip_source_page_leak( $html, $source, $variant, 41 );
+		$this->assertStringNotContainsString( 'Welcome from the source page', $clean );
+		$this->assertStringNotContainsString( 'Source only details', $clean );
+		$this->assertStringNotContainsString( '<!--more-->', $clean );
+		$this->assertStringNotContainsString( 'more-41', $clean );
+		$this->assertStringContainsString( 'Variant headline that replaced the source.', $clean );
+		$this->assertStringContainsString( 'id="more-88"', RWGO_Sitewide::strip_source_page_leak( '<span id="more-88"></span>', $source, $variant, 41 ) );
+		$expanded = 'Welcome from the source page<div id="more-41"></div>Source only details<p>' . $variant . '</p>';
+		$expanded_clean = RWGO_Sitewide::strip_source_page_leak( $expanded, $source, $variant, 41 );
+		$this->assertStringNotContainsString( 'Welcome from the source page', $expanded_clean );
+		$this->assertStringNotContainsString( 'Source only details', $expanded_clean );
+		$this->assertStringNotContainsString( 'more-41', $expanded_clean );
+		$this->assertStringContainsString( $variant, $expanded_clean );
+		$kept = RWGO_Sitewide::strip_source_page_leak( '<p>Welcome from the source page</p><p>' . $variant . '</p>', $source, $variant, 41 );
+		$this->assertStringContainsString( 'Welcome from the source page', $kept );
+	}
+
+	public function test_variant_keeps_its_own_more_marker(): void {
+		$shared = "Shared intro\n<!--more-->\nShared rest";
+		$html   = $shared . '<span id="more-9"></span>';
+		$clean  = RWGO_Sitewide::strip_source_page_leak( $html, $shared, $shared, 4 );
+		$this->assertStringContainsString( 'Shared intro', $clean );
+		$this->assertStringContainsString( '<!--more-->', $clean );
+		$this->assertStringContainsString( 'id="more-9"', $clean );
+		$this->assertStringNotContainsString( 'more-4', $clean );
+	}
+
+	public function test_variant_content_globals_follow_the_variant_document(): void {
+		$globals = RWGO_Sitewide::content_globals_for_post( "Variant only\n<!--nextpage-->\nSecond" );
+		$this->assertSame( array( 'Variant only', 'Second' ), $globals['pages'] );
+		$this->assertSame( 1, $globals['more'] );
+		$this->assertSame( 2, $globals['numpages'] );
+		$single = RWGO_Sitewide::content_globals_for_post( 'Just the variant' );
+		$this->assertSame( array( 'Just the variant' ), $single['pages'] );
+		$this->assertSame( 0, $single['multipage'] );
+	}
+
+	public function test_elementor_render_cache_is_not_copied_onto_a_variant(): void {
+		$keys = RWGO_Page_Duplicator::elementor_generated_meta_keys();
+		$this->assertContains( '_elementor_element_cache', $keys );
+		$this->assertContains( '_elementor_css', $keys );
 	}
 
 	public function test_path_role_ignores_empty_paths(): void {

@@ -4,27 +4,25 @@
 done
 
 ## Task
-Draft 0.4.97 from main (v0.4.96). Staging QA fixes only. No merge and no `v*` tag.
+Draft 0.4.98 from main (merge 252439d, 0.4.97). Staging QA follow-ups only. No merge and no `v*` tag.
 
 ## Files changed and why
-- `includes/class-rwgo-sitewide.php` — mapped responses that assign an arm or serve a stored assignment cookie send `Cache-Control: private, no-store`, `Vary: Cookie`, and `DONOTCACHEPAGE`.
-- `merged-geo-ai/assets/js/commerce-weather-suggest.js` — product-editor script for `POST /geo-ai/v1/products/{id}/suggest-weather-facets`. Checks `rwgcm_weather_facets[]` / `#rwgcm_weather_facet_{slug}`.
-- `merged-geo-ai/includes/integrations/class-rwga-commerce-weather.php` — enqueue only when that file is readable.
-- `includes/class-rwgo-deactivation.php` and `reactwoo-geo-optimise.php` — `register_deactivation_hook` calls `wp_clear_scheduled_hook` for `rwga_automation_cron_tick` and `rwga_weather_catalog_audit_tick`.
-- `admin/css/rwgo-admin.css`, `merged-geo-ai/admin/css/rwga-admin.css`, `merged-geo-ai/admin/css/rwga-ux-reviewer.css` — 390px-wide admin screens wrap instead of overflowing.
-- `readme.txt`, `CHANGELOG.md`, `README.md`, plugin header and `RWGO_VERSION` — 0.4.97.
-- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php`, `tests/Plugin/RWGODeactivationTest.php`, `phpunit.xml.dist` — coverage for the cache bypass, cron clear, and weather script.
+- `includes/class-rwgo-sitewide.php` — one `Vary: Cookie` header per response; bots on mapped split-test URLs get `DONOTCACHEPAGE` and the same private no-store headers as assigned visitors; variant swaps rebuild content globals from the variant page and strip the source page more-marker and its teaser.
+- `includes/class-rwgo-page-duplicator.php` — do not copy `_elementor_element_cache` (or other generated Elementor files) onto a variant. That cache is the source page's rendered HTML.
+- `readme.txt`, `CHANGELOG.md`, `README.md`, plugin header and `RWGO_VERSION` — 0.4.98.
+- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php` — Vary-once, bot cache bypass, and source-marker stripping.
 
 ## What was not changed
 - No Geo Core or Geo Core Pro edits.
 - No `v*` tag and no merge. Publish workflow stays tag-only.
+- 390px admin layout CSS was not edited.
 - Existing per-page `rwgo_ab` redirects.
-- Text domain on existing Geo AI strings stays `reactwoo-geo-ai`. New copy uses no new gettext calls. Plugin header text domain remains `reactwoo-geo-optimise`.
+- Text domain on existing Geo AI strings stays `reactwoo-geo-ai`. Plugin header text domain remains `reactwoo-geo-optimise`.
 
 ## Commands run and results
-- `php -l` on edited PHP files — no syntax errors.
-- `php tests/sitewide-assert.php` — all checks passed, including returning-visitor cache bypass.
-- `phpunit --configuration phpunit.xml.dist` — OK (24 tests, 112 assertions).
+- `php -l` on `includes/class-rwgo-sitewide.php` and `includes/class-rwgo-page-duplicator.php` — no syntax errors.
+- `php tests/sitewide-assert.php` — all checks passed, including single Vary, bot bypass, and source-marker stripping.
+- `phpunit --configuration phpunit.xml.dist` — OK (30 tests, 141 assertions).
 
 ## Remaining errors
 None.

@@ -630,8 +630,7 @@ class RWGO_Page_Duplicator {
 				update_post_meta( $to_id, $ek, wp_slash( $v ) );
 			}
 		}
-		delete_post_meta( $to_id, '_elementor_css' );
-		delete_post_meta( $to_id, '_elementor_screenshot' );
+		self::clear_elementor_generated_meta( $to_id );
 		$thumb = get_post_thumbnail_id( $from_id );
 		if ( $thumb ) {
 			set_post_thumbnail( $to_id, (int) $thumb );
@@ -765,9 +764,8 @@ class RWGO_Page_Duplicator {
 		$skip_keys = array(
 			'_edit_lock',
 			'_edit_last',
-			'_elementor_css',
-			'_elementor_screenshot',
 		);
+		$skip_keys = array_merge( $skip_keys, self::elementor_generated_meta_keys() );
 		// Elementor meta is copied explicitly below with correct slashing; never
 		// let the generic loop write it unslashed (that strips backslashes from
 		// the stored JSON and corrupts _elementor_data / _elementor_page_settings).
@@ -787,7 +785,7 @@ class RWGO_Page_Duplicator {
 			if ( in_array( $key, $skip_keys, true ) ) {
 				continue;
 			}
-			if ( 0 === strpos( $key, '_elementor_css' ) ) {
+			if ( 0 === strpos( $key, '_elementor_css' ) || 0 === strpos( $key, '_elementor_element_cache' ) ) {
 				continue;
 			}
 			if ( ! is_array( $values ) ) {
@@ -839,16 +837,41 @@ class RWGO_Page_Duplicator {
 	}
 
 	/**
+	 * Elementor meta generated for one document. It must not be copied onto a variant.
+	 *
+	 * `_elementor_element_cache` is rendered HTML. Copying it makes the variant
+	 * echo the source page, including that page's more-marker and text.
+	 *
+	 * @return array<int, string>
+	 */
+	public static function elementor_generated_meta_keys() {
+		return array(
+			'_elementor_css',
+			'_elementor_screenshot',
+			'_elementor_element_cache',
+		);
+	}
+
+	/**
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private static function clear_elementor_generated_meta( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! function_exists( 'delete_post_meta' ) ) {
+			return;
+		}
+		foreach ( self::elementor_generated_meta_keys() as $key ) {
+			delete_post_meta( $post_id, $key );
+		}
+	}
+
+	/**
 	 * @param int $variant_id New page ID.
 	 * @return void
 	 */
 	private static function reset_elementor_generated_assets( $variant_id ) {
-		$variant_id = (int) $variant_id;
-		if ( $variant_id <= 0 ) {
-			return;
-		}
-		delete_post_meta( $variant_id, '_elementor_css' );
-		delete_post_meta( $variant_id, '_elementor_screenshot' );
+		self::clear_elementor_generated_meta( $variant_id );
 	}
 
 	/**

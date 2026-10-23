@@ -5,6 +5,13 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.98] - 2026-10-23
+
+### Fixed
+- Split-test responses send a single `Vary: Cookie` header. The early cache hook and the later template hook no longer each append `Cookie`.
+- Bot visitors excluded from split tests still receive `DONOTCACHEPAGE` and `Cache-Control: private, no-store` on mapped pages, matching assigned visitors. A page cache cannot store the bot response and replay it.
+- Variant HTML no longer includes the source page's `<!--more-->` marker, its `more-{sourceId}` anchor, or the teaser that belongs only to the source. Elementor's copied `_elementor_element_cache` is not reused as the variant body.
+
 ## [0.4.97] - 2026-10-22
 
 ### Fixed

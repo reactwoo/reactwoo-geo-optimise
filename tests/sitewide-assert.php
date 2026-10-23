@@ -81,4 +81,28 @@ $check(
 	&& 'Cookie' === $headers['Vary']
 );
 
+$check( 'vary once from empty', 'Cookie' === RWGO_Sitewide::single_vary_header( array() ) );
+$check(
+	'vary once when already sent',
+	'Accept-Encoding, Cookie' === RWGO_Sitewide::single_vary_header( array( 'Vary: Accept-Encoding', 'Vary: Cookie', 'Vary: Cookie' ) )
+);
+$check( 'bot source bypass', RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'source' ) );
+$check( 'bot variant bypass', RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'variant' ) );
+$check( 'bot unmapped stays cacheable', ! RWGO_Sitewide::bot_mapped_response_needs_cache_bypass( 'none' ) );
+
+$source_html = "Welcome from the source page\n<!--more-->\nSource only details";
+$variant_html = 'Variant headline that replaced the source.';
+$leaked = $source_html . '<div id="more-41"></div><span id="more-41"></span><p>' . $variant_html . '</p>';
+$clean = RWGO_Sitewide::strip_source_page_leak( $leaked, $source_html, $variant_html, 41 );
+$check(
+	'variant drops source marker',
+	false === strpos( $clean, 'Welcome from the source page' )
+	&& false === strpos( $clean, 'Source only details' )
+	&& false === strpos( $clean, '<!--more-->' )
+	&& false === strpos( $clean, 'more-41' )
+	&& false !== strpos( $clean, 'Variant headline that replaced the source.' )
+);
+$globals = RWGO_Sitewide::content_globals_for_post( 'Just the variant' );
+$check( 'variant content globals', isset( $globals['pages'][0] ) && 'Just the variant' === $globals['pages'][0] && 1 === $globals['more'] );
+
 exit( $fail > 0 ? 1 : 0 );

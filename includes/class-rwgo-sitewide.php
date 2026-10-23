@@ -11,9 +11,15 @@
  * 3. This class renders the arm at priority 1.
  * 4. Existing per-page tests still redirect at priority 5.
  *
- * A mapped response that assigns an arm, or serves one already stored in the
- * assignment cookie, is private and no-store with Vary: Cookie. Returning
- * visitors are not cacheable.
+ * A mapped response that assigns an arm, serves one already stored in the
+ * assignment cookie, or is seen by a bot excluded from assignment, is private
+ * and no-store with one Vary: Cookie header. DONOTCACHEPAGE is defined for
+ * those responses, including bots, so a page cache cannot store one arm or a
+ * bot response and replay it to the next visitor.
+ *
+ * The variant arm replaces the main query before the template runs. Content
+ * globals are rebuilt from the variant page, and the source page's more-marker
+ * is removed, so that marker and its teaser are not written into the variant HTML.
  *
  * @package ReactWooGeoOptimise
  */
@@ -51,11 +57,39 @@ class RWGO_Sitewide {
 	private static $original_page_id = 0;
 
 	/**
+	 * @var bool
+	 */
+	private static $cache_headers_sent = false;
+
+	/**
+	 * Source document content while a variant arm is being rendered.
+	 *
+	 * @var string
+	 */
+	private static $source_post_content = '';
+
+	/**
+	 * Variant document content while that arm is being rendered.
+	 *
+	 * @var string
+	 */
+	private static $variant_post_content = '';
+
+	/**
+	 * True only after the main query was replaced with a published variant.
+	 *
+	 * @var bool
+	 */
+	private static $variant_swapped = false;
+
+	/**
 	 * @return void
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'maybe_mark_uncacheable' ), 0 );
 		add_action( 'litespeed_init', array( __CLASS__, 'litespeed_cache' ) );
+		add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), 0 );
+		add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), 11 );
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_redirect_variant_url' ), -1 );
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_apply' ), 1 );
 		add_filter( 'redirect_canonical', array( __CLASS__, 'keep_original_url' ), 10, 2 );
@@ -340,12 +374,13 @@ class RWGO_Sitewide {
 	 * Mark mapped URLs uncacheable before a full-page cache can store an arm.
 	 *
 	 * A returning visitor with a valid assignment cookie still receives one arm.
-	 * That response needs the same bypass as a fresh assignment.
+	 * That response needs the same bypass as a fresh assignment. Bots are not
+	 * assigned an arm, but the control page they receive must not be stored either.
 	 *
 	 * @return void
 	 */
 	public static function maybe_mark_uncacheable() {
-		if ( self::request_is_skipped() || self::is_bot_request() ) {
+		if ( self::request_is_skipped() ) {
 			return;
 		}
 		$cfg = self::active_config();
@@ -354,6 +389,12 @@ class RWGO_Sitewide {
 		}
 		$role = self::role_for_current_uri( $cfg );
 		if ( 'none' === $role ) {
+			return;
+		}
+		if ( self::is_bot_request() ) {
+			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
+				self::send_uncacheable();
+			}
 			return;
 		}
 		// Source pages always assign or serve. A matching cookie is the serve case.
@@ -376,11 +417,14 @@ class RWGO_Sitewide {
 		if ( null === $cfg ) {
 			return;
 		}
+		$role = self::role_for_current_uri( $cfg );
 		if ( self::is_bot_request() ) {
-			do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-bot' );
+			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
+				self::send_uncacheable();
+				do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-bot' );
+			}
 			return;
 		}
-		$role = self::role_for_current_uri( $cfg );
 		if ( 'none' === $role ) {
 			return;
 		}
@@ -449,9 +493,12 @@ class RWGO_Sitewide {
 			self::maybe_record_goal_page( $cfg );
 			return;
 		}
-		self::$handled         = true;
-		self::$original_page_id = $pid;
-		$decision              = self::decide( $cfg );
+		self::$handled              = true;
+		self::$original_page_id     = $pid;
+		self::$source_post_content  = self::post_content_for( $pid );
+		self::$variant_post_content = '';
+		self::$variant_swapped      = false;
+		$decision                   = self::decide( $cfg );
 		$arm                   = $decision['arm'];
 		self::$rendered_arm    = $arm;
 		if ( $decision['nocache'] ) {
@@ -1143,18 +1190,54 @@ class RWGO_Sitewide {
 		if ( ! $post instanceof WP_Post || 'publish' !== $post->post_status ) {
 			return;
 		}
-		global $wp_query;
-		if ( $wp_query instanceof WP_Query ) {
-			$wp_query->queried_object    = $post;
-			$wp_query->queried_object_id = $variant_id;
-			$wp_query->post              = $post;
-			$wp_query->posts             = array( $post );
-			$wp_query->post_count        = 1;
+		// Drop rendered HTML copied from the source document. Elementor serves
+		// `_elementor_element_cache` as the page body, so a copied cache prints
+		// the source page's text and more-marker inside the variant.
+		if ( function_exists( 'delete_post_meta' ) ) {
+			delete_post_meta( $variant_id, '_elementor_element_cache' );
 		}
-		$GLOBALS['post'] = $post;
+		$queries = array();
+		if ( isset( $GLOBALS['wp_query'] ) && $GLOBALS['wp_query'] instanceof WP_Query ) {
+			$queries[] = $GLOBALS['wp_query'];
+		}
+		if ( isset( $GLOBALS['wp_the_query'] ) && $GLOBALS['wp_the_query'] instanceof WP_Query && ! in_array( $GLOBALS['wp_the_query'], $queries, true ) ) {
+			$queries[] = $GLOBALS['wp_the_query'];
+		}
+		$source_id = self::$original_page_id;
+		foreach ( $queries as $query ) {
+			$query->queried_object    = $post;
+			$query->queried_object_id = $variant_id;
+			$query->post              = $post;
+			$query->posts             = array( $post );
+			$query->post_count        = 1;
+			if ( $source_id > 0 && isset( $query->query_vars['page_id'] ) && (int) $query->query_vars['page_id'] === $source_id ) {
+				$query->query_vars['page_id'] = $variant_id;
+			}
+			if ( $source_id > 0 && isset( $query->query_vars['p'] ) && (int) $query->query_vars['p'] === $source_id ) {
+				$query->query_vars['p'] = $variant_id;
+			}
+			if ( method_exists( $query, 'rewind_posts' ) ) {
+				$query->rewind_posts();
+			} else {
+				$query->current_post = -1;
+				$query->in_the_loop  = false;
+			}
+		}
+		$GLOBALS['post']            = $post;
+		self::$variant_post_content = (string) $post->post_content;
 		if ( function_exists( 'setup_postdata' ) ) {
 			setup_postdata( $post );
 		}
+		// The main query may already have filled $pages from the source page.
+		// Rebuild them from the variant so get_the_content() cannot emit the
+		// source more-marker or the teaser in front of it.
+		$globals                 = self::content_globals_for_post( $post->post_content );
+		$GLOBALS['pages']        = $globals['pages'];
+		$GLOBALS['page']         = $globals['page'];
+		$GLOBALS['more']         = $globals['more'];
+		$GLOBALS['multipage']    = $globals['multipage'];
+		$GLOBALS['numpages']     = $globals['numpages'];
+		self::$variant_swapped  = true;
 	}
 
 	/**
@@ -1166,6 +1249,152 @@ class RWGO_Sitewide {
 		}
 		$url = get_permalink( self::$original_page_id );
 		return is_string( $url ) ? $url : '';
+	}
+
+	/**
+	 * Post content for a page id, or an empty string when it cannot be read.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private static function post_content_for( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! function_exists( 'get_post' ) ) {
+			return '';
+		}
+		$post = get_post( $post_id );
+		if ( ! $post instanceof WP_Post ) {
+			return '';
+		}
+		return (string) $post->post_content;
+	}
+
+	/**
+	 * Content globals for one post, ignoring whatever the source page left behind.
+	 *
+	 * @param string $post_content Raw post_content.
+	 * @return array{pages:array<int,string>,page:int,more:int,multipage:int,numpages:int}
+	 */
+	public static function content_globals_for_post( $post_content ) {
+		$post_content = (string) $post_content;
+		$normalized   = str_replace(
+			array( "\n<!--nextpage-->\n", "\n<!--nextpage-->", "<!--nextpage-->\n" ),
+			'<!--nextpage-->',
+			$post_content
+		);
+		if ( false !== strpos( $normalized, '<!--nextpage-->' ) ) {
+			$pages = explode( '<!--nextpage-->', $normalized );
+		} else {
+			$pages = array( $post_content );
+		}
+		$count = count( $pages );
+		return array(
+			'pages'     => $pages,
+			'page'      => 1,
+			'more'      => 1,
+			'multipage' => $count > 1 ? 1 : 0,
+			'numpages'  => $count,
+		);
+	}
+
+	/**
+	 * Remove the source page more-marker and any teaser that is not part of the variant.
+	 *
+	 * WordPress and Elementor turn `<!--more-->` into `<span id="more-{id}">` or
+	 * `<div id="more-{id}">` and keep the text before the marker. When the main
+	 * query was prepared for the source page, that marker and teaser are still
+	 * in the variant response.
+	 *
+	 * @param string $html            HTML for the variant response.
+	 * @param string $source_content  Source post_content.
+	 * @param string $variant_content Variant post_content. Text that also belongs to the variant is kept.
+	 * @param int    $source_id       Source post ID.
+	 * @return string
+	 */
+	public static function strip_source_page_leak( $html, $source_content, $variant_content, $source_id ) {
+		$html            = (string) $html;
+		$source_content  = (string) $source_content;
+		$variant_content = (string) $variant_content;
+		$source_id       = (int) $source_id;
+		if ( '' === $html ) {
+			return $html;
+		}
+
+		$source_trim  = trim( $source_content );
+		$variant_trim = trim( $variant_content );
+		if (
+			strlen( $source_trim ) >= 8
+			&& $source_trim !== $variant_trim
+			&& false === strpos( $variant_content, $source_trim )
+			&& false !== strpos( $html, $source_trim )
+		) {
+			$html = str_replace( $source_trim, '', $html );
+		}
+
+		$source_has_marker  = (bool) preg_match( '/<!--more(.*?)?-->/', $source_content, $marker_match );
+		$variant_has_marker = false !== strpos( $variant_content, '<!--more' );
+		$marker_in_html     = ( $source_id > 0 && false !== strpos( $html, 'more-' . $source_id ) )
+			|| ( ! $variant_has_marker && false !== strpos( $html, '<!--more' ) );
+		if ( $source_has_marker && $marker_in_html ) {
+			$teaser   = '';
+			$extended = '';
+			if ( isset( $marker_match[0] ) && is_string( $marker_match[0] ) && '' !== $marker_match[0] ) {
+				$pos = strpos( $source_content, $marker_match[0] );
+				if ( false !== $pos ) {
+					$teaser   = substr( $source_content, 0, $pos );
+					$extended = substr( $source_content, $pos + strlen( $marker_match[0] ) );
+				}
+			}
+			foreach ( array( $teaser, $extended ) as $part ) {
+				$part = trim( $part );
+				if ( strlen( $part ) < 8 || false !== strpos( $variant_content, $part ) ) {
+					continue;
+				}
+				if ( false !== strpos( $html, $part ) ) {
+					$html = str_replace( $part, '', $html );
+				}
+			}
+			if ( ! $variant_has_marker ) {
+				$html = (string) preg_replace( '/<!--more(.*?)?-->/', '', $html );
+			}
+		}
+
+		if ( $source_id > 0 ) {
+			$html = (string) preg_replace(
+				'/<(span|div)\s+id=(["\'])more-' . $source_id . '\\2\s*>\s*<\/\\1>/i',
+				'',
+				$html
+			);
+			$html = str_replace(
+				array(
+					'#more-' . $source_id,
+					'id="more-' . $source_id . '"',
+					"id='more-" . $source_id . "'",
+				),
+				array( '', '', '' ),
+				$html
+			);
+		}
+
+		return $html;
+	}
+
+	/**
+	 * Drop source-page markers after the variant arm has replaced the query.
+	 *
+	 * @param string $content Post content.
+	 * @return string
+	 */
+	public static function filter_swapped_variant_content( $content ) {
+		if ( ! self::$variant_swapped || 'variant' !== self::$rendered_arm || self::$original_page_id <= 0 ) {
+			return $content;
+		}
+		return self::strip_source_page_leak(
+			(string) $content,
+			self::$source_post_content,
+			self::$variant_post_content,
+			self::$original_page_id
+		);
 	}
 
 	/**
@@ -1186,6 +1415,18 @@ class RWGO_Sitewide {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Bots are excluded from assignment, but a mapped split-test response is still one arm.
+	 *
+	 * Storing that response lets a page cache serve the bot's control HTML to the next visitor.
+	 *
+	 * @param string $role source|variant|none.
+	 * @return bool
+	 */
+	public static function bot_mapped_response_needs_cache_bypass( $role ) {
+		return self::mapped_response_needs_cache_bypass( (string) $role, true );
 	}
 
 	/**
@@ -1210,6 +1451,9 @@ class RWGO_Sitewide {
 	/**
 	 * Headers sent whenever an arm is assigned or served.
 	 *
+	 * Vary is a single field. Callers merge it with headers already queued so
+	 * Cookie is not appended a second time.
+	 *
 	 * @return array<string, string>
 	 */
 	public static function cache_bypass_headers() {
@@ -1221,19 +1465,79 @@ class RWGO_Sitewide {
 	}
 
 	/**
+	 * One Vary value that includes Cookie and any tokens already queued.
+	 *
+	 * Sending Vary with replace disabled on both the early cache hook and the
+	 * later template hook produced two Vary: Cookie fields.
+	 *
+	 * @param array<int, string> $existing_header_lines Lines from headers_list().
+	 * @return string
+	 */
+	public static function single_vary_header( array $existing_header_lines ) {
+		$tokens = array();
+		foreach ( $existing_header_lines as $line ) {
+			if ( ! is_string( $line ) || ! preg_match( '/^Vary:\s*(.+)$/i', $line, $matches ) ) {
+				continue;
+			}
+			foreach ( explode( ',', $matches[1] ) as $part ) {
+				$part = trim( $part );
+				if ( '' === $part ) {
+					continue;
+				}
+				if ( 0 === strcasecmp( $part, 'Cookie' ) ) {
+					$part = 'Cookie';
+				}
+				$tokens[] = $part;
+			}
+		}
+		$tokens[] = 'Cookie';
+		$unique   = array();
+		$seen     = array();
+		foreach ( $tokens as $token ) {
+			$key = strtolower( $token );
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$unique[]     = $token;
+		}
+		return implode( ', ', $unique );
+	}
+
+	/**
 	 * @return void
 	 */
 	private static function send_uncacheable() {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true );
 		}
+		if ( self::$cache_headers_sent ) {
+			do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide' );
+			return;
+		}
+		if ( function_exists( 'headers_sent' ) && headers_sent() ) {
+			self::$cache_headers_sent = true;
+			do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide' );
+			return;
+		}
+		self::$cache_headers_sent = true;
 		if ( function_exists( 'nocache_headers' ) ) {
 			nocache_headers();
 		}
-		if ( ! headers_sent() ) {
-			foreach ( self::cache_bypass_headers() as $name => $value ) {
-				header( $name . ': ' . $value, 'Vary' !== $name );
+		$lines = function_exists( 'headers_list' ) ? headers_list() : array();
+		if ( ! is_array( $lines ) ) {
+			$lines = array();
+		}
+		foreach ( self::cache_bypass_headers() as $name => $value ) {
+			if ( 'Vary' === $name ) {
+				$value = self::single_vary_header( $lines );
+				if ( function_exists( 'header_remove' ) ) {
+					header_remove( 'Vary' );
+				}
+				header( 'Vary: ' . $value, true );
+				continue;
 			}
+			header( $name . ': ' . $value, true );
 		}
 		do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide' );
 	}
