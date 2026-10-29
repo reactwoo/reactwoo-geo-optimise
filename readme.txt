@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.0
+Stable tag: 0.5.1
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,18 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.1 =
+* **Added:** The experiment assignment cookies are part of the LiteSpeed vary list, so the control page and variant B are cached separately. A returning visitor is cacheable when LiteSpeed is the only page cache. New cookies, bots, and other cache plugins still bypass the cache.
+* **Added:** Saving, starting, stopping, or promoting an experiment, its page map, or the site-wide experiment clears the original and variant URLs. LiteSpeed, WP Rocket, W3 Total Cache, WP Super Cache, and the Cloudflare plugin are used only when that plugin is active. Elementor CSS for those pages is regenerated when Elementor is active.
+* **Added:** Settings includes a Clear Optimise cache button. It checks the Geo Optimise capability and a nonce.
+* **Fix:** Front-end goal tracking no longer posts a nonce that was printed into cached HTML. The script fetches a fresh nonce from the tracking-nonce route, and that response is not cacheable.
+* **Fix:** All-published site-wide tests skip variant pages and pages that are already the control of an active test.
+* **Fix:** Elementor duplicates, including Atomic V4 pages, keep their `_elementor_data` and other `_elementor_*` document meta.
+* **Fix:** Promoting a test or changing a page map clears each URL once. Saving a site-wide test clears its mapped originals and variants.
+* **Fix:** The LiteSpeed cache-control header is sent only when LiteSpeed Cache is active.
+* **Fix:** Forbidden admin actions return HTTP 403.
+* **Fix:** Variant B stays a draft when a test is created. The screens say it receives no traffic until it is published.
 
 = 0.5.0 =
 * **Added:** Site-wide tests can cover all published pages, leaving out checkout, cart, my-account, and chosen page IDs. A bulk action copies the selected pages or every eligible page into variants and fills the page map. Pages published later can be included or skipped. Visitors still get one arm, the original URL, a redirect from the variant URL, and the control page for bots.

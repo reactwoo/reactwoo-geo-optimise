@@ -206,7 +206,7 @@ if ( 'var_b' === $variant ) {
 	<div class="rwgc-card">
 		<h2><?php esc_html_e( 'Browser REST endpoint', 'reactwoo-geo-optimise' ); ?></h2>
 		<p><code><?php echo esc_html( function_exists( 'rest_url' ) ? rest_url( 'rwgo/v1/goal' ) : '/wp-json/rwgo/v1/goal' ); ?></code></p>
-		<p class="description"><?php esc_html_e( 'HTTP POST, JSON body includes a nonce (localized with rwgoTracking), experiment_key, goal_id, handler_id, variant_id, and optional fields. The server checks the active experiment and goal handlers, then stores a goal_fired row. Disable via the rwgo_persist_client_goals filter.', 'reactwoo-geo-optimise' ); ?></p>
+		<p class="description"><?php esc_html_e( 'HTTP POST, JSON body includes a nonce fetched from GET /rwgo/v1/tracking-nonce (not the nonce baked into cached HTML), experiment_key, goal_id, handler_id, variant_id, and optional fields. The server checks the active experiment and goal handlers, then stores a goal_fired row. Disable via the rwgo_persist_client_goals filter.', 'reactwoo-geo-optimise' ); ?></p>
 	</div>
 
 	<div class="rwgc-card">

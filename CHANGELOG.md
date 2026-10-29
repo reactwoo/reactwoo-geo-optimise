@@ -5,6 +5,22 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-29
+
+### Added
+- The experiment assignment cookies (`rwgo_ab` and `rwgo_site`) are added to the LiteSpeed vary list (`litespeed_vary_cookies` and `X-LiteSpeed-Vary`), so the control page and variant B are stored as separate cache entries. When LiteSpeed Cache is the only page cache, a returning visitor with a stable assignment is cacheable. A new or repaired cookie, a bot, a QA override, and any other page-cache plugin still bypass the cache. With no cache plugin active, the existing private no-store behaviour is unchanged.
+- Saving, starting, stopping, or promoting an experiment, its page map, or the site-wide experiment (`rwgo_sitewide_experiment`) purges the original and variant URLs. Adapters run only when LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache, or the Cloudflare plugin is present. Elementor CSS for those pages is regenerated when Elementor is active.
+- Settings includes a Clear Optimise cache button. It checks the Geo Optimise capability and a nonce.
+
+### Fixed
+- Front-end goal and conversion requests no longer use a nonce baked into cached HTML. `rwgo-tracking.js` fetches a fresh nonce from `GET /rwgo/v1/tracking-nonce` before it posts, and that response is marked uncacheable. If the fresh nonce cannot be loaded, the goal is not sent with a stale token.
+- All-published site-wide coverage skips every variant page (including another test's Variant B) and every page that is already the control of an active test, so a variant is not copied again and visitors are not given both assignment cookies.
+- Elementor duplicates keep `_elementor_data` as JSON, including Atomic V4 nodes (`e-*` widgets, `$$type`, styles). Those documents are not run back through Elementor's document save, which was dropping the atomic tree and failing the duplicate check.
+- A promotion or page-map change purges each original and variant URL once per request. Saving the site-wide experiment purges the mapped originals and variants even when the stored option did not change.
+- `X-LiteSpeed-Cache-Control` is sent only when LiteSpeed Cache is active.
+- Admin actions that refuse the current user return HTTP 403.
+- A new test leaves Variant B as a draft so it can be reviewed before it is public. The create form, the Tests list, and Edit Test say that every visitor stays on Control until Variant B is published.
+
 ## [0.5.0] - 2026-10-29
 
 ### Added

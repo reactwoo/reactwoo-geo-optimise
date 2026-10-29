@@ -57,7 +57,7 @@ class RWGA_Weather_Catalog_Audit {
 	 */
 	public static function handle_manual_run() {
 		if ( ! current_user_can( 'manage_woocommerce' ) && ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwga_weather_catalog_audit' );
 		self::reset_report();

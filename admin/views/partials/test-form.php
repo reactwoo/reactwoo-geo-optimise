@@ -256,7 +256,7 @@ $pf_var_b_for_goals     = isset( $rwgo_prefill['variant_b_id'] ) ? (int) $rwgo_p
 					<input type="radio" name="rwgo_variant_mode" value="duplicate" <?php checked( $pf_variant_mode, 'duplicate' ); ?> class="rwgo-variant-mode" />
 					<span class="rwgo-radio-card__body">
 						<strong><?php esc_html_e( 'Duplicate source automatically (recommended)', 'reactwoo-geo-optimise' ); ?></strong>
-						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Geo Optimise will create a full editable duplicate of the source page, including supported builder data. If duplication fails, the variant will not be attached and you can choose another recovery option.', 'reactwoo-geo-optimise' ); ?></span>
+						<span class="rwgo-radio-card__desc"><?php esc_html_e( 'Geo Optimise will create a full editable duplicate of the source page, including supported builder data, and leave it as a draft. The test can start immediately, but Variant B receives no traffic until you publish it. If duplication fails, the variant will not be attached and you can choose another recovery option.', 'reactwoo-geo-optimise' ); ?></span>
 					</span>
 				</label>
 				<label class="rwgo-radio-card">

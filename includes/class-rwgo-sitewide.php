@@ -514,8 +514,10 @@ class RWGO_Sitewide {
 	 * Mark mapped URLs uncacheable before a full-page cache can store an arm.
 	 *
 	 * A returning visitor with a valid assignment cookie still receives one arm.
-	 * That response needs the same bypass as a fresh assignment. Bots are not
-	 * assigned an arm, but the control page they receive must not be stored either.
+	 * Without LiteSpeed as the only page cache, that response uses the same bypass
+	 * as a fresh assignment. When LiteSpeed can vary on the assignment cookie, a
+	 * stable assignment is cacheable. Bots are not assigned an arm, but the control
+	 * page they receive must not be stored.
 	 *
 	 * @return void
 	 */
@@ -535,6 +537,10 @@ class RWGO_Sitewide {
 			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
 				self::send_uncacheable();
 			}
+			return;
+		}
+		// A stable assignment can be cached per cookie when LiteSpeed is the only page cache.
+		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
 		// Source pages always assign or serve. A matching cookie is the serve case.
@@ -566,6 +572,9 @@ class RWGO_Sitewide {
 			return;
 		}
 		if ( 'none' === $role ) {
+			return;
+		}
+		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
 		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
@@ -1244,7 +1253,7 @@ class RWGO_Sitewide {
 	 */
 	public static function handle_save() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_save_sitewide' );
 		$old  = self::get_config();
@@ -1280,7 +1289,7 @@ class RWGO_Sitewide {
 	 */
 	public static function handle_bulk_continue() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_sitewide_bulk' );
 		$job = get_option( self::BULK_OPTION, array() );
@@ -1557,11 +1566,15 @@ class RWGO_Sitewide {
 				'nocache' => true,
 			);
 		}
-		$fixed = self::ensure_assignment( $cfg );
-		$arm   = self::serving_arm( $fixed['arm'], false, $qa );
+		$fixed   = self::ensure_assignment( $cfg );
+		$arm     = self::serving_arm( $fixed['arm'], false, $qa );
+		$nocache = self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa );
+		if ( $nocache && self::litespeed_vary_caches_assigned_arm( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa, self::litespeed_only_page_cache() ) ) {
+			$nocache = false;
+		}
 		return array(
 			'arm'     => $arm,
-			'nocache' => self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa ),
+			'nocache' => $nocache,
 		);
 	}
 
@@ -2394,6 +2407,62 @@ class RWGO_Sitewide {
 	}
 
 	/**
+	 * LiteSpeed may store this response when the assignment cookie is already stable.
+	 *
+	 * Fresh cookies, QA overrides, and any other page cache stay uncacheable. With no
+	 * LiteSpeed plugin the flag is false, so the existing bypass is unchanged.
+	 *
+	 * @param bool   $assigning       Fresh visitor id.
+	 * @param bool   $rewritten       Cookie repaired.
+	 * @param string $arm             Arm this response will serve.
+	 * @param bool   $qa              QA override active.
+	 * @param bool   $litespeed_only  LiteSpeed Cache is active and no other page cache is.
+	 * @return bool
+	 */
+	public static function litespeed_vary_caches_assigned_arm( $assigning, $rewritten, $arm, $qa, $litespeed_only ) {
+		if ( $assigning || $rewritten || $qa || ! $litespeed_only ) {
+			return false;
+		}
+		return in_array( (string) $arm, array( 'control', 'variant' ), true );
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function litespeed_only_page_cache() {
+		if ( ! class_exists( 'RWGO_Cache_Compat', false ) || ! RWGO_Cache_Compat::litespeed_active() ) {
+			return false;
+		}
+		$available = RWGO_Cache_Compat::adapter_availability();
+		foreach ( array( 'rocket', 'w3tc', 'supercache', 'cloudflare' ) as $key ) {
+			if ( ! empty( $available[ $key ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Returning visitor whose cookie will not be rewritten, and LiteSpeed can vary on it.
+	 *
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function response_can_use_litespeed_vary( array $cfg ) {
+		if ( self::is_bot_request() || self::is_editor_request() || '' !== self::qa_arm_from_request() ) {
+			return false;
+		}
+		$fixed = self::repair_cookie( self::raw_cookie(), self::experiment_key( $cfg ), self::control_weight( $cfg ), '' );
+		return self::litespeed_vary_caches_assigned_arm(
+			! empty( $fixed['assigning'] ),
+			! empty( $fixed['rewritten'] ),
+			isset( $fixed['arm'] ) ? (string) $fixed['arm'] : '',
+			false,
+			self::litespeed_only_page_cache()
+		);
+	}
+
+	/**
 	 * Headers sent whenever an arm is assigned or served.
 	 *
 	 * Vary is a single field. Callers merge it with headers already queued so
@@ -2401,12 +2470,18 @@ class RWGO_Sitewide {
 	 *
 	 * @return array<string, string>
 	 */
-	public static function cache_bypass_headers() {
-		return array(
-			'Cache-Control'             => 'private, no-store, max-age=0',
-			'Vary'                      => 'Cookie',
-			'X-LiteSpeed-Cache-Control' => 'no-cache',
+	public static function cache_bypass_headers( $litespeed_active = null ) {
+		if ( null === $litespeed_active ) {
+			$litespeed_active = class_exists( 'RWGO_Cache_Compat', false ) && RWGO_Cache_Compat::litespeed_active();
+		}
+		$headers = array(
+			'Cache-Control' => 'private, no-store, max-age=0',
+			'Vary'          => 'Cookie',
 		);
+		if ( $litespeed_active ) {
+			$headers['X-LiteSpeed-Cache-Control'] = 'no-cache';
+		}
+		return $headers;
 	}
 
 	/**
@@ -2678,6 +2753,110 @@ class RWGO_Sitewide {
 	}
 
 	/**
+	 * Variant posts, and sources that already belong to an active test.
+	 *
+	 * A variant of any experiment must not be copied again (that produced
+	 * slugs like page-variant-b-variant-b). A page that is the control of an
+	 * active test must not also join the site-wide map, or the visitor receives
+	 * both assignment cookies.
+	 *
+	 * @param array<int, array<string, mixed>> $experiments Experiment configs.
+	 * @return array{variant_ids: array<int, int>, active_source_ids: array<int, int>}
+	 */
+	public static function conflicting_experiment_ids( array $experiments ) {
+		$variants = array();
+		$sources  = array();
+		foreach ( $experiments as $cfg ) {
+			if ( ! is_array( $cfg ) ) {
+				continue;
+			}
+			$active = isset( $cfg['status'] ) && 'active' === sanitize_key( (string) $cfg['status'] );
+			$source = isset( $cfg['source_page_id'] ) ? (int) $cfg['source_page_id'] : 0;
+			if ( $active && $source > 0 ) {
+				$sources[ $source ] = $source;
+			}
+			if ( ! empty( $cfg['variants'] ) && is_array( $cfg['variants'] ) ) {
+				foreach ( $cfg['variants'] as $row ) {
+					if ( ! is_array( $row ) ) {
+						continue;
+					}
+					$variant_id = isset( $row['variant_id'] ) ? sanitize_key( (string) $row['variant_id'] ) : '';
+					$page_id    = isset( $row['page_id'] ) ? (int) $row['page_id'] : 0;
+					if ( $page_id <= 0 || 'control' === $variant_id || $page_id === $source ) {
+						continue;
+					}
+					$variants[ $page_id ] = $page_id;
+				}
+			}
+			if ( ! empty( $cfg['page_map'] ) && is_array( $cfg['page_map'] ) ) {
+				foreach ( $cfg['page_map'] as $row ) {
+					if ( ! is_array( $row ) ) {
+						continue;
+					}
+					$variant_page = isset( $row['variant_page_id'] ) ? (int) $row['variant_page_id'] : 0;
+					$map_source   = isset( $row['source_page_id'] ) ? (int) $row['source_page_id'] : 0;
+					if ( $variant_page > 0 ) {
+						$variants[ $variant_page ] = $variant_page;
+					}
+					if ( $active && $map_source > 0 ) {
+						$sources[ $map_source ] = $map_source;
+					}
+				}
+			}
+			$promoted = isset( $cfg['promoted_from_id'] ) ? (int) $cfg['promoted_from_id'] : 0;
+			if ( $promoted > 0 ) {
+				$variants[ $promoted ] = $promoted;
+			}
+		}
+		return array(
+			'variant_ids'       => array_values( $variants ),
+			'active_source_ids' => array_values( $sources ),
+		);
+	}
+
+	/**
+	 * @param int             $id   Page id.
+	 * @param array<int, int> $list Ids.
+	 * @return bool
+	 */
+	private static function id_in_int_list( $id, array $list ) {
+		$id = (int) $id;
+		foreach ( $list as $item ) {
+			if ( $id === (int) $item ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Fill variant and active-source ids from saved experiments when the caller did not.
+	 *
+	 * @param array<string, mixed> $context Coverage context.
+	 * @return array<string, mixed>
+	 */
+	private static function context_with_experiment_conflicts( array $context ) {
+		if ( ! class_exists( 'RWGO_Experiment_Repository', false ) ) {
+			return $context;
+		}
+		$configs = array();
+		foreach ( RWGO_Experiment_Repository::query_experiments( array( 'posts_per_page' => 500 ) ) as $post ) {
+			if ( ! is_object( $post ) || empty( $post->ID ) ) {
+				continue;
+			}
+			$configs[] = RWGO_Experiment_Repository::get_config( (int) $post->ID );
+		}
+		$ids = self::conflicting_experiment_ids( $configs );
+		if ( ! isset( $context['variant_ids'] ) ) {
+			$context['variant_ids'] = $ids['variant_ids'];
+		}
+		if ( ! isset( $context['active_source_ids'] ) ) {
+			$context['active_source_ids'] = $ids['active_source_ids'];
+		}
+		return $context;
+	}
+
+	/**
 	 * Decide whether one page is already mapped, eligible to copy, excluded, or left for later.
 	 *
 	 * @param array<string, mixed> $page    id, status, type, slug, created_gmt, variant_of.
@@ -2694,6 +2873,14 @@ class RWGO_Sitewide {
 			return 'ineligible';
 		}
 		if ( ! empty( $page['variant_of'] ) ) {
+			return 'ineligible';
+		}
+		if ( ! isset( $context['variant_ids'] ) || ! isset( $context['active_source_ids'] ) ) {
+			$context = self::context_with_experiment_conflicts( $context );
+		}
+		$variant_ids = isset( $context['variant_ids'] ) && is_array( $context['variant_ids'] ) ? $context['variant_ids'] : array();
+		$active_sources = isset( $context['active_source_ids'] ) && is_array( $context['active_source_ids'] ) ? $context['active_source_ids'] : array();
+		if ( self::id_in_int_list( $id, $variant_ids ) ) {
 			return 'ineligible';
 		}
 		$sources  = array();
@@ -2714,6 +2901,9 @@ class RWGO_Sitewide {
 		}
 		if ( isset( $sources[ $id ] ) ) {
 			return 'mapped';
+		}
+		if ( self::id_in_int_list( $id, $active_sources ) ) {
+			return 'excluded';
 		}
 		if ( self::MAPPING_ALL_PUBLISHED !== $coverage['mapping_mode'] ) {
 			return 'unmapped';
@@ -3139,6 +3329,30 @@ class RWGO_Sitewide {
 		update_option( self::OPTION, $cfg, false );
 		self::reset_map_index();
 		self::sync_experiment_post( $cfg );
+		self::purge_saved_config( $cfg, $old, $purge_ids );
+	}
+
+	/**
+	 * Purge mapped originals and variants after the site-wide option is stored.
+	 *
+	 * An empty id list still purges the saved map. Callers that pass specific
+	 * ids purge those posts; the request-level dedupe drops a second purge of
+	 * the same pages.
+	 *
+	 * @param array<string, mixed>      $cfg       Saved config.
+	 * @param array<string, mixed>|null $old       Previous config.
+	 * @param array<int, int>|null      $purge_ids Optional subset.
+	 * @return void
+	 */
+	private static function purge_saved_config( array $cfg, $old, $purge_ids ) {
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			if ( is_array( $purge_ids ) && ! empty( $purge_ids ) ) {
+				RWGO_Cache_Compat::purge_post_ids( $purge_ids );
+				return;
+			}
+			RWGO_Cache_Compat::purge_experiment_change( is_array( $old ) ? $old : array(), $cfg, 'saved' );
+			return;
+		}
 		if ( is_array( $purge_ids ) ) {
 			if ( ! empty( $purge_ids ) ) {
 				self::purge_ids( $purge_ids );
@@ -3730,6 +3944,10 @@ class RWGO_Sitewide {
 	 * @return void
 	 */
 	private static function purge_ids( array $ids ) {
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::purge_post_ids( $ids );
+			return;
+		}
 		foreach ( $ids as $id ) {
 			$id = (int) $id;
 			if ( $id <= 0 ) {
@@ -3751,6 +3969,10 @@ class RWGO_Sitewide {
 	 */
 	private static function purge_config( $cfg ) {
 		if ( ! is_array( $cfg ) ) {
+			return;
+		}
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::purge_experiment_change( array(), $cfg, 'saved' );
 			return;
 		}
 		foreach ( self::page_map( $cfg ) as $row ) {

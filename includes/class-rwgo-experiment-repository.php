@@ -69,7 +69,11 @@ class RWGO_Experiment_Repository {
 		if ( empty( $merged['created_gmt'] ) ) {
 			$merged['created_gmt'] = $merged['updated_gmt'];
 		}
-		return (bool) update_post_meta( $post_id, self::META_KEY, wp_json_encode( $merged ) );
+		$saved = (bool) update_post_meta( $post_id, self::META_KEY, wp_json_encode( $merged ) );
+		if ( $saved && class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::purge_experiment_change( $prev, $merged );
+		}
+		return $saved;
 	}
 
 	/**

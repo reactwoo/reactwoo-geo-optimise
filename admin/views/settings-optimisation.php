@@ -15,6 +15,8 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-setti
 
 $builder_mode = isset( $settings['builder_mode'] ) ? sanitize_key( (string) $settings['builder_mode'] ) : 'recommended';
 $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
+$rwgo_cache_notice = class_exists( 'RWGO_Cache_Compat', false ) ? RWGO_Cache_Compat::consume_clear_notice() : '';
+$rwgo_cache_labels = class_exists( 'RWGO_Cache_Compat', false ) ? RWGO_Cache_Compat::active_adapter_labels() : array();
 ?>
 <?php if ( ! $rwgo_hub_embed ) : ?>
 <div class="wrap rwgc-wrap rwgc-suite rwgo-wrap rwgo-wrap--settings">
@@ -35,6 +37,9 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 <?php else : ?>
 <div class="rwgo-optimise-hub__embed rwgo-optimise-hub__embed--settings">
 <?php endif; ?>
+	<?php if ( '' !== $rwgo_cache_notice ) : ?>
+		<div class="notice notice-success is-dismissible"><p><?php echo esc_html( $rwgo_cache_notice ); ?></p></div>
+	<?php endif; ?>
 	<form method="post" action="options.php" class="rwgo-panel">
 		<?php settings_fields( 'rwgo_license_group' ); ?>
 		<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="optimisation" />
@@ -116,6 +121,31 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 		<p class="rwgo-actions rwgo-actions--form-submit">
 			<?php submit_button( __( 'Save settings', 'reactwoo-geo-optimise' ), 'primary', 'submit', false, array( 'class' => 'button button-primary rwgo-btn rwgo-btn--primary' ) ); ?>
 		</p>
+	</form>
+
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="rwgo-panel">
+		<h2 class="rwgo-section__title"><?php esc_html_e( 'Page cache', 'reactwoo-geo-optimise' ); ?></h2>
+		<p class="rwgo-section__lead"><?php esc_html_e( 'LiteSpeed stores the control page and variant B separately, using the experiment assignment cookie. Saving, starting, stopping, or promoting a test clears those original and variant URLs.', 'reactwoo-geo-optimise' ); ?></p>
+		<?php wp_nonce_field( 'rwgo_clear_optimise_cache' ); ?>
+		<input type="hidden" name="action" value="rwgo_clear_optimise_cache" />
+		<p class="rwgo-actions rwgo-actions--form-submit">
+			<?php submit_button( __( 'Clear Optimise cache', 'reactwoo-geo-optimise' ), 'secondary', 'submit', false, array( 'id' => 'rwgo-clear-optimise-cache', 'class' => 'button button-secondary rwgo-btn rwgo-btn--secondary' ) ); ?>
+		</p>
+		<?php if ( ! empty( $rwgo_cache_labels ) ) : ?>
+			<p class="rwgo-setting-row__hint">
+				<?php
+				echo esc_html(
+					sprintf(
+						/* translators: %s: comma-separated plugin names. */
+						__( 'Detected: %s.', 'reactwoo-geo-optimise' ),
+						implode( ', ', $rwgo_cache_labels )
+					)
+				);
+				?>
+			</p>
+		<?php else : ?>
+			<p class="rwgo-setting-row__hint"><?php esc_html_e( 'No supported page-cache plugin is active. Public caching stays unchanged.', 'reactwoo-geo-optimise' ); ?></p>
+		<?php endif; ?>
 	</form>
 <?php if ( ! $rwgo_hub_embed ) : ?>
 	</div>

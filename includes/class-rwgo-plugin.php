@@ -57,6 +57,7 @@ class RWGO_Plugin {
 
 		require_once RWGO_PATH . 'includes/class-rwgo-stats.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-assignment.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-cache-compat.php';
 		require_once RWGO_PATH . 'includes/functions-rwgo.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-core-event-bridge.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-events.php';
@@ -147,6 +148,7 @@ class RWGO_Plugin {
 		RWGO_Elementor_Page_Goal::init();
 		RWGO_Runtime::init();
 		RWGO_Sitewide::init();
+		RWGO_Cache_Compat::init();
 		if ( class_exists( 'RWGO_Measurement_Stamper', false ) ) {
 			add_action( 'rwgo_post_duplicate_variant', array( 'RWGO_Measurement_Stamper', 'on_post_duplicate_variant' ), 20, 2 );
 		}

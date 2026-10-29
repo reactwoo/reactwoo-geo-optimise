@@ -212,6 +212,18 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success">
 				<p class="rwgo-alert__text"><strong><?php esc_html_e( 'Test created.', 'reactwoo-geo-optimise' ); ?></strong>
 				<?php esc_html_e( 'It appears in the list below. Open Edit Test to review goals and targeting.', 'reactwoo-geo-optimise' ); ?></p>
+				<?php
+				$rwgo_tc_vb_status = ( $rwgo_tc_vb > 0 && function_exists( 'get_post_status' ) ) ? (string) get_post_status( $rwgo_tc_vb ) : '';
+				$rwgo_tc_vb_draft  = class_exists( 'RWGO_Experiment_Service', false ) && RWGO_Experiment_Service::variant_status_blocks_traffic( $rwgo_tc_vb_status );
+				?>
+				<?php if ( $rwgo_tc_vb_draft ) : ?>
+					<div class="notice notice-warning inline" style="margin:10px 0 0;padding:8px 12px;">
+						<p class="rwgo-alert__text" style="margin:0;">
+							<strong><?php esc_html_e( 'Variant B is still a draft, so it receives no traffic.', 'reactwoo-geo-optimise' ); ?></strong>
+							<?php esc_html_e( 'Every visitor sees Control until you publish Variant B. The duplicate stays a draft so you can review it before it goes live.', 'reactwoo-geo-optimise' ); ?>
+						</p>
+					</div>
+				<?php endif; ?>
 				<?php if ( $rwgo_tc_need_goal ) : ?>
 					<div class="notice notice-warning inline" style="margin:10px 0 0;padding:8px 12px;">
 						<p class="rwgo-alert__text" style="margin:0;">

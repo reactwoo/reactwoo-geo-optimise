@@ -224,6 +224,7 @@ class RWGO_Page_Duplicator {
 		}
 
 		self::copy_post_meta( $post_id, $new_id );
+		self::persist_elementor_data_json( $new_id );
 		self::strip_geo_route_meta_from_variant( $new_id );
 		self::reset_elementor_generated_assets( $new_id );
 
@@ -298,9 +299,22 @@ class RWGO_Page_Duplicator {
 		if ( method_exists( $src_doc, 'is_built_with_elementor' ) && ! $src_doc->is_built_with_elementor() ) {
 			return;
 		}
-		$elements = null;
-		if ( method_exists( $src_doc, 'get_elements_data' ) ) {
-			$elements = $src_doc->get_elements_data();
+		$raw     = get_post_meta( $new_id, '_elementor_data', true );
+		$decoded = self::decode_elementor_data( $raw );
+		$json    = self::elementor_data_json( $raw );
+		if ( is_string( $json ) && '' !== $json && ! is_string( $raw ) ) {
+			update_post_meta( $new_id, '_elementor_data', wp_slash( $json ) );
+		}
+		// Elementor's document save rewrites the tree and drops Atomic V4 props
+		// ($$type, styles, e-* widgets). A faithful meta copy is the duplicate.
+		if ( ! self::elementor_duplicate_should_resave( $decoded ) ) {
+			return;
+		}
+		$elements = $decoded;
+		if ( null === $elements || ! is_array( $elements ) ) {
+			if ( method_exists( $src_doc, 'get_elements_data' ) ) {
+				$elements = $src_doc->get_elements_data();
+			}
 		}
 		if ( null === $elements || ! is_array( $elements ) ) {
 			return;
@@ -329,6 +343,12 @@ class RWGO_Page_Duplicator {
 				false,
 				array( 'message' => $e->getMessage() )
 			);
+		}
+		$after    = get_post_meta( $new_id, '_elementor_data', true );
+		$failures = self::elementor_duplicate_failures( $json, $after, 'builder', 'builder' );
+		$broken   = array( 'dest_elementor_data_empty', 'dest_elementor_data_invalid_json', 'dest_data_suspiciously_smaller' );
+		if ( is_string( $json ) && '' !== $json && array() !== array_intersect( $broken, $failures ) ) {
+			update_post_meta( $new_id, '_elementor_data', wp_slash( $json ) );
 		}
 	}
 
@@ -429,47 +449,22 @@ class RWGO_Page_Duplicator {
 	private static function validate_elementor_duplicate( $source_id, $dest_id ) {
 		$source_id = (int) $source_id;
 		$dest_id   = (int) $dest_id;
-		$failed    = array();
-
-		$src_data = get_post_meta( $source_id, '_elementor_data', true );
-		$dst_data = get_post_meta( $dest_id, '_elementor_data', true );
-		$src_len  = is_string( $src_data ) ? strlen( $src_data ) : 0;
-		$dst_len  = is_string( $dst_data ) ? strlen( $dst_data ) : 0;
-
-		if ( $src_len < 2 ) {
-			$failed[] = 'source_elementor_data_empty';
-		}
-		if ( $dst_len < 2 ) {
-			$failed[] = 'dest_elementor_data_empty';
-		}
-		if ( is_string( $src_data ) && '' !== $src_data ) {
-			json_decode( $src_data, true );
-			if ( JSON_ERROR_NONE !== json_last_error() ) {
-				$failed[] = 'source_elementor_data_invalid_json';
-			}
-		}
-		if ( is_string( $dst_data ) && '' !== $dst_data ) {
-			json_decode( $dst_data, true );
-			if ( JSON_ERROR_NONE !== json_last_error() ) {
-				$failed[] = 'dest_elementor_data_invalid_json';
-			}
-		}
-
-		$src_mode = (string) get_post_meta( $source_id, '_elementor_edit_mode', true );
-		$dst_mode = (string) get_post_meta( $dest_id, '_elementor_edit_mode', true );
-		if ( 'builder' === $src_mode && 'builder' !== $dst_mode ) {
-			$failed[] = 'dest_edit_mode_not_builder';
-		}
-
-		if ( $src_len > 500 && $dst_len > 0 && $dst_len < max( 200, (int) floor( $src_len * 0.45 ) ) ) {
-			$failed[] = 'dest_data_suspiciously_smaller';
-		}
+		$src_data  = get_post_meta( $source_id, '_elementor_data', true );
+		$dst_data  = get_post_meta( $dest_id, '_elementor_data', true );
+		$src_mode  = (string) get_post_meta( $source_id, '_elementor_edit_mode', true );
+		$dst_mode  = (string) get_post_meta( $dest_id, '_elementor_edit_mode', true );
+		$failed    = self::elementor_duplicate_failures( $src_data, $dst_data, $src_mode, $dst_mode );
+		$src       = self::decode_elementor_data( $src_data );
+		$dst       = self::decode_elementor_data( $dst_data );
+		$src_json  = is_array( $src ) ? (string) wp_json_encode( $src ) : '';
+		$dst_json  = is_array( $dst ) ? (string) wp_json_encode( $dst ) : '';
 
 		$checks = array(
-			'source_data_len' => $src_len,
-			'dest_data_len'   => $dst_len,
+			'source_data_len' => strlen( $src_json ),
+			'dest_data_len'   => strlen( $dst_json ),
 			'source_mode'     => $src_mode,
 			'dest_mode'       => $dst_mode,
+			'atomic'          => self::elementor_document_is_atomic( is_array( $src ) ? $src : array() ),
 			'failed_checks'   => $failed,
 		);
 
@@ -611,25 +606,19 @@ class RWGO_Page_Duplicator {
 		if ( is_wp_error( $upd ) ) {
 			return $upd;
 		}
-		$elementor_keys = array(
-			'_elementor_data',
-			'_elementor_edit_mode',
-			'_elementor_page_settings',
-			'_elementor_template_type',
-			'_elementor_version',
-			'_wp_page_template',
-		);
-		foreach ( $elementor_keys as $ek ) {
-			$v = get_post_meta( $from_id, $ek, true );
-			if ( '' === $v || false === $v ) {
+		$source_meta = get_post_meta( $from_id );
+		$copied      = self::elementor_meta_for_copy( is_array( $source_meta ) ? $source_meta : array() );
+		foreach ( $copied as $ek => $v ) {
+			if ( '' === $v || false === $v || array() === $v ) {
 				delete_post_meta( $to_id, $ek );
-			} else {
-				// Re-slash: get_post_meta() is unslashed, update_post_meta()
-				// expects slashed data, otherwise Elementor JSON backslashes
-				// are stripped and _elementor_data becomes malformed.
-				update_post_meta( $to_id, $ek, wp_slash( $v ) );
+				continue;
 			}
+			// Re-slash: get_post_meta() is unslashed, update_post_meta()
+			// expects slashed data, otherwise Elementor JSON backslashes
+			// are stripped and _elementor_data becomes malformed.
+			update_post_meta( $to_id, $ek, wp_slash( $v ) );
 		}
+		self::persist_elementor_data_json( $to_id );
 		self::clear_elementor_generated_meta( $to_id );
 		$thumb = get_post_thumbnail_id( $from_id );
 		if ( $thumb ) {
@@ -753,23 +742,12 @@ class RWGO_Page_Duplicator {
 		if ( ! is_array( $meta ) ) {
 			return;
 		}
-		$elementor_keys = array(
-			'_elementor_data',
-			'_elementor_edit_mode',
-			'_elementor_page_settings',
-			'_elementor_template_type',
-			'_elementor_version',
-			'_wp_page_template',
-		);
 		$skip_keys = array(
 			'_edit_lock',
 			'_edit_last',
+			'_wp_page_template',
 		);
 		$skip_keys = array_merge( $skip_keys, self::elementor_generated_meta_keys() );
-		// Elementor meta is copied explicitly below with correct slashing; never
-		// let the generic loop write it unslashed (that strips backslashes from
-		// the stored JSON and corrupts _elementor_data / _elementor_page_settings).
-		$skip_keys = array_merge( $skip_keys, $elementor_keys );
 		/**
 		 * Meta keys to skip when copying to a duplicate (avoid stale generated assets).
 		 *
@@ -785,6 +763,9 @@ class RWGO_Page_Duplicator {
 			if ( in_array( $key, $skip_keys, true ) ) {
 				continue;
 			}
+			if ( self::should_copy_elementor_meta_key( $key ) || '_wp_page_template' === $key ) {
+				continue;
+			}
 			if ( 0 === strpos( $key, '_elementor_css' ) || 0 === strpos( $key, '_elementor_element_cache' ) ) {
 				continue;
 			}
@@ -792,13 +773,14 @@ class RWGO_Page_Duplicator {
 				continue;
 			}
 			foreach ( $values as $v ) {
-				add_post_meta( $dest_id, $key, wp_slash( maybe_unserialize( $v ) ) );
+				$stored = function_exists( 'maybe_unserialize' ) ? maybe_unserialize( $v ) : $v;
+				add_post_meta( $dest_id, $key, wp_slash( $stored ) );
 			}
 		}
 
-		foreach ( $elementor_keys as $ek ) {
-			$one = get_post_meta( $source_id, $ek, true );
-			if ( '' === $one || false === $one ) {
+		$copied = self::elementor_meta_for_copy( $meta );
+		foreach ( $copied as $ek => $one ) {
+			if ( '' === $one || false === $one || array() === $one ) {
 				continue;
 			}
 			// get_post_meta() returns unslashed data; update_post_meta() expects
@@ -834,6 +816,231 @@ class RWGO_Page_Duplicator {
 		$prefix = $wpdb->esc_like( '_rwgc_route_' ) . '%';
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 		$wpdb->query( $wpdb->prepare( "DELETE FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_key LIKE %s", $variant_id, $prefix ) );
+	}
+
+	/**
+	 * Whether this meta key is Elementor document data that must be copied.
+	 *
+	 * Generated CSS and the element render cache are not document data.
+	 *
+	 * @param string $key Meta key.
+	 * @return bool
+	 */
+	public static function should_copy_elementor_meta_key( $key ) {
+		if ( ! is_string( $key ) || 0 !== strpos( $key, '_elementor_' ) ) {
+			return false;
+		}
+		if ( 0 === strpos( $key, '_elementor_css' ) || 0 === strpos( $key, '_elementor_element_cache' ) ) {
+			return false;
+		}
+		foreach ( self::elementor_generated_meta_keys() as $skip ) {
+			if ( $key === $skip ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Elementor meta to write onto a duplicate, with `_elementor_data` as JSON.
+	 *
+	 * @param array<string, mixed> $meta get_post_meta() shape, key => list of values.
+	 * @return array<string, mixed>
+	 */
+	public static function elementor_meta_for_copy( array $meta ) {
+		$out = array();
+		foreach ( $meta as $key => $values ) {
+			if ( ! is_string( $key ) ) {
+				continue;
+			}
+			$copy = self::should_copy_elementor_meta_key( $key ) || '_wp_page_template' === $key;
+			if ( ! $copy || ! is_array( $values ) || ! array_key_exists( 0, $values ) ) {
+				continue;
+			}
+			$value = $values[0];
+			if ( function_exists( 'maybe_unserialize' ) ) {
+				$value = maybe_unserialize( $value );
+			}
+			if ( '_elementor_data' === $key ) {
+				$json = self::elementor_data_json( $value );
+				if ( '' === $json ) {
+					continue;
+				}
+				$out[ $key ] = $json;
+				continue;
+			}
+			if ( '' === $value || false === $value || null === $value ) {
+				continue;
+			}
+			$out[ $key ] = $value;
+		}
+		return $out;
+	}
+
+	/**
+	 * Decode Elementor document JSON. Arrays (already decoded, including V4) pass through.
+	 *
+	 * @param mixed $value Raw meta.
+	 * @return array<int|string, mixed>|null
+	 */
+	public static function decode_elementor_data( $value ) {
+		if ( is_array( $value ) ) {
+			return $value;
+		}
+		if ( ! is_string( $value ) ) {
+			return null;
+		}
+		$value = trim( $value );
+		if ( '' === $value ) {
+			return null;
+		}
+		$decoded = json_decode( $value, true );
+		if ( is_array( $decoded ) ) {
+			return $decoded;
+		}
+		$stripped = stripslashes( $value );
+		if ( $stripped !== $value ) {
+			$decoded = json_decode( $stripped, true );
+			if ( is_array( $decoded ) ) {
+				return $decoded;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Canonical JSON for `_elementor_data`, preserving Atomic V4 nodes.
+	 *
+	 * @param mixed $value Raw meta.
+	 * @return string Empty when the value is not a document.
+	 */
+	public static function elementor_data_json( $value ) {
+		$decoded = self::decode_elementor_data( $value );
+		if ( ! is_array( $decoded ) ) {
+			return '';
+		}
+		$json = wp_json_encode( $decoded );
+		return is_string( $json ) ? $json : '';
+	}
+
+	/**
+	 * @param mixed $data Decoded document or raw meta.
+	 * @return bool
+	 */
+	public static function elementor_document_is_atomic( $data ) {
+		$decoded = is_array( $data ) ? $data : self::decode_elementor_data( $data );
+		if ( ! is_array( $decoded ) ) {
+			return false;
+		}
+		return self::elementor_nodes_are_atomic( $decoded );
+	}
+
+	/**
+	 * Classic documents may be re-saved through Elementor. Atomic V4 documents must not.
+	 *
+	 * @param mixed $data Decoded document.
+	 * @return bool
+	 */
+	public static function elementor_duplicate_should_resave( $data ) {
+		if ( ! is_array( $data ) || array() === $data ) {
+			return false;
+		}
+		if ( self::elementor_document_is_atomic( $data ) ) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Built-in Elementor duplicate checks. Atomic data stored as an array is valid.
+	 *
+	 * @param mixed  $source_raw  Source `_elementor_data`.
+	 * @param mixed  $dest_raw    Duplicate `_elementor_data`.
+	 * @param string $source_mode Source `_elementor_edit_mode`.
+	 * @param string $dest_mode   Duplicate `_elementor_edit_mode`.
+	 * @return array<int, string>
+	 */
+	public static function elementor_duplicate_failures( $source_raw, $dest_raw, $source_mode, $dest_mode ) {
+		$failed = array();
+		$src    = self::decode_elementor_data( $source_raw );
+		$dst    = self::decode_elementor_data( $dest_raw );
+		if ( ! is_array( $src ) ) {
+			$failed[] = 'source_elementor_data_empty';
+			if ( is_string( $source_raw ) && '' !== trim( $source_raw ) ) {
+				$failed[] = 'source_elementor_data_invalid_json';
+			}
+		}
+		if ( ! is_array( $dst ) ) {
+			$failed[] = 'dest_elementor_data_empty';
+			if ( is_string( $dest_raw ) && '' !== trim( $dest_raw ) ) {
+				$failed[] = 'dest_elementor_data_invalid_json';
+			}
+		}
+		if ( 'builder' === (string) $source_mode && 'builder' !== (string) $dest_mode ) {
+			$failed[] = 'dest_edit_mode_not_builder';
+		}
+		if ( is_array( $src ) && is_array( $dst ) ) {
+			$src_json = wp_json_encode( $src );
+			$dst_json = wp_json_encode( $dst );
+			$src_len  = is_string( $src_json ) ? strlen( $src_json ) : 0;
+			$dst_len  = is_string( $dst_json ) ? strlen( $dst_json ) : 0;
+			if ( $src_len > 500 && $dst_len > 0 && $dst_len < max( 200, (int) floor( $src_len * 0.45 ) ) ) {
+				$failed[] = 'dest_data_suspiciously_smaller';
+			}
+		}
+		return $failed;
+	}
+
+	/**
+	 * @param array<int|string, mixed> $nodes Element tree.
+	 * @return bool
+	 */
+	private static function elementor_nodes_are_atomic( array $nodes ) {
+		foreach ( $nodes as $node ) {
+			if ( ! is_array( $node ) ) {
+				continue;
+			}
+			$type = isset( $node['widgetType'] ) ? (string) $node['widgetType'] : '';
+			if ( '' !== $type && 0 === strpos( $type, 'e-' ) ) {
+				return true;
+			}
+			if ( ! empty( $node['styles'] ) && is_array( $node['styles'] ) ) {
+				return true;
+			}
+			if ( ! empty( $node['interactions'] ) && is_array( $node['interactions'] ) ) {
+				return true;
+			}
+			if ( isset( $node['settings'] ) && is_array( $node['settings'] ) ) {
+				foreach ( $node['settings'] as $value ) {
+					if ( is_array( $value ) && isset( $value['$$type'] ) ) {
+						return true;
+					}
+				}
+			}
+			if ( ! empty( $node['elements'] ) && is_array( $node['elements'] ) && self::elementor_nodes_are_atomic( $node['elements'] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Store `_elementor_data` as JSON when it was read back as an array.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return void
+	 */
+	private static function persist_elementor_data_json( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! function_exists( 'get_post_meta' ) || ! function_exists( 'update_post_meta' ) ) {
+			return;
+		}
+		$raw  = get_post_meta( $post_id, '_elementor_data', true );
+		$json = self::elementor_data_json( $raw );
+		if ( '' === $json || ( is_string( $raw ) && $raw === $json ) ) {
+			return;
+		}
+		update_post_meta( $post_id, '_elementor_data', wp_slash( $json ) );
 	}
 
 	/**

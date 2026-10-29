@@ -189,6 +189,23 @@ class RWGO_Experiment_Service {
 	}
 
 	/**
+	 * Draft, pending, and private variants are not served to visitors.
+	 *
+	 * Publishing is left to the merchant. A running test keeps every visitor on
+	 * Control until Variant B is public.
+	 *
+	 * @param string $post_status Post status.
+	 * @return bool
+	 */
+	public static function variant_status_blocks_traffic( $post_status ) {
+		$status = sanitize_key( (string) $post_status );
+		if ( '' === $status ) {
+			return false;
+		}
+		return 'publish' !== $status;
+	}
+
+	/**
 	 * Whether Variant B exists and can be used for assignment / redirects (incomplete tests stay on Control only).
 	 *
 	 * @param array<string, mixed> $config Repository config.

@@ -9,6 +9,11 @@
 		return;
 	}
 
+	// Cached HTML must not supply the goal nonce. It is fetched from restNonceUrl.
+	cfg.nonce = '';
+	var nonceReady = false;
+	var noncePending = [];
+
 	if (typeof window !== 'undefined') {
 		window.rwgoTrackingStrictBinding = !!cfg.strictBinding;
 	}
@@ -205,12 +210,23 @@
 	}
 
 	function persistToRest(detail) {
-		if (!cfg.persistClientGoals || !cfg.restUrl || !cfg.nonce) {
+		if (!cfg.persistClientGoals || !cfg.restUrl) {
 			if (cfg.trackClientDebug) {
-				rwgoWarn('[RWGO] Client goal not sent — check persistClientGoals, restUrl, nonce.', {
+				rwgoWarn('[RWGO] Client goal not sent — check persistClientGoals and restUrl.', {
 					persistClientGoals: cfg.persistClientGoals,
-					hasRestUrl: !!cfg.restUrl,
-					hasNonce: !!cfg.nonce
+					hasRestUrl: !!cfg.restUrl
+				});
+			}
+			return;
+		}
+		if (!nonceReady) {
+			noncePending.push(detail);
+			return;
+		}
+		if (!cfg.nonce) {
+			if (cfg.trackClientDebug) {
+				rwgoWarn('[RWGO] Client goal not sent — fresh nonce unavailable.', {
+					hasNonce: false
 				});
 			}
 			return;
@@ -703,38 +719,64 @@
 		};
 	}
 
+	function flushNonceQueue() {
+		var queued = noncePending;
+		noncePending = [];
+		for (var i = 0; i < queued.length; i++) {
+			persistToRest(queued[i]);
+		}
+	}
+
+	function fetchFreshNonce() {
+		if (!cfg.restNonceUrl || typeof fetch === 'undefined') {
+			nonceReady = true;
+			flushNonceQueue();
+			return;
+		}
+		var url = cfg.restNonceUrl;
+		var join = url.indexOf('?') === -1 ? '?' : '&';
+		url = url + join + 'rwgo_nocache=' + Date.now();
+		fetch(url, {
+			method: 'GET',
+			credentials: 'same-origin',
+			cache: 'no-store',
+			headers: { Accept: 'application/json' }
+		})
+			.then(function (r) {
+				return r.json();
+			})
+			.then(function (data) {
+				if (data && data.nonce) {
+					cfg.nonce = String(data.nonce);
+				}
+				if (data && data.restUrl) {
+					cfg.restUrl = data.restUrl;
+				}
+			})
+			.catch(function (err) {
+				cfg.nonce = '';
+				if (cfg.trackClientDebug) {
+					rwgoWarn('[RWGO] Fresh nonce fetch failed; goal REST skipped.', err);
+				}
+			})
+			.finally(function () {
+				nonceReady = true;
+				flushNonceQueue();
+			});
+	}
+
 	function bootstrapTracking() {
 		function go() {
 			initTracking();
 			exposeDiagnostics();
 		}
-		if (cfg.restNonceUrl) {
-			fetch(cfg.restNonceUrl, { credentials: 'same-origin', cache: 'no-store' })
-				.then(function (r) {
-					return r.json();
-				})
-				.then(function (data) {
-					if (data && data.nonce) {
-						cfg.nonce = data.nonce;
-					}
-					if (data && data.restUrl) {
-						cfg.restUrl = data.restUrl;
-					}
-				})
-				.catch(function (err) {
-					if (cfg.trackClientDebug) {
-						rwgoWarn('[RWGO] Fresh nonce fetch failed; using embedded nonce (may 403 if cached HTML).', err);
-					}
-				})
-				.finally(go);
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', go);
 		} else {
 			go();
 		}
 	}
 
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', bootstrapTracking);
-	} else {
-		bootstrapTracking();
-	}
+	fetchFreshNonce();
+	bootstrapTracking();
 })();

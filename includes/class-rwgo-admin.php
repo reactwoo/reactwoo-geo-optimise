@@ -909,7 +909,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_test_license() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_test_license' );
 		if ( class_exists( 'RWGO_Platform_Client', false ) ) {
@@ -1257,7 +1257,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_resync_page_bindings() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_resync_page_bindings' );
 		$stats = self::resync_page_bindings_stats();
@@ -1282,7 +1282,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_resync_goal_physical_ids() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_resync_goal_physical_ids' );
 		$stats = self::resync_goal_physical_ids_stats();
@@ -1305,7 +1305,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_resync_all_safe() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_resync_all_safe' );
 		$page_stats = self::resync_page_bindings_stats();
@@ -1335,7 +1335,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_sync_measurement_keys() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_sync_measurement_keys' );
 		$scanned = 0;
@@ -1382,7 +1382,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_create_blueprint_page() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_create_blueprint_page' );
 
@@ -1422,7 +1422,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_download_gtm_pack() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		$exp_id = isset( $_GET['experiment_id'] ) ? absint( wp_unslash( $_GET['experiment_id'] ) ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		check_admin_referer( 'rwgo_download_gtm_pack_' . $exp_id );
@@ -1475,7 +1475,7 @@ class RWGO_Admin {
 
 	public static function handle_reset_counts() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_reset_counts' );
 		delete_option( 'rwgo_geo_event_count' );
@@ -1514,7 +1514,7 @@ class RWGO_Admin {
 	 */
 	private static function mutate_test_status( $status, $nonce_action ) {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( $nonce_action );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1539,7 +1539,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_duplicate_test() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_duplicate_test' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1596,7 +1596,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_promote_variant() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_promote_variant' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1658,7 +1658,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_redirect_rule_toggle() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_redirect_rule_toggle' );
 		$id = isset( $_POST['rwgo_redirect_id'] ) ? (int) $_POST['rwgo_redirect_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1684,7 +1684,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_redirect_rule_delete() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_redirect_rule_delete' );
 		$id = isset( $_POST['rwgo_redirect_id'] ) ? (int) $_POST['rwgo_redirect_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1704,7 +1704,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_detach_variant() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_detach_variant' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1736,7 +1736,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_regenerate_variant() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_regenerate_variant' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1765,7 +1765,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_delete_test() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_delete_test' );
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
@@ -1782,7 +1782,7 @@ class RWGO_Admin {
 			exit;
 		}
 		if ( ! current_user_can( 'delete_post', $exp_id ) ) {
-			wp_die( esc_html__( 'You do not have permission to delete this test.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'You do not have permission to delete this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		$cfg      = RWGO_Experiment_Repository::get_config( $exp_id );
 		$src_id   = (int) ( $cfg['source_page_id'] ?? 0 );
@@ -1833,7 +1833,7 @@ class RWGO_Admin {
 	 */
 	public static function handle_export_stats() {
 		if ( ! self::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_export_stats' );
 		if ( ! class_exists( 'RWGO_Stats', false ) ) {

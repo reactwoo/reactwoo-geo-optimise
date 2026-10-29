@@ -142,9 +142,15 @@ class RWGO_Runtime {
 			return;
 		}
 
-		$config['restUrl']      = rest_url( 'rwgo/v1/goal' );
-		$config['restNonceUrl'] = rest_url( 'rwgo/v1/tracking-nonce' );
-		$config['nonce']        = wp_create_nonce( RWGO_REST_Tracking::NONCE_ACTION );
+		$transport = class_exists( 'RWGO_Cache_Compat', false )
+			? RWGO_Cache_Compat::public_tracking_fields( rest_url( 'rwgo/v1/goal' ), rest_url( 'rwgo/v1/tracking-nonce' ) )
+			: array(
+				'restUrl'      => rest_url( 'rwgo/v1/goal' ),
+				'restNonceUrl' => rest_url( 'rwgo/v1/tracking-nonce' ),
+			);
+		$config['restUrl']      = $transport['restUrl'];
+		$config['restNonceUrl'] = $transport['restNonceUrl'];
+		unset( $config['nonce'] );
 		/**
 		 * Persist browser goal events via REST into wp_rwgo_events (in addition to dataLayer).
 		 *
