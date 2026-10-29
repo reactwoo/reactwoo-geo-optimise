@@ -184,4 +184,84 @@ $check(
 	&& 'https://example.com/variant-page/' === RWGO_Sitewide::canonical_url_for_variant( 'https://example.com/variant-page/', 'control', 'https://example.com/original/' )
 );
 
+$priorities = RWGO_Sitewide::swapped_content_hook_priorities();
+$sitewide_src = (string) file_get_contents( dirname( __DIR__ ) . '/includes/class-rwgo-sitewide.php' );
+$check(
+	'content filter once',
+	1 === count( $priorities )
+	&& 0 === $priorities[0]
+	&& 1 === preg_match_all( "/add_filter\(\s*'the_content',\s*array\(\s*__CLASS__,\s*'filter_swapped_variant_content'\s*\)/", $sitewide_src )
+);
+$check( 'idle content filter', 'Body' === RWGO_Sitewide::filter_swapped_variant_content( 'Body' ) );
+
+$coverage = array(
+	'mapping_mode'          => 'all_published',
+	'exclude_system_pages'  => true,
+	'exclude_page_ids'      => array( 4 ),
+	'future_pages'          => 'skip',
+	'coverage_baseline_gmt' => 2000,
+	'page_map'              => array(
+		array(
+			'source_page_id'  => 7,
+			'variant_page_id' => 8,
+			'source_path'     => '/about/',
+			'variant_path'    => '/about-variant-b/',
+		),
+	),
+);
+$page = static function ( $id, $slug, $created, $status = 'publish' ) {
+	return array(
+		'id'          => $id,
+		'status'      => $status,
+		'type'        => 'page',
+		'slug'        => $slug,
+		'created_gmt' => $created,
+		'variant_of'  => 0,
+	);
+};
+$check( 'checkout excluded', 'excluded' === RWGO_Sitewide::resolve_page_coverage( $page( 12, 'checkout', 1500 ), $coverage ) );
+$check( 'cart excluded', 'excluded' === RWGO_Sitewide::resolve_page_coverage( $page( 13, 'cart', 1500 ), $coverage ) );
+$check( 'account excluded', 'excluded' === RWGO_Sitewide::resolve_page_coverage( $page( 14, 'my-account', 1500 ), $coverage ) );
+$check( 'selected id excluded', 'excluded' === RWGO_Sitewide::resolve_page_coverage( $page( 4, 'legal', 1500 ), $coverage ) );
+$check( 'mapped stays mapped', 'mapped' === RWGO_Sitewide::resolve_page_coverage( $page( 7, 'about', 1500 ), $coverage ) );
+$check( 'current page eligible', 'eligible' === RWGO_Sitewide::resolve_page_coverage( $page( 9, 'contact', 1500 ), $coverage ) );
+$check( 'later page skipped', 'skipped_future' === RWGO_Sitewide::resolve_page_coverage( $page( 21, 'later', 2500 ), $coverage ) );
+$include = $coverage;
+$include['future_pages'] = 'include';
+$check( 'later page included', 'eligible' === RWGO_Sitewide::resolve_page_coverage( $page( 21, 'later', 2500 ), $include ) );
+$bulk = RWGO_Sitewide::select_bulk_pages(
+	array(
+		$page( 9, 'contact', 1500 ),
+		$page( 12, 'checkout', 1500 ),
+		$page( 21, 'later', 2500 ),
+	),
+	$coverage,
+	'all',
+	array()
+);
+$check( 'bulk all skips exclusions and later pages', 1 === count( $bulk ) && 9 === (int) $bulk[0]['id'] );
+$picked = RWGO_Sitewide::select_bulk_pages(
+	array(
+		$page( 9, 'contact', 1500 ),
+		$page( 12, 'checkout', 1500 ),
+		$page( 21, 'later', 2500 ),
+	),
+	$coverage,
+	'selected',
+	array( 21, 12 )
+);
+$check( 'bulk selected can add a later page', 1 === count( $picked ) && 21 === (int) $picked[0]['id'] );
+$merged = RWGO_Sitewide::append_map_rows(
+	$coverage['page_map'],
+	array(
+		array(
+			'source_page_id'  => 9,
+			'variant_page_id' => 19,
+			'source_path'     => '/contact/',
+			'variant_path'    => '/contact-variant-b/',
+		),
+	)
+);
+$check( 'map keeps existing pair and appends', 2 === count( $merged ) && 8 === $merged[0]['variant_page_id'] && 19 === $merged[1]['variant_page_id'] );
+
 exit( $fail > 0 ? 1 : 0 );

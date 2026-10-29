@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.4.98
+Stable tag: 0.5.0
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,10 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.0 =
+* **Added:** Site-wide tests can cover all published pages, leaving out checkout, cart, my-account, and chosen page IDs. A bulk action copies the selected pages or every eligible page into variants and fills the page map. Pages published later can be included or skipped. Visitors still get one arm, the original URL, a redirect from the variant URL, and the control page for bots.
+* **Fix:** The site-wide variant content filter runs once, before the normal content filters, instead of again after them.
 
 = 0.4.98 =
 * **Fix:** Split-test responses send `Vary: Cookie` once. A second cache pass no longer appends another copy of the header.

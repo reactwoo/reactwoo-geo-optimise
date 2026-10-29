@@ -5,6 +5,14 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-29
+
+### Added
+- Site-wide tests can cover all published pages. Checkout, cart, my-account, and chosen page IDs stay out. A bulk action copies the selected pages, or every eligible published page, with the page duplicator and writes those pairs into the page map. Pages published after that choice can be included or skipped. The public request still reads the stored map: one arm per visitor, original URLs unchanged, variant URLs redirect back, and bots receive the control page.
+
+### Fixed
+- The swapped variant content filter is registered once, at priority 0, so it does not run again after formatting filters.
+
 ## [0.4.98] - 2026-10-23
 
 ### Fixed

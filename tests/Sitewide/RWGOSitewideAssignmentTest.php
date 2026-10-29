@@ -406,4 +406,196 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertArrayNotHasKey( 'site', $parts );
 		$this->assertArrayNotHasKey( 'tagline', $parts );
 	}
+
+	public function test_swapped_content_filter_is_registered_once(): void {
+		$priorities = RWGO_Sitewide::swapped_content_hook_priorities();
+		$this->assertCount( 1, $priorities );
+		$this->assertSame( 0, $priorities[0] );
+		$source = (string) file_get_contents( dirname( __DIR__, 2 ) . '/includes/class-rwgo-sitewide.php' );
+		$this->assertSame(
+			1,
+			preg_match_all( "/add_filter\(\s*'the_content',\s*array\(\s*__CLASS__,\s*'filter_swapped_variant_content'\s*\)/", $source )
+		);
+		$this->assertSame( 'Body', RWGO_Sitewide::filter_swapped_variant_content( 'Body' ) );
+		$source_html  = "Welcome from the source page\n<!--more-->\nSource only details";
+		$variant_html = 'Variant headline that replaced the source.';
+		$once         = RWGO_Sitewide::strip_source_page_leak( $source_html . '<p>' . $variant_html . '</p>', $source_html, $variant_html, 41 );
+		$this->assertSame( $once, RWGO_Sitewide::strip_source_page_leak( $once, $source_html, $variant_html, 41 ) );
+	}
+
+	public function test_all_published_coverage_excludes_system_pages_and_selected_ids(): void {
+		$cfg = array(
+			'mapping_mode'          => 'all_published',
+			'exclude_system_pages'  => true,
+			'exclude_page_ids'      => array( 4 ),
+			'future_pages'          => 'skip',
+			'coverage_baseline_gmt' => 2000,
+			'page_map'              => array(
+				array(
+					'source_page_id'  => 7,
+					'variant_page_id' => 8,
+					'source_path'     => '/about/',
+					'variant_path'    => '/about-variant-b/',
+				),
+			),
+		);
+		$context = array( 'system_ids' => array( 90 ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 12, 'checkout', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 13, 'cart', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 14, 'my-account', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 90, 'billing', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 4, 'legal', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'mapped', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 7, 'about', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'ineligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 8, 'about-variant-b', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'eligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 9, 'contact', 1500 ), $cfg, $context ) );
+		$this->assertSame( 'skipped_future', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 21, 'later', 2500 ), $cfg, $context ) );
+		$include                 = $cfg;
+		$include['future_pages'] = 'include';
+		$this->assertSame( 'eligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 21, 'later', 2500 ), $include, $context ) );
+		$this->assertSame( 'ineligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 30, 'draft-page', 1500, 'draft' ), $cfg, $context ) );
+		$this->assertSame( 'unmapped', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 9, 'contact', 1500 ), array( 'mapping_mode' => 'explicit' ), $context ) );
+	}
+
+	public function test_bulk_selection_copies_selected_or_eligible_pages_only(): void {
+		$pages = array();
+		for ( $i = 1; $i <= 40; $i++ ) {
+			$slug    = 'page-' . $i;
+			$created = 1000 + $i;
+			if ( 12 === $i ) {
+				$slug = 'checkout';
+			}
+			if ( 30 === $i ) {
+				$created = 5000;
+			}
+			$pages[] = $this->page_record( $i, $slug, $created );
+		}
+		$cfg     = array(
+			'mapping_mode'          => 'all_published',
+			'exclude_system_pages'  => true,
+			'exclude_page_ids'      => array( 4 ),
+			'future_pages'          => 'skip',
+			'coverage_baseline_gmt' => 2000,
+			'page_map'              => array(
+				array(
+					'source_page_id'  => 7,
+					'variant_page_id' => 8,
+					'source_path'     => '/a/',
+					'variant_path'    => '/b/',
+				),
+			),
+		);
+		$all     = RWGO_Sitewide::select_bulk_pages( $pages, $cfg, 'all', array() );
+		$all_ids = array();
+		foreach ( $all as $page ) {
+			$all_ids[] = (int) $page['id'];
+		}
+		$this->assertNotContains( 12, $all_ids );
+		$this->assertNotContains( 4, $all_ids );
+		$this->assertNotContains( 7, $all_ids );
+		$this->assertNotContains( 8, $all_ids );
+		$this->assertNotContains( 30, $all_ids );
+		$this->assertContains( 9, $all_ids );
+		$this->assertLessThan( count( $pages ), count( $all_ids ) );
+
+		$picked     = RWGO_Sitewide::select_bulk_pages( $pages, $cfg, 'selected', array( 30, 12, 9 ) );
+		$picked_ids = array();
+		foreach ( $picked as $page ) {
+			$picked_ids[] = (int) $page['id'];
+		}
+		$this->assertSame( array( 9, 30 ), $picked_ids );
+
+		$explicit = array( 'mapping_mode' => 'explicit', 'exclude_system_pages' => true );
+		$copied   = RWGO_Sitewide::select_bulk_pages(
+			array(
+				$this->page_record( 3, 'home', 1000 ),
+				$this->page_record( 12, 'cart', 1000 ),
+			),
+			$explicit,
+			'all',
+			array()
+		);
+		$this->assertSame( 3, (int) $copied[0]['id'] );
+		$this->assertCount( 1, $copied );
+	}
+
+	public function test_page_map_appends_pairs_without_replacing_existing_sources(): void {
+		$map = RWGO_Sitewide::append_map_rows(
+			array(
+				array(
+					'source_page_id'  => 5,
+					'variant_page_id' => 6,
+					'source_path'     => '/a/',
+					'variant_path'    => '/a-variant-b/',
+				),
+			),
+			array(
+				array(
+					'source_page_id'  => 5,
+					'variant_page_id' => 99,
+					'source_path'     => '/a/',
+					'variant_path'    => '/other/',
+				),
+				array(
+					'source_page_id'  => 10,
+					'variant_page_id' => 11,
+					'source_path'     => '/b/',
+					'variant_path'    => '/b-variant-b/',
+				),
+			)
+		);
+		$this->assertCount( 2, $map );
+		$this->assertSame( 6, $map[0]['variant_page_id'] );
+		$this->assertSame( 11, $map[1]['variant_page_id'] );
+		$dropped = RWGO_Sitewide::drop_map_sources( $map, array( 5 ) );
+		$this->assertCount( 1, $dropped );
+		$this->assertSame( 10, $dropped[0]['source_page_id'] );
+	}
+
+	public function test_active_config_still_requires_a_page_map(): void {
+		update_option(
+			RWGO_Sitewide::OPTION,
+			array(
+				'test_type'    => 'sitewide',
+				'status'       => 'active',
+				'mapping_mode' => 'all_published',
+				'page_map'     => array(),
+			)
+		);
+		$this->assertNull( RWGO_Sitewide::active_config() );
+		update_option(
+			RWGO_Sitewide::OPTION,
+			array(
+				'test_type'    => 'sitewide',
+				'status'       => 'active',
+				'mapping_mode' => 'all_published',
+				'page_map'     => array(
+					array(
+						'source_page_id'  => 5,
+						'variant_page_id' => 9,
+						'source_path'     => '/about/',
+						'variant_path'    => '/about-variant-b/',
+					),
+				),
+			)
+		);
+		$this->assertIsArray( RWGO_Sitewide::active_config() );
+	}
+
+	/**
+	 * @param int    $id      Page id.
+	 * @param string $slug    Slug.
+	 * @param int    $created Created GMT unix time.
+	 * @param string $status  Post status.
+	 * @return array<string, mixed>
+	 */
+	private function page_record( $id, $slug, $created, $status = 'publish' ) {
+		return array(
+			'id'          => (int) $id,
+			'status'      => $status,
+			'type'        => 'page',
+			'slug'        => $slug,
+			'created_gmt' => (int) $created,
+			'variant_of'  => 0,
+		);
+	}
 }
