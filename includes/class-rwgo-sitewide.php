@@ -25,6 +25,12 @@
  * Rank Math, Yoast, then the variant title and excerpt. The canonical URL and
  * og:url stay on the original page. Bots still receive the control page.
  *
+ * Coverage can stay an explicit page map, or "all published pages" with
+ * checkout, cart, my-account, and chosen IDs left out. A bulk action copies
+ * pages with the page duplicator and writes page_map. Pages published later
+ * are included or skipped from that policy. Public requests only read the
+ * stored map; they do not query every page on the site.
+ *
  * @package ReactWooGeoOptimise
  */
 
@@ -44,6 +50,28 @@ class RWGO_Sitewide {
 	const POST_OPTION = 'rwgo_sitewide_experiment_post_id';
 
 	const DEFAULT_DAYS = 90;
+
+	const MAPPING_EXPLICIT = 'explicit';
+
+	const MAPPING_ALL_PUBLISHED = 'all_published';
+
+	const FUTURE_INCLUDE = 'include';
+
+	const FUTURE_SKIP = 'skip';
+
+	const VARIANT_META = '_rwgo_sitewide_variant_of';
+
+	const BULK_OPTION = 'rwgo_sitewide_bulk_job';
+
+	const BULK_RESULT = 'rwgo_sitewide_bulk_result';
+
+	const BULK_BATCH = 8;
+
+	const BULK_SCAN = 40;
+
+	const BULK_TIME_BUDGET = 8.0;
+
+	const MAP_EDITOR_LIMIT = 80;
 
 	/**
 	 * @var bool
@@ -101,13 +129,78 @@ class RWGO_Sitewide {
 	private static $variant_head_meta = null;
 
 	/**
+	 * Re-entry guard while a variant page is being created.
+	 *
+	 * @var bool
+	 */
+	private static $duplicating = false;
+
+	/**
+	 * @var string
+	 */
+	private static $map_index_token = '';
+
+	/**
+	 * @var array<int, array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}>
+	 */
+	private static $source_index = array();
+
+	/**
+	 * @var array<int, array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}>
+	 */
+	private static $variant_index = array();
+
+	/**
+	 * @var array<string, bool>
+	 */
+	private static $source_paths = array();
+
+	/**
+	 * @var array<string, bool>
+	 */
+	private static $variant_paths = array();
+
+	/**
+	 * True while wp_head output is being rewritten for a variant arm.
+	 *
+	 * @var bool
+	 */
+	private static $head_buffering = false;
+
+	/**
+	 * Page IDs saved while a duplicate attempt is in progress.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static $partial_ids = array();
+
+	/**
+	 * @var array<int, int>|null
+	 */
+	private static $reserved_ids_cache = null;
+
+	/**
+	 * Priorities for the swapped-content filter. One pass only.
+	 *
+	 * Priority 0 runs before do_blocks (9), wpautop (10), and do_shortcode (11),
+	 * so a leaked source page is removed before those filters turn it into HTML.
+	 * A second callback at priority 11 ran again on the formatted result.
+	 *
+	 * @return array<int, int>
+	 */
+	public static function swapped_content_hook_priorities() {
+		return array( 0 );
+	}
+
+	/**
 	 * @return void
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'maybe_mark_uncacheable' ), 0 );
 		add_action( 'litespeed_init', array( __CLASS__, 'litespeed_cache' ) );
-		add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), 0 );
-		add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), 11 );
+		foreach ( self::swapped_content_hook_priorities() as $priority ) {
+			add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), (int) $priority );
+		}
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_redirect_variant_url' ), -1 );
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_apply' ), 1 );
 		add_filter( 'redirect_canonical', array( __CLASS__, 'keep_original_url' ), 10, 2 );
@@ -117,6 +210,9 @@ class RWGO_Sitewide {
 		add_filter( 'wpseo_opengraph_url', array( __CLASS__, 'filter_canonical_url' ) );
 		add_filter( 'rank_math/opengraph/url', array( __CLASS__, 'filter_canonical_url' ) );
 		add_filter( 'rank_math/opengraph/facebook/og_url', array( __CLASS__, 'filter_canonical_url' ) );
+		add_filter( 'oembed_discovery_links', array( __CLASS__, 'filter_oembed_discovery_links' ) );
+		add_action( 'wp_head', array( __CLASS__, 'buffer_head_start' ), 0 );
+		add_action( 'wp_head', array( __CLASS__, 'buffer_head_end' ), PHP_INT_MAX );
 		add_filter( 'pre_get_document_title', array( __CLASS__, 'filter_seo_title' ), 9999 );
 		add_filter( 'wp_title', array( __CLASS__, 'filter_seo_title' ), 9999 );
 		add_filter( 'document_title_parts', array( __CLASS__, 'filter_document_title_parts' ) );
@@ -143,6 +239,8 @@ class RWGO_Sitewide {
 		add_filter( 'wpseo_exclude_from_sitemap_by_post_ids', array( __CLASS__, 'exclude_yoast_sitemap' ) );
 		add_action( 'admin_bar_menu', array( __CLASS__, 'admin_bar' ), 90 );
 		add_action( 'admin_post_rwgo_save_sitewide', array( __CLASS__, 'handle_save' ) );
+		add_action( 'admin_post_rwgo_sitewide_bulk_continue', array( __CLASS__, 'handle_bulk_continue' ) );
+		add_action( 'transition_post_status', array( __CLASS__, 'maybe_cover_published_page' ), 10, 3 );
 		add_action( 'woocommerce_thankyou', array( __CLASS__, 'on_purchase' ), 30, 1 );
 	}
 
@@ -539,9 +637,9 @@ class RWGO_Sitewide {
 		self::$original_page_id     = $pid;
 		self::$source_post_content  = self::post_content_for( $pid );
 		self::$variant_post_content = '';
-		self::$variant_swapped      = false;
-		self::$variant_page_id      = 0;
-		self::$variant_head_meta    = null;
+		self::$variant_swapped   = false;
+		self::$variant_page_id   = 0;
+		self::$variant_head_meta = null;
 		$decision                   = self::decide( $cfg );
 		$arm                   = $decision['arm'];
 		self::$rendered_arm    = $arm;
@@ -603,6 +701,120 @@ class RWGO_Sitewide {
 			return $original_url;
 		}
 		return $candidate;
+	}
+
+	/**
+	 * Point oEmbed discovery at the original page while a variant arm is rendered.
+	 *
+	 * @param string $output Discovery link HTML.
+	 * @return string
+	 */
+	public static function filter_oembed_discovery_links( $output ) {
+		if ( 'variant' !== self::$rendered_arm || self::$original_page_id <= 0 ) {
+			return $output;
+		}
+		return self::rewrite_variant_url( (string) $output, self::variant_permalink(), self::original_permalink() );
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function buffer_head_start() {
+		if ( 'variant' !== self::$rendered_arm || self::$original_page_id <= 0 || self::$head_buffering ) {
+			return;
+		}
+		ob_start();
+		self::$head_buffering = true;
+	}
+
+	/**
+	 * One og:url, and oEmbed links, both using the original page.
+	 *
+	 * @return void
+	 */
+	public static function buffer_head_end() {
+		if ( ! self::$head_buffering ) {
+			return;
+		}
+		self::$head_buffering = false;
+		$html = ob_get_clean();
+		if ( ! is_string( $html ) ) {
+			return;
+		}
+		$original = self::original_permalink();
+		$html     = self::rewrite_variant_url( $html, self::variant_permalink(), $original );
+		$html     = self::single_og_url_markup( $html, $original, self::$rendered_arm );
+		echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- head HTML from core and plugins; og:url is escaped in single_og_url_markup.
+	}
+
+	/**
+	 * Replace a variant permalink inside head HTML, including percent-encoded copies.
+	 *
+	 * @param string $html         HTML fragment.
+	 * @param string $variant_url  Variant permalink.
+	 * @param string $original_url Original permalink.
+	 * @return string
+	 */
+	public static function rewrite_variant_url( $html, $variant_url, $original_url ) {
+		$html         = (string) $html;
+		$variant_url  = (string) $variant_url;
+		$original_url = (string) $original_url;
+		if ( '' === $html || '' === $variant_url || '' === $original_url || $variant_url === $original_url ) {
+			return $html;
+		}
+		$pairs = array();
+		foreach ( array( $variant_url, rtrim( $variant_url, '/' ), rtrim( $variant_url, '/' ) . '/' ) as $from ) {
+			if ( '' === $from ) {
+				continue;
+			}
+			$to = $original_url;
+			if ( $from === rtrim( $variant_url, '/' ) ) {
+				$to = rtrim( $original_url, '/' );
+			} elseif ( $from === rtrim( $variant_url, '/' ) . '/' ) {
+				$to = rtrim( $original_url, '/' ) . '/';
+			}
+			$pairs[ $from ]                 = $to;
+			$pairs[ rawurlencode( $from ) ] = rawurlencode( $to );
+		}
+		uksort(
+			$pairs,
+			static function ( $left, $right ) {
+				return strlen( (string) $right ) - strlen( (string) $left );
+			}
+		);
+		return str_replace( array_keys( $pairs ), array_values( $pairs ), $html );
+	}
+
+	/**
+	 * Leave one og:url meta tag, and make it the original page.
+	 *
+	 * @param string $html         Head HTML.
+	 * @param string $original_url Original permalink.
+	 * @param string $rendered_arm control|variant.
+	 * @return string
+	 */
+	public static function single_og_url_markup( $html, $original_url, $rendered_arm ) {
+		$html = (string) $html;
+		if ( 'variant' !== (string) $rendered_arm || ! is_string( $original_url ) || '' === $original_url ) {
+			return $html;
+		}
+		$stripped = preg_replace( '/<meta\b[^>]*\bproperty=(["\'])og:url\1[^>]*>\s*/i', '', $html );
+		if ( ! is_string( $stripped ) ) {
+			$stripped = $html;
+		}
+		$safe = function_exists( 'esc_url' ) ? esc_url( $original_url ) : $original_url;
+		return '<meta property="og:url" content="' . $safe . '" />' . "\n" . $stripped;
+	}
+
+	/**
+	 * @return string
+	 */
+	private static function variant_permalink() {
+		if ( self::$variant_page_id <= 0 || ! function_exists( 'get_permalink' ) ) {
+			return '';
+		}
+		$url = get_permalink( self::$variant_page_id );
+		return is_string( $url ) ? $url : '';
 	}
 
 	/**
@@ -907,18 +1119,66 @@ class RWGO_Sitewide {
 		if ( empty( $cfg['experiment_key'] ) ) {
 			$cfg['experiment_key'] = 'rwgo_sitewide';
 		}
-		$status = isset( $cfg['status'] ) ? sanitize_key( (string) $cfg['status'] ) : 'paused';
-		$days   = isset( $cfg['cookie_days'] ) ? (int) $cfg['cookie_days'] : self::DEFAULT_DAYS;
-		$weight = isset( $cfg['control_weight'] ) ? (float) $cfg['control_weight'] : 0.5;
-		$lines  = array();
-		foreach ( self::page_map( $cfg ) as $row ) {
+		$status   = isset( $cfg['status'] ) ? sanitize_key( (string) $cfg['status'] ) : 'paused';
+		$days     = isset( $cfg['cookie_days'] ) ? (int) $cfg['cookie_days'] : self::DEFAULT_DAYS;
+		$weight   = isset( $cfg['control_weight'] ) ? (float) $cfg['control_weight'] : 0.5;
+		$coverage = self::coverage_from_config( $cfg );
+		$map      = self::page_map( $cfg );
+		$lines    = array();
+		foreach ( $map as $row ) {
 			$lines[] = (int) $row['source_page_id'] . ',' . (int) $row['variant_page_id'];
 		}
-		$goals = isset( $cfg['goal_page_ids'] ) && is_array( $cfg['goal_page_ids'] ) ? implode( ',', array_map( 'intval', $cfg['goal_page_ids'] ) ) : '';
-		$buy   = ! empty( $cfg['track_purchase'] );
+		$map_count = count( $lines );
+		$merge_map = $map_count > self::MAP_EDITOR_LIMIT;
+		$goals     = isset( $cfg['goal_page_ids'] ) && is_array( $cfg['goal_page_ids'] ) ? implode( ',', array_map( 'intval', $cfg['goal_page_ids'] ) ) : '';
+		$buy       = ! empty( $cfg['track_purchase'] );
+		$exclude   = implode( ',', $coverage['exclude_page_ids'] );
+		$job       = get_option( self::BULK_OPTION, array() );
+		$job_on    = is_array( $job ) && ! empty( $job['active'] );
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Site-wide design test', 'reactwoo-geo-optimise' ) . '</h1>';
 		echo '<p>' . esc_html__( 'One arm per visitor. Mapped pages keep their original URL. Unmapped pages stay on the original and the visitor keeps their arm.', 'reactwoo-geo-optimise' ) . '</p>';
+		if ( ! empty( $_GET['rwgo_saved'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Site-wide test saved.', 'reactwoo-geo-optimise' ) . '</p></div>';
+		}
+		if ( ! empty( $_GET['rwgo_bulk_done'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$result  = get_option( self::BULK_RESULT, array() );
+			$created = isset( $_GET['rwgo_bulk_created'] ) ? (int) $_GET['rwgo_bulk_created'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$failed  = isset( $_GET['rwgo_bulk_failed'] ) ? (int) $_GET['rwgo_bulk_failed'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			if ( is_array( $result ) ) {
+				if ( isset( $result['created'] ) ) {
+					$created = (int) $result['created'];
+				}
+				if ( isset( $result['failed'] ) ) {
+					$failed = (int) $result['failed'];
+				}
+			}
+			$notice_class = $failed > 0 ? 'notice-warning' : 'notice-success';
+			echo '<div class="notice ' . esc_attr( $notice_class ) . ' is-dismissible"><p>' . esc_html( sprintf( /* translators: 1: pages added to the map, 2: failed count */ __( 'Variant pages added to the map: %1$d. Failed: %2$d. Existing variants were reused instead of copied again.', 'reactwoo-geo-optimise' ), $created, $failed ) ) . '</p>';
+			if ( is_array( $result ) && ! empty( $result['failures'] ) && is_array( $result['failures'] ) ) {
+				echo '<ul>';
+				foreach ( $result['failures'] as $failure ) {
+					if ( ! is_array( $failure ) ) {
+						continue;
+					}
+					$source_id = isset( $failure['source_id'] ) ? (int) $failure['source_id'] : 0;
+					$code      = isset( $failure['code'] ) ? (string) $failure['code'] : '';
+					$message   = isset( $failure['message'] ) ? (string) $failure['message'] : '';
+					echo '<li>' . esc_html( sprintf( /* translators: 1: page ID, 2: error code, 3: error message */ __( 'Page %1$d failed (%2$s). %3$s', 'reactwoo-geo-optimise' ), $source_id, $code, $message ) ) . '</li>';
+				}
+				echo '</ul>';
+			}
+			echo '</div>';
+		}
+		if ( ! empty( $_GET['rwgo_bulk_error'] ) && 'ids' === sanitize_key( (string) $_GET['rwgo_bulk_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Enter at least one page ID to duplicate, or choose every published page.', 'reactwoo-geo-optimise' ) . '</p></div>';
+		}
+		if ( $job_on ) {
+			$created  = isset( $job['created'] ) ? (int) $job['created'] : 0;
+			$continue = wp_nonce_url( admin_url( 'admin-post.php?action=rwgo_sitewide_bulk_continue' ), 'rwgo_sitewide_bulk' );
+			echo '<div class="notice notice-info"><p>' . esc_html( sprintf( /* translators: %d: number of variant pages created so far */ __( 'Creating variant pages in batches so a large site is not processed in one request. Created so far: %d.', 'reactwoo-geo-optimise' ), $created ) ) . ' <a href="' . esc_url( $continue ) . '">' . esc_html__( 'Continue now', 'reactwoo-geo-optimise' ) . '</a></p></div>';
+			echo '<meta http-equiv="refresh" content="1;url=' . esc_url( $continue ) . '" />';
+		}
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'rwgo_save_sitewide' );
 		echo '<input type="hidden" name="action" value="rwgo_save_sitewide" />';
@@ -931,7 +1191,47 @@ class RWGO_Sitewide {
 		echo '<tr><th scope="row"><label for="rwgo_sw_key">' . esc_html__( 'Experiment key', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_key" class="regular-text" name="rwgo_sw_key" value="' . esc_attr( (string) $cfg['experiment_key'] ) . '" /></td></tr>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_weight">' . esc_html__( 'Control weight (%)', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_weight" type="number" min="0" max="100" name="rwgo_sw_weight" value="' . esc_attr( (string) (int) round( $weight * 100 ) ) . '" /></td></tr>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_days">' . esc_html__( 'Cookie lifetime (days)', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_days" type="number" min="1" name="rwgo_sw_days" value="' . esc_attr( (string) $days ) . '" /></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_map">' . esc_html__( 'Page map', 'reactwoo-geo-optimise' ) . '</label></th><td><textarea id="rwgo_sw_map" name="rwgo_sw_map" rows="8" class="large-text code">' . esc_textarea( implode( "\n", $lines ) ) . '</textarea><p class="description">' . esc_html__( 'One pair per line: original page ID, variant page ID.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
+		echo '<tr><th scope="row"><label for="rwgo_sw_mapping">' . esc_html__( 'Coverage', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_mapping" name="rwgo_sw_mapping">';
+		$modes = array(
+			self::MAPPING_EXPLICIT      => __( 'Only the page map', 'reactwoo-geo-optimise' ),
+			self::MAPPING_ALL_PUBLISHED => __( 'All published pages', 'reactwoo-geo-optimise' ),
+		);
+		foreach ( $modes as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '" ' . selected( $coverage['mapping_mode'], $value, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select><p class="description">' . esc_html__( 'All published pages still serves one arm at the original URL. The shop, cart, checkout, my-account, other WooCommerce special pages, the posts page, and the IDs below stay out. The public request reads the stored page map and does not load every page.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'System pages', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_exclude_system" value="1" ' . checked( ! empty( $coverage['exclude_system_pages'] ), true, false ) . ' /> ' . esc_html__( 'Exclude the shop, cart, checkout, my-account, WooCommerce terms pages, and the posts page', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
+		echo '<tr><th scope="row"><label for="rwgo_sw_exclude_ids">' . esc_html__( 'Exclude page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_exclude_ids" class="regular-text" name="rwgo_sw_exclude_ids" value="' . esc_attr( $exclude ) . '" /><p class="description">' . esc_html__( 'Comma-separated. These pages are not duplicated and are not added for pages published later.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
+		echo '<tr><th scope="row"><label for="rwgo_sw_future">' . esc_html__( 'Pages published later', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_future" name="rwgo_sw_future">';
+		$futures = array(
+			self::FUTURE_SKIP    => __( 'Skip until I add them', 'reactwoo-geo-optimise' ),
+			self::FUTURE_INCLUDE => __( 'Include in this test', 'reactwoo-geo-optimise' ),
+		);
+		foreach ( $futures as $value => $label ) {
+			echo '<option value="' . esc_attr( $value ) . '" ' . selected( $coverage['future_pages'], $value, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select><p class="description">' . esc_html__( 'Used with All published pages. Included pages are copied when they are published, in wp-admin, not while a visitor is loading the page. Skipped pages stay out of the map until you add them.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
+		echo '<tr><th scope="row"><label for="rwgo_sw_map">' . esc_html__( 'Page map', 'reactwoo-geo-optimise' ) . '</label></th><td>';
+		if ( $merge_map ) {
+			echo '<input type="hidden" name="rwgo_sw_map_merge" value="1" />';
+			echo '<p><strong>' . esc_html( sprintf( /* translators: %d: stored pair count */ __( '%d pairs are stored.', 'reactwoo-geo-optimise' ), $map_count ) ) . '</strong></p>';
+			echo '<textarea id="rwgo_sw_map" name="rwgo_sw_map" rows="6" class="large-text code" placeholder="' . esc_attr__( "12,34\n56,78", 'reactwoo-geo-optimise' ) . '"></textarea>';
+			echo '<p class="description">' . esc_html__( 'Add pairs, one per line: original page ID, variant page ID. The stored map is kept. The full list is not loaded into this field.', 'reactwoo-geo-optimise' ) . '</p>';
+			echo '<p><label for="rwgo_sw_unmap">' . esc_html__( 'Remove original page IDs', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_unmap" class="regular-text" name="rwgo_sw_unmap" value="" /></p>';
+		} else {
+			echo '<textarea id="rwgo_sw_map" name="rwgo_sw_map" rows="8" class="large-text code">' . esc_textarea( implode( "\n", $lines ) ) . '</textarea>';
+			echo '<p class="description">' . esc_html__( 'One pair per line: original page ID, variant page ID.', 'reactwoo-geo-optimise' ) . '</p>';
+		}
+		echo '</td></tr>';
+		echo '<tr><th scope="row"><label for="rwgo_sw_bulk_scope">' . esc_html__( 'Create variant pages', 'reactwoo-geo-optimise' ) . '</label></th><td>';
+		echo '<select id="rwgo_sw_bulk_scope" name="rwgo_sw_bulk_scope">';
+		echo '<option value="selected">' . esc_html__( 'Selected page IDs', 'reactwoo-geo-optimise' ) . '</option>';
+		echo '<option value="all">' . esc_html__( 'Every published page that is not excluded', 'reactwoo-geo-optimise' ) . '</option>';
+		echo '</select>';
+		echo '<p><label for="rwgo_sw_bulk_ids">' . esc_html__( 'Selected page IDs', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_bulk_ids" class="regular-text" name="rwgo_sw_bulk_ids" value="" /></p>';
+		echo '<p class="description">' . esc_html__( 'Copies each page with the page duplicator and fills the page map. Original URLs stay the same. Variant URLs redirect back. A large site is copied a few pages at a time.', 'reactwoo-geo-optimise' ) . '</p>';
+		echo '<p><button type="submit" class="button" name="rwgo_sw_do_bulk" value="1">' . esc_html__( 'Create variant pages and fill the map', 'reactwoo-geo-optimise' ) . '</button></p>';
+		echo '</td></tr>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_goals">' . esc_html__( 'Goal page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_goals" class="regular-text" name="rwgo_sw_goals" value="' . esc_attr( $goals ) . '" /><p class="description">' . esc_html__( 'Comma-separated. A view of these pages (for example the contact thank-you page) counts for the site-wide arm.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
 		echo '<tr><th scope="row">' . esc_html__( 'WooCommerce purchase', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_purchase" value="1" ' . checked( $buy, true, false ) . ' /> ' . esc_html__( 'Attribute purchases to the site-wide arm', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
 		echo '</tbody></table>';
@@ -947,69 +1247,48 @@ class RWGO_Sitewide {
 			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
 		}
 		check_admin_referer( 'rwgo_save_sitewide' );
-		$old    = self::get_config();
-		$status = isset( $_POST['rwgo_sw_status'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_status'] ) ) : 'paused';
-		if ( ! in_array( $status, array( 'active', 'paused', 'ended' ), true ) ) {
-			$status = 'paused';
-		}
-		$key    = isset( $_POST['rwgo_sw_key'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_key'] ) ) : 'rwgo_sitewide';
-		$weight = isset( $_POST['rwgo_sw_weight'] ) ? (float) wp_unslash( $_POST['rwgo_sw_weight'] ) : 50;
-		$weight = max( 0, min( 100, $weight ) ) / 100;
-		$days   = isset( $_POST['rwgo_sw_days'] ) ? (int) wp_unslash( $_POST['rwgo_sw_days'] ) : self::DEFAULT_DAYS;
-		$map_in = isset( $_POST['rwgo_sw_map'] ) ? (string) wp_unslash( $_POST['rwgo_sw_map'] ) : '';
-		$goals  = isset( $_POST['rwgo_sw_goals'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['rwgo_sw_goals'] ) ) : '';
-		$map    = self::parse_map_text( $map_in );
-		$goal_ids = array();
-		foreach ( preg_split( '/\s*,\s*/', $goals ) as $part ) {
-			$id = (int) $part;
-			if ( $id > 0 ) {
-				$goal_ids[] = $id;
+		$old  = self::get_config();
+		$cfg  = self::config_from_post( $old );
+		$bulk = ! empty( $_POST['rwgo_sw_do_bulk'] );
+		if ( $bulk ) {
+			$scope    = isset( $_POST['rwgo_sw_bulk_scope'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_bulk_scope'] ) ) : 'selected';
+			$selected = self::parse_id_list( isset( $_POST['rwgo_sw_bulk_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_bulk_ids'] ) : '' );
+			if ( 'selected' === $scope && empty( $selected ) ) {
+				self::persist_config( $cfg, $old );
+				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_bulk_error=ids' ) );
+				exit;
 			}
 		}
-		$cfg = array(
-			'experiment_key'  => '' !== $key ? $key : 'rwgo_sitewide',
-			'status'          => $status,
-			'test_type'       => 'sitewide',
-			'scope'           => 'site',
-			'cookie_days'     => max( 1, $days ),
-			'control_weight'  => $weight,
-			'page_map'        => $map,
-			'goal_page_ids'   => array_values( array_unique( $goal_ids ) ),
-			'track_purchase'  => ! empty( $_POST['rwgo_sw_purchase'] ),
-			'source_page_id'  => isset( $map[0]['source_page_id'] ) ? (int) $map[0]['source_page_id'] : 0,
-			'variants'        => array(
-				array(
-					'variant_id' => 'control',
-					'page_id'    => 0,
-					'weight'     => $weight,
-				),
-				array(
-					'variant_id' => 'var_b',
-					'page_id'    => 0,
-					'weight'     => 1 - $weight,
-				),
-			),
-			'goals'           => array(
-				array(
-					'goal_id'   => 'sitewide_destination',
-					'goal_type' => 'page_view',
-					'label'     => __( 'Site-wide conversion', 'reactwoo-geo-optimise' ),
-					'handlers'  => array(
-						array(
-							'handler_id'   => 'sitewide_destination',
-							'handler_type' => 'page_view',
-						),
-					),
-				),
-			),
-			'primary_goal_id' => 'sitewide_destination',
-		);
-		update_option( self::OPTION, $cfg, false );
-		self::sync_experiment_post( $cfg );
-		self::purge_config( $old );
-		self::purge_config( $cfg );
+		$large = count( self::page_map( $old ) ) > self::MAP_EDITOR_LIMIT || count( self::page_map( $cfg ) ) > self::MAP_EDITOR_LIMIT;
+		if ( $bulk && $large ) {
+			self::persist_config( $cfg, null, array() );
+		} else {
+			self::persist_config( $cfg, $old );
+		}
+		if ( $bulk ) {
+			self::start_bulk( $cfg );
+			return;
+		}
 		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_saved=1' ) );
 		exit;
+	}
+
+	/**
+	 * Continue a bulk duplicate that did not finish in one request.
+	 *
+	 * @return void
+	 */
+	public static function handle_bulk_continue() {
+		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
+			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ) );
+		}
+		check_admin_referer( 'rwgo_sitewide_bulk' );
+		$job = get_option( self::BULK_OPTION, array() );
+		if ( ! is_array( $job ) || empty( $job['active'] ) ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide' ) );
+			exit;
+		}
+		self::process_bulk_and_redirect( self::get_config(), $job );
 	}
 
 	/**
@@ -1131,11 +1410,8 @@ class RWGO_Sitewide {
 	 * @return array<int, int>
 	 */
 	private static function variant_page_ids( $cfg ) {
-		$ids = array();
-		foreach ( self::page_map( $cfg ) as $row ) {
-			$ids[] = (int) $row['variant_page_id'];
-		}
-		return array_values( array_unique( $ids ) );
+		self::ensure_map_index( $cfg );
+		return array_values( array_map( 'intval', array_keys( self::$variant_index ) ) );
 	}
 
 	/**
@@ -1395,11 +1671,17 @@ class RWGO_Sitewide {
 	 */
 	private static function role_for_current_uri( array $cfg ) {
 		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
-		$role = self::path_role( $uri, self::page_map( $cfg ) );
-		if ( 'none' !== $role || ! function_exists( 'url_to_postid' ) ) {
-			return $role;
-		}
 		$path = self::normalize_request_path( $uri );
+		self::ensure_map_index( $cfg );
+		if ( isset( self::$variant_paths[ $path ] ) ) {
+			return 'variant';
+		}
+		if ( isset( self::$source_paths[ $path ] ) ) {
+			return 'source';
+		}
+		if ( ! function_exists( 'url_to_postid' ) ) {
+			return 'none';
+		}
 		$home = function_exists( 'home_url' ) ? home_url( $path ) : $path;
 		$id   = (int) url_to_postid( is_string( $home ) ? $home : $path );
 		if ( $id <= 0 ) {
@@ -1430,13 +1712,9 @@ class RWGO_Sitewide {
 	 * @return array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}|null
 	 */
 	private static function row_for_source_page( $cfg, $page_id ) {
+		self::ensure_map_index( $cfg );
 		$page_id = (int) $page_id;
-		foreach ( self::page_map( $cfg ) as $row ) {
-			if ( (int) $row['source_page_id'] === $page_id ) {
-				return $row;
-			}
-		}
-		return null;
+		return isset( self::$source_index[ $page_id ] ) ? self::$source_index[ $page_id ] : null;
 	}
 
 	/**
@@ -1445,13 +1723,9 @@ class RWGO_Sitewide {
 	 * @return array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}|null
 	 */
 	private static function row_for_variant_page( $cfg, $page_id ) {
+		self::ensure_map_index( $cfg );
 		$page_id = (int) $page_id;
-		foreach ( self::page_map( $cfg ) as $row ) {
-			if ( (int) $row['variant_page_id'] === $page_id ) {
-				return $row;
-			}
-		}
-		return null;
+		return isset( self::$variant_index[ $page_id ] ) ? self::$variant_index[ $page_id ] : null;
 	}
 
 	/**
@@ -2318,6 +2592,1156 @@ class RWGO_Sitewide {
 		}
 		if ( $post_id > 0 ) {
 			RWGO_Experiment_Repository::save_config( $post_id, $cfg );
+		}
+	}
+
+	/**
+	 * Slugs left out of all-published coverage, plus WooCommerce page IDs passed in context.
+	 *
+	 * @return array<int, string>
+	 */
+	public static function system_page_slugs() {
+		return array(
+			'shop',
+			'cart',
+			'checkout',
+			'my-account',
+			'terms-and-conditions',
+			'refund-returns',
+			'refund-and-returns-policy',
+		);
+	}
+
+	/**
+	 * WooCommerce page keys accepted by wc_get_page_id().
+	 *
+	 * @return array<int, string>
+	 */
+	public static function woocommerce_page_id_keys() {
+		return array(
+			'shop',
+			'cart',
+			'checkout',
+			'myaccount',
+			'terms',
+			'refund_returns',
+		);
+	}
+
+	/**
+	 * @param int                  $page_id    Page id.
+	 * @param string               $slug       Post slug.
+	 * @param array<int, int>      $system_ids WooCommerce checkout, cart, and account page ids.
+	 * @return bool
+	 */
+	public static function is_reserved_system_page( $page_id, $slug, array $system_ids ) {
+		$page_id = (int) $page_id;
+		foreach ( $system_ids as $system_id ) {
+			if ( $page_id > 0 && $page_id === (int) $system_id ) {
+				return true;
+			}
+		}
+		return in_array( self::normalize_slug( $slug ), self::system_page_slugs(), true );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Stored or edited config.
+	 * @return array{mapping_mode:string,exclude_system_pages:bool,exclude_page_ids:array<int,int>,future_pages:string,coverage_baseline_gmt:int}
+	 */
+	public static function coverage_from_config( $cfg ) {
+		if ( ! is_array( $cfg ) ) {
+			$cfg = array();
+		}
+		$mode = isset( $cfg['mapping_mode'] ) ? sanitize_key( (string) $cfg['mapping_mode'] ) : self::MAPPING_EXPLICIT;
+		if ( ! in_array( $mode, array( self::MAPPING_EXPLICIT, self::MAPPING_ALL_PUBLISHED ), true ) ) {
+			$mode = self::MAPPING_EXPLICIT;
+		}
+		$future = isset( $cfg['future_pages'] ) ? sanitize_key( (string) $cfg['future_pages'] ) : self::FUTURE_SKIP;
+		if ( ! in_array( $future, array( self::FUTURE_INCLUDE, self::FUTURE_SKIP ), true ) ) {
+			$future = self::FUTURE_SKIP;
+		}
+		$exclude = array();
+		$raw     = isset( $cfg['exclude_page_ids'] ) && is_array( $cfg['exclude_page_ids'] ) ? $cfg['exclude_page_ids'] : array();
+		foreach ( $raw as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$exclude[] = $id;
+			}
+		}
+		return array(
+			'mapping_mode'           => $mode,
+			'exclude_system_pages'   => ! isset( $cfg['exclude_system_pages'] ) || ! empty( $cfg['exclude_system_pages'] ),
+			'exclude_page_ids'       => array_values( array_unique( $exclude ) ),
+			'future_pages'           => $future,
+			'coverage_baseline_gmt'  => isset( $cfg['coverage_baseline_gmt'] ) ? (int) $cfg['coverage_baseline_gmt'] : 0,
+		);
+	}
+
+	/**
+	 * Decide whether one page is already mapped, eligible to copy, excluded, or left for later.
+	 *
+	 * @param array<string, mixed> $page    id, status, type, slug, created_gmt, variant_of.
+	 * @param array<string, mixed> $cfg     Experiment config.
+	 * @param array<string, mixed> $context Optional system_ids.
+	 * @return string mapped|eligible|excluded|skipped_future|unmapped|ineligible
+	 */
+	public static function resolve_page_coverage( array $page, array $cfg, array $context = array() ) {
+		$coverage = self::coverage_from_config( $cfg );
+		$id       = isset( $page['id'] ) ? (int) $page['id'] : 0;
+		$status   = isset( $page['status'] ) ? sanitize_key( (string) $page['status'] ) : '';
+		$type     = isset( $page['type'] ) ? sanitize_key( (string) $page['type'] ) : '';
+		if ( $id <= 0 || 'page' !== $type || 'publish' !== $status ) {
+			return 'ineligible';
+		}
+		if ( ! empty( $page['variant_of'] ) ) {
+			return 'ineligible';
+		}
+		$sources  = array();
+		$variants = array();
+		foreach ( self::page_map( $cfg ) as $row ) {
+			$sources[ (int) $row['source_page_id'] ]   = true;
+			$variants[ (int) $row['variant_page_id'] ] = true;
+		}
+		if ( isset( $variants[ $id ] ) ) {
+			return 'ineligible';
+		}
+		if ( in_array( $id, $coverage['exclude_page_ids'], true ) ) {
+			return 'excluded';
+		}
+		$system_ids = isset( $context['system_ids'] ) && is_array( $context['system_ids'] ) ? $context['system_ids'] : array();
+		if ( ! empty( $coverage['exclude_system_pages'] ) && self::is_reserved_system_page( $id, isset( $page['slug'] ) ? (string) $page['slug'] : '', $system_ids ) ) {
+			return 'excluded';
+		}
+		if ( isset( $sources[ $id ] ) ) {
+			return 'mapped';
+		}
+		if ( self::MAPPING_ALL_PUBLISHED !== $coverage['mapping_mode'] ) {
+			return 'unmapped';
+		}
+		$baseline = isset( $context['baseline_gmt'] ) ? (int) $context['baseline_gmt'] : (int) $coverage['coverage_baseline_gmt'];
+		$created  = isset( $page['created_gmt'] ) ? (int) $page['created_gmt'] : 0;
+		if ( $baseline > 0 && $created > $baseline && self::FUTURE_SKIP === $coverage['future_pages'] ) {
+			return 'skipped_future';
+		}
+		return 'eligible';
+	}
+
+	/**
+	 * Pages a bulk action should duplicate. The caller supplies the candidate window.
+	 *
+	 * Scope "all" copies eligible pages, and unmapped pages when coverage is the explicit map.
+	 * Scope "selected" also copies a later page the admin named, and still refuses exclusions.
+	 *
+	 * @param array<int, array<string, mixed>> $pages        Candidate page records.
+	 * @param array<string, mixed>             $cfg          Experiment config.
+	 * @param string                           $scope        all|selected.
+	 * @param array<int, int>                  $selected_ids Selected source ids.
+	 * @param array<string, mixed>             $context      Optional system_ids.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function select_bulk_pages( array $pages, array $cfg, $scope, array $selected_ids, array $context = array() ) {
+		$scope    = sanitize_key( (string) $scope );
+		$selected = array();
+		foreach ( $selected_ids as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$selected[ $id ] = true;
+			}
+		}
+		$out = array();
+		foreach ( $pages as $page ) {
+			if ( ! is_array( $page ) ) {
+				continue;
+			}
+			$id       = isset( $page['id'] ) ? (int) $page['id'] : 0;
+			$decision = self::resolve_page_coverage( $page, $cfg, $context );
+			if ( 'mapped' === $decision || 'excluded' === $decision || 'ineligible' === $decision ) {
+				continue;
+			}
+			if ( 'all' === $scope ) {
+				if ( 'eligible' === $decision || 'unmapped' === $decision ) {
+					$out[] = $page;
+				}
+				continue;
+			}
+			if ( 'selected' === $scope && isset( $selected[ $id ] ) && in_array( $decision, array( 'eligible', 'unmapped', 'skipped_future' ), true ) ) {
+				$out[] = $page;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $map  Existing rows.
+	 * @param array<int, array<string, mixed>> $rows Rows to add.
+	 * @return array<int, array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}>
+	 */
+	public static function append_map_rows( array $map, array $rows ) {
+		$seen = array();
+		$out  = array();
+		foreach ( array( $map, $rows ) as $group ) {
+			foreach ( $group as $row ) {
+				$clean = self::clean_map_row( $row );
+				if ( null === $clean || isset( $seen[ $clean['source_page_id'] ] ) ) {
+					continue;
+				}
+				$seen[ $clean['source_page_id'] ] = true;
+				$out[]                            = $clean;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $map        Map rows.
+	 * @param array<int, int>                  $source_ids Source ids to drop.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function drop_map_sources( array $map, array $source_ids ) {
+		$drop = array();
+		foreach ( $source_ids as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$drop[ $id ] = true;
+			}
+		}
+		if ( empty( $drop ) ) {
+			return array_values( $map );
+		}
+		$out = array();
+		foreach ( $map as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$source = isset( $row['source_page_id'] ) ? (int) $row['source_page_id'] : 0;
+			if ( isset( $drop[ $source ] ) ) {
+				continue;
+			}
+			$out[] = $row;
+		}
+		return $out;
+	}
+
+	/**
+	 * @param string $text Comma or whitespace separated ids.
+	 * @return array<int, int>
+	 */
+	/**
+	 * Template value that wp_update_post can publish. Unknown templates become default.
+	 *
+	 * @param string        $template         Stored _wp_page_template value.
+	 * @param array<mixed>  $valid_templates  Theme template filenames, or filename => label.
+	 * @return string
+	 */
+	public static function page_template_for_publish( $template, array $valid_templates ) {
+		$template = (string) $template;
+		if ( '' === $template || 'default' === $template ) {
+			return 'default';
+		}
+		if ( isset( $valid_templates[ $template ] ) || in_array( $template, $valid_templates, true ) ) {
+			return $template;
+		}
+		return 'default';
+	}
+
+	/**
+	 * Pick one existing variant and list the extras a rerun must not keep.
+	 *
+	 * @param array<int, array<string, mixed>> $candidates id and status.
+	 * @return array{keep:int,discard:array<int,int>}
+	 */
+	public static function choose_variant_to_reuse( array $candidates ) {
+		$ranked = array();
+		foreach ( $candidates as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$id     = isset( $row['id'] ) ? (int) $row['id'] : 0;
+			$status = isset( $row['status'] ) ? sanitize_key( (string) $row['status'] ) : '';
+			if ( $id <= 0 || ! in_array( $status, array( 'publish', 'draft', 'pending', 'private', 'future' ), true ) ) {
+				continue;
+			}
+			$ranked[] = array(
+				'id'   => $id,
+				'rank' => 'publish' === $status ? 0 : 1,
+			);
+		}
+		usort(
+			$ranked,
+			static function ( $left, $right ) {
+				if ( $left['rank'] === $right['rank'] ) {
+					return $left['id'] - $right['id'];
+				}
+				return $left['rank'] - $right['rank'];
+			}
+		);
+		if ( empty( $ranked ) ) {
+			return array(
+				'keep'    => 0,
+				'discard' => array(),
+			);
+		}
+		$discard = array();
+		foreach ( $ranked as $index => $row ) {
+			if ( 0 === $index ) {
+				continue;
+			}
+			$discard[] = (int) $row['id'];
+		}
+		return array(
+			'keep'    => (int) $ranked[0]['id'],
+			'discard' => $discard,
+		);
+	}
+
+	/**
+	 * A failed duplicate is not mapped. The partial post id is discarded by the caller.
+	 *
+	 * @param int    $source_id  Source page.
+	 * @param int    $variant_id Partial post, or 0.
+	 * @param string $code       Error code.
+	 * @param string $message    Error message.
+	 * @return array{map:bool,discard_id:int,failure:array{source_id:int,code:string,message:string}}
+	 */
+	public static function failed_duplicate_result( $source_id, $variant_id, $code, $message ) {
+		return array(
+			'map'        => false,
+			'discard_id' => (int) $variant_id,
+			'failure'    => array(
+				'source_id' => (int) $source_id,
+				'code'      => sanitize_key( (string) $code ),
+				'message'   => (string) $message,
+			),
+		);
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $existing Earlier failures.
+	 * @param array<int, array<string, mixed>> $added    New failures.
+	 * @param int                              $limit    Maximum rows kept.
+	 * @return array<int, array{source_id:int,code:string,message:string}>
+	 */
+	public static function merge_bulk_failures( array $existing, array $added, $limit = 40 ) {
+		$out   = array();
+		$limit = (int) $limit;
+		if ( $limit < 1 ) {
+			$limit = 40;
+		}
+		foreach ( array( $existing, $added ) as $group ) {
+			foreach ( $group as $row ) {
+				if ( ! is_array( $row ) ) {
+					continue;
+				}
+				$source = isset( $row['source_id'] ) ? (int) $row['source_id'] : 0;
+				if ( $source <= 0 ) {
+					continue;
+				}
+				$message = isset( $row['message'] ) ? (string) $row['message'] : '';
+				if ( strlen( $message ) > 180 ) {
+					$message = substr( $message, 0, 177 ) . '...';
+				}
+				$out[] = array(
+					'source_id' => $source,
+					'code'      => isset( $row['code'] ) ? sanitize_key( (string) $row['code'] ) : '',
+					'message'   => $message,
+				);
+			}
+		}
+		if ( count( $out ) > $limit ) {
+			$out = array_slice( $out, count( $out ) - $limit );
+		}
+		return $out;
+	}
+
+	/**
+	 * @param string $text Comma or whitespace separated ids.
+	 * @return array<int, int>
+	 */
+	public static function parse_id_list( $text ) {
+		$out = array();
+		foreach ( preg_split( '/[\s,]+/', (string) $text ) as $part ) {
+			if ( '' === $part ) {
+				continue;
+			}
+			$id = (int) $part;
+			if ( $id > 0 ) {
+				$out[] = $id;
+			}
+		}
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Copy a published page when coverage says later pages belong in the test.
+	 *
+	 * @param string $new_status New status.
+	 * @param string $old_status Old status.
+	 * @param object $post       Post object.
+	 * @return void
+	 */
+	public static function maybe_cover_published_page( $new_status, $old_status, $post ) {
+		if ( self::$duplicating ) {
+			return;
+		}
+		if ( 'publish' !== (string) $new_status || 'publish' === (string) $old_status ) {
+			return;
+		}
+		if ( ! is_object( $post ) || empty( $post->post_type ) || 'page' !== (string) $post->post_type ) {
+			return;
+		}
+		$cfg      = self::get_config();
+		$coverage = self::coverage_from_config( $cfg );
+		if ( self::MAPPING_ALL_PUBLISHED !== $coverage['mapping_mode'] || self::FUTURE_INCLUDE !== $coverage['future_pages'] ) {
+			return;
+		}
+		$status = isset( $cfg['status'] ) ? sanitize_key( (string) $cfg['status'] ) : '';
+		if ( ! in_array( $status, array( 'active', 'paused' ), true ) ) {
+			return;
+		}
+		$page     = self::record_from_post( $post );
+		$decision = self::resolve_page_coverage(
+			$page,
+			$cfg,
+			array(
+				'system_ids' => self::woocommerce_system_page_ids(),
+			)
+		);
+		if ( 'eligible' !== $decision ) {
+			return;
+		}
+		$source_id = (int) $post->ID;
+		self::$duplicating = true;
+		$new_id            = self::duplicate_source_to_variant( $source_id );
+		self::$duplicating = false;
+		if ( is_wp_error( $new_id ) || (int) $new_id <= 0 ) {
+			return;
+		}
+		$map                   = self::append_map_rows( self::page_map( $cfg ), array( self::map_row( $source_id, (int) $new_id ) ) );
+		$cfg['page_map']       = $map;
+		$cfg['source_page_id'] = isset( $map[0]['source_page_id'] ) ? (int) $map[0]['source_page_id'] : $source_id;
+		self::persist_config( $cfg, null, array( $source_id, (int) $new_id ) );
+	}
+
+	/**
+	 * @param object $post Post.
+	 * @return array{id:int,status:string,type:string,slug:string,created_gmt:int,variant_of:int}
+	 */
+	public static function record_from_post( $post ) {
+		$id         = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : 0;
+		$variant_of = 0;
+		if ( $id > 0 && function_exists( 'get_post_meta' ) ) {
+			$variant_of = (int) get_post_meta( $id, self::VARIANT_META, true );
+		}
+		$created = 0;
+		if ( is_object( $post ) && ! empty( $post->post_date_gmt ) ) {
+			$parsed = strtotime( (string) $post->post_date_gmt . ' GMT' );
+			if ( false !== $parsed ) {
+				$created = (int) $parsed;
+			}
+		}
+		return array(
+			'id'          => $id,
+			'status'      => is_object( $post ) && isset( $post->post_status ) ? (string) $post->post_status : '',
+			'type'        => is_object( $post ) && isset( $post->post_type ) ? (string) $post->post_type : '',
+			'slug'        => is_object( $post ) && isset( $post->post_name ) ? (string) $post->post_name : '',
+			'created_gmt' => $created,
+			'variant_of'  => $variant_of,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $old Previous config.
+	 * @return array<string, mixed>
+	 */
+	private static function config_from_post( array $old ) {
+		$status = isset( $_POST['rwgo_sw_status'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_status'] ) ) : 'paused';
+		if ( ! in_array( $status, array( 'active', 'paused', 'ended' ), true ) ) {
+			$status = 'paused';
+		}
+		$key    = isset( $_POST['rwgo_sw_key'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_key'] ) ) : 'rwgo_sitewide';
+		$weight = isset( $_POST['rwgo_sw_weight'] ) ? (float) wp_unslash( $_POST['rwgo_sw_weight'] ) : 50;
+		$weight = max( 0, min( 100, $weight ) ) / 100;
+		$days   = isset( $_POST['rwgo_sw_days'] ) ? (int) wp_unslash( $_POST['rwgo_sw_days'] ) : self::DEFAULT_DAYS;
+		$map_in = isset( $_POST['rwgo_sw_map'] ) ? (string) wp_unslash( $_POST['rwgo_sw_map'] ) : '';
+		$goals  = isset( $_POST['rwgo_sw_goals'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['rwgo_sw_goals'] ) ) : '';
+		$parsed = self::parse_map_text( $map_in );
+		if ( ! empty( $_POST['rwgo_sw_map_merge'] ) ) {
+			$map    = self::append_map_rows( self::page_map( $old ), $parsed );
+			$remove = self::parse_id_list( isset( $_POST['rwgo_sw_unmap'] ) ? wp_unslash( (string) $_POST['rwgo_sw_unmap'] ) : '' );
+			$map    = self::drop_map_sources( $map, $remove );
+		} else {
+			$map = $parsed;
+		}
+		$mode = isset( $_POST['rwgo_sw_mapping'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_mapping'] ) ) : self::MAPPING_EXPLICIT;
+		if ( ! in_array( $mode, array( self::MAPPING_EXPLICIT, self::MAPPING_ALL_PUBLISHED ), true ) ) {
+			$mode = self::MAPPING_EXPLICIT;
+		}
+		$future = isset( $_POST['rwgo_sw_future'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_future'] ) ) : self::FUTURE_SKIP;
+		if ( ! in_array( $future, array( self::FUTURE_INCLUDE, self::FUTURE_SKIP ), true ) ) {
+			$future = self::FUTURE_SKIP;
+		}
+		$baseline = isset( $old['coverage_baseline_gmt'] ) ? (int) $old['coverage_baseline_gmt'] : 0;
+		if ( self::MAPPING_ALL_PUBLISHED === $mode && $baseline <= 0 ) {
+			$baseline = time();
+		}
+		return array(
+			'experiment_key'        => '' !== $key ? $key : 'rwgo_sitewide',
+			'status'                => $status,
+			'test_type'             => 'sitewide',
+			'scope'                 => 'site',
+			'cookie_days'           => max( 1, $days ),
+			'control_weight'        => $weight,
+			'page_map'              => $map,
+			'goal_page_ids'         => self::parse_id_list( $goals ),
+			'track_purchase'        => ! empty( $_POST['rwgo_sw_purchase'] ),
+			'source_page_id'        => isset( $map[0]['source_page_id'] ) ? (int) $map[0]['source_page_id'] : 0,
+			'mapping_mode'          => $mode,
+			'exclude_system_pages'  => ! empty( $_POST['rwgo_sw_exclude_system'] ),
+			'exclude_page_ids'      => self::parse_id_list( isset( $_POST['rwgo_sw_exclude_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_exclude_ids'] ) : '' ),
+			'future_pages'          => $future,
+			'coverage_baseline_gmt' => $baseline,
+			'variants'              => array(
+				array(
+					'variant_id' => 'control',
+					'page_id'    => 0,
+					'weight'     => $weight,
+				),
+				array(
+					'variant_id' => 'var_b',
+					'page_id'    => 0,
+					'weight'     => 1 - $weight,
+				),
+			),
+			'goals'                 => array(
+				array(
+					'goal_id'   => 'sitewide_destination',
+					'goal_type' => 'page_view',
+					'label'     => __( 'Site-wide conversion', 'reactwoo-geo-optimise' ),
+					'handlers'  => array(
+						array(
+							'handler_id'   => 'sitewide_destination',
+							'handler_type' => 'page_view',
+						),
+					),
+				),
+			),
+			'primary_goal_id'       => 'sitewide_destination',
+		);
+	}
+
+	/**
+	 * @param array<string, mixed>    $cfg       Config to store.
+	 * @param array<string, mixed>|null $old     Previous config. Purge both maps when this is an array and $purge_ids is null.
+	 * @param array<int, int>|null    $purge_ids When set, purge only these ids.
+	 * @return void
+	 */
+	private static function persist_config( array $cfg, $old, ?array $purge_ids = null ) {
+		update_option( self::OPTION, $cfg, false );
+		self::reset_map_index();
+		self::sync_experiment_post( $cfg );
+		if ( is_array( $purge_ids ) ) {
+			if ( ! empty( $purge_ids ) ) {
+				self::purge_ids( $purge_ids );
+			}
+			return;
+		}
+		if ( is_array( $old ) ) {
+			self::purge_config( $old );
+		}
+		self::purge_config( $cfg );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Saved config.
+	 * @return void
+	 */
+	private static function start_bulk( array $cfg ) {
+		$scope = isset( $_POST['rwgo_sw_bulk_scope'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_bulk_scope'] ) ) : 'selected';
+		if ( ! in_array( $scope, array( 'all', 'selected' ), true ) ) {
+			$scope = 'selected';
+		}
+		$job = array(
+			'active'       => true,
+			'scope'        => $scope,
+			'selected_ids' => self::parse_id_list( isset( $_POST['rwgo_sw_bulk_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_bulk_ids'] ) : '' ),
+			'after_id'     => 0,
+			'created'      => 0,
+			'failed'       => 0,
+		);
+		update_option( self::BULK_OPTION, $job, false );
+		self::process_bulk_and_redirect( $cfg, $job );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @param array<string, mixed> $job Bulk job.
+	 * @return void
+	 */
+	private static function process_bulk_and_redirect( array $cfg, array $job ) {
+		$before  = isset( $job['after_id'] ) ? (int) $job['after_id'] : 0;
+		$batch   = self::run_bulk_batch( $cfg, $job );
+		$created  = ( isset( $job['created'] ) ? (int) $job['created'] : 0 ) + (int) $batch['created'];
+		$failed   = ( isset( $job['failed'] ) ? (int) $job['failed'] : 0 ) + (int) $batch['failed'];
+		$after    = (int) $batch['after_id'];
+		$more     = ! empty( $batch['more'] );
+		$previous = isset( $job['failures'] ) && is_array( $job['failures'] ) ? $job['failures'] : array();
+		$added    = isset( $batch['failures'] ) && is_array( $batch['failures'] ) ? $batch['failures'] : array();
+		$failures = self::merge_bulk_failures( $previous, $added );
+		if ( $more && $after <= $before && 0 === (int) $batch['created'] && empty( $added ) ) {
+			$more = false;
+		}
+		$job['created']  = $created;
+		$job['failed']   = $failed;
+		$job['failures'] = $failures;
+		$job['after_id'] = $after;
+		$job['active']   = $more;
+		if ( $more ) {
+			update_option( self::BULK_OPTION, $job, false );
+		} else {
+			update_option(
+				self::BULK_RESULT,
+				array(
+					'created'  => $created,
+					'failed'   => $failed,
+					'failures' => $failures,
+				),
+				false
+			);
+			if ( function_exists( 'delete_option' ) ) {
+				delete_option( self::BULK_OPTION );
+			} else {
+				update_option( self::BULK_OPTION, array( 'active' => false ), false );
+			}
+		}
+		$touched = isset( $batch['touched'] ) && is_array( $batch['touched'] ) ? $batch['touched'] : array();
+		self::persist_config( $batch['config'], null, $touched );
+		if ( $more ) {
+			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_bulk_more=1' ) );
+			exit;
+		}
+		wp_safe_redirect(
+			admin_url(
+				'admin.php?page=rwgo-sitewide&rwgo_bulk_done=1&rwgo_bulk_created=' . $created . '&rwgo_bulk_failed=' . $failed
+			)
+		);
+		exit;
+	}
+
+	/**
+	 * Duplicate one window of pages. The cursor walks published IDs so the whole table is not loaded.
+	 *
+	 * @param array<string, mixed> $cfg Config.
+	 * @param array<string, mixed> $job Job.
+	 * @return array{config:array<string,mixed>,after_id:int,more:bool,created:int,failed:int,touched:array<int,int>}
+	 */
+	private static function run_bulk_batch( array $cfg, array $job ) {
+		$after    = isset( $job['after_id'] ) ? (int) $job['after_id'] : 0;
+		$scope    = isset( $job['scope'] ) ? sanitize_key( (string) $job['scope'] ) : 'selected';
+		$selected = isset( $job['selected_ids'] ) && is_array( $job['selected_ids'] ) ? $job['selected_ids'] : array();
+		$context  = array(
+			'system_ids' => self::woocommerce_system_page_ids(),
+		);
+		if ( 'all' === $scope ) {
+			$window = self::published_page_ids_after( $after, self::BULK_SCAN );
+		} else {
+			$pending = array();
+			foreach ( $selected as $id ) {
+				$id = (int) $id;
+				if ( $id > $after ) {
+					$pending[] = $id;
+				}
+			}
+			sort( $pending );
+			$window = array_slice( $pending, 0, self::BULK_BATCH );
+		}
+		$pages             = self::load_page_records( $window );
+		$targets           = self::select_bulk_pages( $pages, $cfg, $scope, $window, $context );
+		$started           = microtime( true );
+		$created           = 0;
+		$failed            = 0;
+		$failures          = array();
+		$touched           = array();
+		$processed_through = $after;
+		$stop_early        = false;
+		$map               = self::page_map( $cfg );
+		self::$duplicating = true;
+		foreach ( $targets as $page ) {
+			if ( $created >= self::BULK_BATCH || ( $created > 0 && ( microtime( true ) - $started ) >= self::BULK_TIME_BUDGET ) ) {
+				$stop_early = true;
+				break;
+			}
+			$source_id         = isset( $page['id'] ) ? (int) $page['id'] : 0;
+			$processed_through = $source_id;
+			$new_id            = self::duplicate_source_to_variant( $source_id );
+			if ( is_wp_error( $new_id ) || (int) $new_id <= 0 ) {
+				$failed++;
+				$code       = is_wp_error( $new_id ) ? $new_id->get_error_code() : 'rwgo_dup_missing';
+				$message    = is_wp_error( $new_id ) ? $new_id->get_error_message() : __( 'Variant page was not created.', 'reactwoo-geo-optimise' );
+				$failures[] = self::failed_duplicate_result( $source_id, 0, $code, $message )['failure'];
+				continue;
+			}
+			$map             = self::append_map_rows( $map, array( self::map_row( $source_id, (int) $new_id ) ) );
+			$cfg['page_map'] = $map;
+			$touched[]       = $source_id;
+			$touched[]       = (int) $new_id;
+			$created++;
+		}
+		self::$duplicating = false;
+		if ( ! empty( $map ) ) {
+			$cfg['source_page_id'] = (int) $map[0]['source_page_id'];
+		}
+		if ( $stop_early ) {
+			$cursor = $processed_through;
+			$more   = true;
+		} else {
+			$cursor = empty( $window ) ? $after : (int) $window[ count( $window ) - 1 ];
+			if ( 'all' === $scope ) {
+				$more = count( $window ) === self::BULK_SCAN;
+			} else {
+				$more = false;
+				foreach ( $selected as $id ) {
+					if ( (int) $id > $cursor ) {
+						$more = true;
+						break;
+					}
+				}
+			}
+		}
+		return array(
+			'config'   => $cfg,
+			'after_id' => $cursor,
+			'more'     => $more,
+			'created'  => $created,
+			'failed'   => $failed,
+			'failures' => $failures,
+			'touched'  => $touched,
+		);
+	}
+
+	/**
+	 * @param int $source_id Source page.
+	 * @return int|\WP_Error
+	 */
+	private static function duplicate_source_to_variant( $source_id ) {
+		$source_id = (int) $source_id;
+		if ( $source_id <= 0 || ! class_exists( 'RWGO_Page_Duplicator', false ) ) {
+			return new WP_Error( 'rwgo_dup_missing', __( 'Source page not found.', 'reactwoo-geo-optimise' ) );
+		}
+		$choice = self::choose_variant_to_reuse( self::variant_candidates_for_source( $source_id ) );
+		if ( $choice['keep'] > 0 ) {
+			foreach ( $choice['discard'] as $extra_id ) {
+				self::discard_variant_post( (int) $extra_id );
+			}
+			$published = self::publish_variant_post( (int) $choice['keep'], false );
+			if ( is_wp_error( $published ) ) {
+				return $published;
+			}
+			return (int) $choice['keep'];
+		}
+		self::$partial_ids = array();
+		add_action( 'save_post_page', array( __CLASS__, 'capture_partial_page' ), 1, 3 );
+		$new_id = RWGO_Page_Duplicator::duplicate_page( $source_id );
+		remove_action( 'save_post_page', array( __CLASS__, 'capture_partial_page' ), 1 );
+		if ( is_wp_error( $new_id ) ) {
+			self::discard_partial_pages( 0 );
+			return $new_id;
+		}
+		$new_id = (int) $new_id;
+		if ( $new_id <= 0 ) {
+			self::discard_partial_pages( 0 );
+			return new WP_Error( 'rwgo_dup_missing', __( 'Source page not found.', 'reactwoo-geo-optimise' ) );
+		}
+		if ( function_exists( 'update_post_meta' ) ) {
+			update_post_meta( $new_id, self::VARIANT_META, $source_id );
+		}
+		$published = self::publish_variant_post( $new_id, true );
+		if ( is_wp_error( $published ) ) {
+			return $published;
+		}
+		self::$partial_ids = array();
+		return $new_id;
+	}
+
+	/**
+	 * Remember a page written during the current duplicate attempt.
+	 *
+	 * @param int    $post_id Post id.
+	 * @param mixed  $post    Post.
+	 * @param bool   $update  Whether this is an update.
+	 * @return void
+	 */
+	public static function capture_partial_page( $post_id, $post = null, $update = false ) {
+		unset( $post );
+		if ( ! self::$duplicating || $update ) {
+			return;
+		}
+		$post_id = (int) $post_id;
+		if ( $post_id > 0 ) {
+			self::$partial_ids[ $post_id ] = true;
+		}
+	}
+
+	/**
+	 * @param int  $post_id        Variant page.
+	 * @param bool $discard_on_error Trash a partial created by this attempt when publish fails.
+	 * @return int|\WP_Error
+	 */
+	private static function publish_variant_post( $post_id, $discard_on_error ) {
+		$post_id = (int) $post_id;
+		if ( function_exists( 'get_post_status' ) && 'publish' === get_post_status( $post_id ) ) {
+			return $post_id;
+		}
+		if ( ! function_exists( 'wp_update_post' ) ) {
+			return $post_id;
+		}
+		$update = array(
+			'ID'          => $post_id,
+			'post_status' => 'publish',
+		);
+		$template = function_exists( 'get_post_meta' ) ? (string) get_post_meta( $post_id, '_wp_page_template', true ) : '';
+		$valid    = self::theme_page_templates( $post_id );
+		$next     = self::page_template_for_publish( $template, $valid );
+		if ( $next !== $template ) {
+			$update['page_template'] = $next;
+			if ( 'default' === $next && function_exists( 'delete_post_meta' ) ) {
+				delete_post_meta( $post_id, '_wp_page_template' );
+			} elseif ( function_exists( 'update_post_meta' ) ) {
+				update_post_meta( $post_id, '_wp_page_template', $next );
+			}
+		}
+		$updated = wp_update_post( $update, true );
+		if ( is_wp_error( $updated ) ) {
+			$published = function_exists( 'get_post_status' ) && 'publish' === get_post_status( $post_id );
+			if ( $discard_on_error || $published ) {
+				self::discard_variant_post( $post_id );
+			}
+			return $updated;
+		}
+		return $post_id;
+	}
+
+	/**
+	 * @param int $post_id Post id.
+	 * @return array<int|string, mixed>
+	 */
+	private static function theme_page_templates( $post_id ) {
+		if ( ! function_exists( 'wp_get_theme' ) ) {
+			return array();
+		}
+		$theme = wp_get_theme();
+		if ( ! is_object( $theme ) || ! method_exists( $theme, 'get_page_templates' ) ) {
+			return array();
+		}
+		$post      = function_exists( 'get_post' ) ? get_post( (int) $post_id ) : null;
+		$templates = $theme->get_page_templates( $post );
+		return is_array( $templates ) ? $templates : array();
+	}
+
+	/**
+	 * @param int $keep_id Post to leave in place. 0 trashes every partial.
+	 * @return void
+	 */
+	private static function discard_partial_pages( $keep_id ) {
+		$keep_id = (int) $keep_id;
+		foreach ( array_keys( self::$partial_ids ) as $post_id ) {
+			$post_id = (int) $post_id;
+			if ( $post_id <= 0 || $post_id === $keep_id ) {
+				continue;
+			}
+			self::discard_variant_post( $post_id );
+		}
+		self::$partial_ids = array();
+	}
+
+	/**
+	 * @param int $post_id Post id.
+	 * @return void
+	 */
+	private static function discard_variant_post( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return;
+		}
+		if ( function_exists( 'wp_trash_post' ) ) {
+			wp_trash_post( $post_id );
+			return;
+		}
+		if ( function_exists( 'wp_delete_post' ) ) {
+			wp_delete_post( $post_id, true );
+		}
+	}
+
+	/**
+	 * @param int $source_id Source page.
+	 * @return array<int, array{id:int,status:string}>
+	 */
+	private static function variant_candidates_for_source( $source_id ) {
+		$source_id = (int) $source_id;
+		if ( $source_id <= 0 || ! function_exists( 'get_posts' ) ) {
+			return array();
+		}
+		$ids = get_posts(
+			array(
+				'post_type'              => 'page',
+				'post_status'            => array( 'publish', 'draft', 'pending', 'private', 'future' ),
+				'meta_key'               => self::VARIANT_META, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_value'             => (string) $source_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'posts_per_page'         => 20,
+				'fields'                 => 'ids',
+				'orderby'                => 'ID',
+				'order'                  => 'ASC',
+				'no_found_rows'          => true,
+				'suppress_filters'       => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+			)
+		);
+		if ( ! is_array( $ids ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $ids as $id ) {
+			$id = (int) $id;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$status = function_exists( 'get_post_status' ) ? (string) get_post_status( $id ) : 'draft';
+			$out[]  = array(
+				'id'     => $id,
+				'status' => $status,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * @param int $source_id  Original page.
+	 * @param int $variant_id Variant page.
+	 * @return array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}
+	 */
+	private static function map_row( $source_id, $variant_id ) {
+		return array(
+			'source_page_id'  => (int) $source_id,
+			'variant_page_id' => (int) $variant_id,
+			'source_path'     => self::path_for_post( (int) $source_id ),
+			'variant_path'    => self::path_for_post( (int) $variant_id ),
+		);
+	}
+
+	/**
+	 * @param mixed $row Row.
+	 * @return array{source_page_id:int,variant_page_id:int,source_path:string,variant_path:string}|null
+	 */
+	private static function clean_map_row( $row ) {
+		if ( ! is_array( $row ) ) {
+			return null;
+		}
+		$source  = isset( $row['source_page_id'] ) ? (int) $row['source_page_id'] : 0;
+		$variant = isset( $row['variant_page_id'] ) ? (int) $row['variant_page_id'] : 0;
+		if ( $source <= 0 || $variant <= 0 || $source === $variant ) {
+			return null;
+		}
+		return array(
+			'source_page_id'  => $source,
+			'variant_page_id' => $variant,
+			'source_path'     => isset( $row['source_path'] ) ? (string) $row['source_path'] : '',
+			'variant_path'    => isset( $row['variant_path'] ) ? (string) $row['variant_path'] : '',
+		);
+	}
+
+	/**
+	 * @param array<int, int> $ids Page ids.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function load_page_records( array $ids ) {
+		$ids = array_values(
+			array_filter(
+				array_map( 'intval', $ids ),
+				static function ( $id ) {
+					return $id > 0;
+				}
+			)
+		);
+		if ( empty( $ids ) ) {
+			return array();
+		}
+		$posts = array();
+		if ( function_exists( 'get_posts' ) ) {
+			$posts = get_posts(
+				array(
+					'post_type'              => 'page',
+					'post_status'            => 'publish',
+					'post__in'               => $ids,
+					'posts_per_page'         => count( $ids ),
+					'orderby'                => 'post__in',
+					'ignore_sticky_posts'    => true,
+					'no_found_rows'          => true,
+					'update_post_term_cache' => false,
+					'suppress_filters'       => true,
+				)
+			);
+		} elseif ( function_exists( 'get_post' ) ) {
+			foreach ( $ids as $id ) {
+				$post = get_post( $id );
+				if ( is_object( $post ) ) {
+					$posts[] = $post;
+				}
+			}
+		}
+		$out = array();
+		if ( ! is_array( $posts ) ) {
+			return $out;
+		}
+		foreach ( $posts as $post ) {
+			$out[] = self::record_from_post( $post );
+		}
+		return $out;
+	}
+
+	/**
+	 * Next published page IDs after a cursor. One indexed range, not the whole table.
+	 *
+	 * @param int $after_id Last scanned id.
+	 * @param int $limit    Maximum rows.
+	 * @return array<int, int>
+	 */
+	private static function published_page_ids_after( $after_id, $limit ) {
+		global $wpdb;
+		if ( ! isset( $wpdb ) || ! is_object( $wpdb ) || ! method_exists( $wpdb, 'prepare' ) || ! method_exists( $wpdb, 'get_col' ) ) {
+			return array();
+		}
+		$after_id = (int) $after_id;
+		$limit    = max( 1, (int) $limit );
+		$sql      = $wpdb->prepare(
+			"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s AND post_status = %s AND ID > %d ORDER BY ID ASC LIMIT %d",
+			'page',
+			'publish',
+			$after_id,
+			$limit
+		);
+		$ids = $wpdb->get_col( $sql );
+		if ( ! is_array( $ids ) ) {
+			return array();
+		}
+		return array_map( 'intval', $ids );
+	}
+
+	/**
+	 * @return array<int, int>
+	 */
+	private static function woocommerce_system_page_ids() {
+		if ( is_array( self::$reserved_ids_cache ) ) {
+			return self::$reserved_ids_cache;
+		}
+		$ids = array();
+		if ( function_exists( 'wc_get_page_id' ) ) {
+			foreach ( self::woocommerce_page_id_keys() as $key ) {
+				$id = (int) wc_get_page_id( $key );
+				if ( $id > 0 ) {
+					$ids[] = $id;
+				}
+			}
+		}
+		if ( function_exists( 'get_option' ) ) {
+			$posts_page = (int) get_option( 'page_for_posts', 0 );
+			if ( $posts_page > 0 ) {
+				$ids[] = $posts_page;
+			}
+		}
+		self::$reserved_ids_cache = array_values( array_unique( $ids ) );
+		return self::$reserved_ids_cache;
+	}
+
+	/**
+	 * @param string $slug Slug.
+	 * @return string
+	 */
+	private static function normalize_slug( $slug ) {
+		$slug = strtolower( (string) $slug );
+		$slug = str_replace( '_', '-', $slug );
+		$slug = preg_replace( '/[^a-z0-9\-]/', '', $slug );
+		return is_string( $slug ) ? $slug : '';
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return void
+	 */
+	private static function ensure_map_index( $cfg ) {
+		$rows    = self::page_map( $cfg );
+		$skip    = ! empty( self::coverage_from_config( $cfg )['exclude_system_pages'] );
+		$reserved = $skip ? self::woocommerce_system_page_ids() : array();
+		$token   = self::map_index_token( $rows ) . '|' . implode( ',', $reserved );
+		if ( self::$map_index_token === $token ) {
+			return;
+		}
+		$reserved_lookup     = array_fill_keys( array_map( 'intval', $reserved ), true );
+		self::$source_index  = array();
+		self::$variant_index = array();
+		self::$source_paths  = array();
+		self::$variant_paths = array();
+		foreach ( $rows as $row ) {
+			$source_id  = (int) $row['source_page_id'];
+			$variant_id = (int) $row['variant_page_id'];
+			self::$variant_index[ $variant_id ] = $row;
+			if ( '' !== $row['variant_path'] ) {
+				self::$variant_paths[ self::normalize_request_path( $row['variant_path'] ) ] = true;
+			}
+			if ( isset( $reserved_lookup[ $source_id ] ) ) {
+				continue;
+			}
+			self::$source_index[ $source_id ] = $row;
+			if ( '' !== $row['source_path'] ) {
+				self::$source_paths[ self::normalize_request_path( $row['source_path'] ) ] = true;
+			}
+		}
+		self::$map_index_token = $token;
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $rows Map rows.
+	 * @return string
+	 */
+	private static function map_index_token( array $rows ) {
+		if ( empty( $rows ) ) {
+			return '0';
+		}
+		$parts = array();
+		foreach ( $rows as $row ) {
+			$parts[] = (int) $row['source_page_id'] . ':' . (int) $row['variant_page_id'] . ':' . $row['source_path'] . ':' . $row['variant_path'];
+		}
+		return md5( implode( "\n", $parts ) );
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function reset_map_index() {
+		self::$map_index_token    = '';
+		self::$source_index       = array();
+		self::$variant_index      = array();
+		self::$source_paths       = array();
+		self::$variant_paths      = array();
+		self::$reserved_ids_cache = null;
+	}
+
+	/**
+	 * @param array<int, int> $ids Post ids.
+	 * @return void
+	 */
+	private static function purge_ids( array $ids ) {
+		foreach ( $ids as $id ) {
+			$id = (int) $id;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			do_action( 'litespeed_purge_post', $id );
+			if ( function_exists( 'get_permalink' ) ) {
+				$url = get_permalink( $id );
+				if ( is_string( $url ) && '' !== $url ) {
+					do_action( 'litespeed_purge_url', $url );
+				}
+			}
 		}
 	}
 

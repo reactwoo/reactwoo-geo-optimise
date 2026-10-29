@@ -4,25 +4,22 @@
 done
 
 ## Task
-Staging QA follow-up on draft PR #2 (`241a1dc`). The variant body is correct. The document head still used the source page title and SEO description from Rank Math. The variant must supply those, while the canonical URL, `og:url`, variant URL redirect, and bot control page stay as they are. No merge and no `v*` tag.
+Staging QA follow-up on `f3620f1`. Keep the 0.5.0 PR. Exclude WooCommerce special pages and the posts page, roll back failed duplicates, and stop variant URLs leaking into oEmbed and og:url. No merge and no tag.
 
 ## Files changed and why
-- `includes/class-rwgo-sitewide.php` — when the variant arm is rendered, the document title, meta description, Open Graph title/description, Twitter title/description, and JSON-LD description are resolved from the variant page. Rank Math meta is used first, then Yoast, then the variant title and excerpt. Canonical and `og:url` filters still return the original permalink. Head filters do nothing unless the variant swap succeeded, so bots stay on the control page.
-- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php` — variant head resolution, JSON-LD description replacement that keeps URLs, idle filters, and original canonical URL.
-- `CHANGELOG.md`, `readme.txt` — 0.4.98 note for the head fix. Version stays 0.4.98.
+- `includes/class-rwgo-sitewide.php` — shop, terms, refund, and posts page are reserved; a reserved page already in the map is not served as a variant. Failed duplicates are not mapped, published partials are trashed, and a later run reuses one existing variant. Bulk failures are stored and shown. Head output keeps one original og:url and rewrites oEmbed discovery links.
+- `tests/Sitewide/RWGOSitewideAssignmentTest.php`, `tests/sitewide-assert.php` — shop and posts-page exclusions, failed-duplicate result, reuse choice, oEmbed rewrite, and a single og:url.
+- `CHANGELOG.md`, `readme.txt` — 0.5.0 notes for these fixes. Version stays 0.5.0.
 
 ## What was not changed
-- Variant URL redirect (`maybe_redirect_variant_url`).
-- Bot assignment: bots still receive the control page and do not swap.
-- Body more-marker stripping and Elementor cache skipping.
-- Single `Vary: Cookie` header and bot `DONOTCACHEPAGE` behaviour.
+- One arm per visitor, original URLs, variant 302, bots on the control page, and variant SEO title/description with the original canonical.
 - No Geo Core edits. No `v*` tag and no merge.
-- 390px admin layout CSS was not edited.
 
 ## Commands run and results
 - `php -l includes/class-rwgo-sitewide.php` — no syntax errors.
-- `php tests/sitewide-assert.php` — all checks passed, including variant head, JSON-LD, and original canonical URL.
-- `phpunit --configuration phpunit.xml.dist` — OK (35 tests, 200 assertions).
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (43 tests, 259 assertions).
+- `php tests/sitewide-assert.php` — all checks passed.
+- `python3 scripts/package_zip.py` — wrote `reactwoo-geo-optimise-0.5.0.zip` (not committed).
 
 ## Remaining errors
-None. Staging still needs to confirm Rank Math's rendered `<head>` for a variant arm.
+None in the unit harness. Staging still needs to confirm the shop page, a failed `invalid_page_template` copy, a rerun, and the rendered head for oEmbed and og:url.
