@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The swapped variant content filter is registered once, at priority 0, so it does not run again after formatting filters.
+- All-published coverage also leaves out the WooCommerce shop page, terms and refund pages, and the posts page. A shop page already in the map is not served as a variant.
+- A duplicate that fails, including `invalid_page_template`, is not added to the page map. A published partial is trashed. Running the bulk action again reuses one existing variant for that source instead of creating another, and the screen lists the pages that failed.
+- While a variant arm is shown at the original URL, oEmbed discovery links and `og:url` use that original URL, and a second `og:url` is removed.
 
 ## [0.4.98] - 2026-10-23
 

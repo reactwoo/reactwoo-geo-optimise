@@ -581,6 +581,79 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertIsArray( RWGO_Sitewide::active_config() );
 	}
 
+	public function test_shop_terms_and_posts_page_are_reserved(): void {
+		$this->assertContains( 'shop', RWGO_Sitewide::woocommerce_page_id_keys() );
+		$this->assertContains( 'terms', RWGO_Sitewide::woocommerce_page_id_keys() );
+		$this->assertContains( 'refund_returns', RWGO_Sitewide::woocommerce_page_id_keys() );
+		$this->assertTrue( RWGO_Sitewide::is_reserved_system_page( 9, 'shop', array() ) );
+		$this->assertTrue( RWGO_Sitewide::is_reserved_system_page( 9, 'store', array( 9 ) ) );
+		$this->assertTrue( RWGO_Sitewide::is_reserved_system_page( 42, 'blog', array( 42 ) ) );
+		$this->assertFalse( RWGO_Sitewide::is_reserved_system_page( 43, 'blog', array( 42 ) ) );
+		$this->assertTrue( RWGO_Sitewide::is_reserved_system_page( 8, 'refund_returns', array() ) );
+		$cfg = array(
+			'mapping_mode'         => 'all_published',
+			'exclude_system_pages' => true,
+			'page_map'             => array(
+				array(
+					'source_page_id'  => 9,
+					'variant_page_id' => 90,
+					'source_path'     => '/shop/',
+					'variant_path'    => '/shop-variant-1/',
+				),
+			),
+		);
+		$this->assertSame(
+			'excluded',
+			RWGO_Sitewide::resolve_page_coverage( $this->page_record( 9, 'shop', 1000 ), $cfg, array( 'system_ids' => array( 9 ) ) )
+		);
+	}
+
+	public function test_failed_duplicate_is_not_mapped_and_rerun_reuses_one_variant(): void {
+		$failed = RWGO_Sitewide::failed_duplicate_result( 251, 4000, 'invalid_page_template', 'Invalid page template.' );
+		$this->assertFalse( $failed['map'] );
+		$this->assertSame( 4000, $failed['discard_id'] );
+		$this->assertSame( 'invalid_page_template', $failed['failure']['code'] );
+		$this->assertSame( 'default', RWGO_Sitewide::page_template_for_publish( 'missing-template.php', array( 'full-width.php' => 'Full width' ) ) );
+		$this->assertSame( 'full-width.php', RWGO_Sitewide::page_template_for_publish( 'full-width.php', array( 'full-width.php' => 'Full width' ) ) );
+		$choice = RWGO_Sitewide::choose_variant_to_reuse(
+			array(
+				array( 'id' => 12, 'status' => 'trash' ),
+				array( 'id' => 30, 'status' => 'publish' ),
+				array( 'id' => 18, 'status' => 'publish' ),
+				array( 'id' => 40, 'status' => 'draft' ),
+			)
+		);
+		$this->assertSame( 18, $choice['keep'] );
+		$this->assertSame( array( 30, 40 ), $choice['discard'] );
+		$merged = RWGO_Sitewide::merge_bulk_failures(
+			array(),
+			array(
+				array( 'source_id' => 251, 'code' => 'invalid_page_template', 'message' => 'Invalid page template.' ),
+				array( 'source_id' => 2965, 'code' => 'invalid_page_template', 'message' => 'Invalid page template.' ),
+			)
+		);
+		$this->assertCount( 2, $merged );
+		$this->assertSame( 2965, $merged[1]['source_id'] );
+	}
+
+	public function test_variant_url_is_removed_from_oembed_and_duplicate_og_url(): void {
+		$variant  = 'https://example.com/shop-variant-1/';
+		$original = 'https://example.com/shop/';
+		$oembed   = '<link rel="alternate" type="application/json+oembed" href="https://example.com/wp-json/oembed/1.0/embed?url=' . rawurlencode( $variant ) . '&#038;format=json" />';
+		$rewritten = RWGO_Sitewide::rewrite_variant_url( $oembed, $variant, $original );
+		$this->assertStringNotContainsString( rawurlencode( $variant ), $rewritten );
+		$this->assertStringContainsString( rawurlencode( $original ), $rewritten );
+		$head = '<meta property="og:url" content="' . $original . '" />' . "\n"
+			. '<meta property="og:url" content="' . $variant . '" />' . "\n"
+			. '<meta property="og:title" content="Shop" />';
+		$single = RWGO_Sitewide::single_og_url_markup( $head, $original, 'variant' );
+		$this->assertSame( 1, preg_match_all( '/property=(["\'])og:url\1/i', $single ) );
+		$this->assertStringContainsString( $original, $single );
+		$this->assertStringNotContainsString( $variant, $single );
+		$this->assertStringContainsString( 'og:title', $single );
+		$this->assertSame( $head, RWGO_Sitewide::single_og_url_markup( $head, $original, 'control' ) );
+	}
+
 	/**
 	 * @param int    $id      Page id.
 	 * @param string $slug    Slug.

@@ -28,6 +28,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 = 0.5.0 =
 * **Added:** Site-wide tests can cover all published pages, leaving out checkout, cart, my-account, and chosen page IDs. A bulk action copies the selected pages or every eligible page into variants and fills the page map. Pages published later can be included or skipped. Visitors still get one arm, the original URL, a redirect from the variant URL, and the control page for bots.
 * **Fix:** The site-wide variant content filter runs once, before the normal content filters, instead of again after them.
+* **Fix:** All published pages also skips the WooCommerce shop page, terms and refund pages, and the posts page.
+* **Fix:** A failed variant copy is not published as an unmapped page and is not added to the map. A later run reuses the existing variant. Failures are listed on the site-wide screen.
+* **Fix:** oEmbed discovery links and og:url stay on the original page when the variant arm is shown. A second og:url is removed.
 
 = 0.4.98 =
 * **Fix:** Split-test responses send `Vary: Cookie` once. A second cache pass no longer appends another copy of the header.
