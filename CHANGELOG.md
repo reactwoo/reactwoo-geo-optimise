@@ -5,6 +5,16 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-10-29
+
+### Added
+- The experiment assignment cookies (`rwgo_ab` and `rwgo_site`) are added to the LiteSpeed vary list (`litespeed_vary_cookies` and `X-LiteSpeed-Vary`), so the control page and variant B are stored as separate cache entries. When LiteSpeed Cache is the only page cache, a returning visitor with a stable assignment is cacheable. A new or repaired cookie, a bot, a QA override, and any other page-cache plugin still bypass the cache. With no cache plugin active, the existing private no-store behaviour is unchanged.
+- Saving, starting, stopping, or promoting an experiment, its page map, or the site-wide experiment (`rwgo_sitewide_experiment`) purges the original and variant URLs. Adapters run only when LiteSpeed Cache, WP Rocket, W3 Total Cache, WP Super Cache, or the Cloudflare plugin is present. Elementor CSS for those pages is regenerated when Elementor is active.
+- Settings includes a Clear Optimise cache button. It checks the Geo Optimise capability and a nonce.
+
+### Fixed
+- Front-end goal and conversion requests no longer use a nonce baked into cached HTML. `rwgo-tracking.js` fetches a fresh nonce from `GET /rwgo/v1/tracking-nonce` before it posts, and that response is marked uncacheable. If the fresh nonce cannot be loaded, the goal is not sent with a stale token.
+
 ## [0.5.0] - 2026-10-29
 
 ### Added

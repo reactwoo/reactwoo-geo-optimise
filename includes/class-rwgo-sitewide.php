@@ -514,8 +514,10 @@ class RWGO_Sitewide {
 	 * Mark mapped URLs uncacheable before a full-page cache can store an arm.
 	 *
 	 * A returning visitor with a valid assignment cookie still receives one arm.
-	 * That response needs the same bypass as a fresh assignment. Bots are not
-	 * assigned an arm, but the control page they receive must not be stored either.
+	 * Without LiteSpeed as the only page cache, that response uses the same bypass
+	 * as a fresh assignment. When LiteSpeed can vary on the assignment cookie, a
+	 * stable assignment is cacheable. Bots are not assigned an arm, but the control
+	 * page they receive must not be stored.
 	 *
 	 * @return void
 	 */
@@ -535,6 +537,10 @@ class RWGO_Sitewide {
 			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
 				self::send_uncacheable();
 			}
+			return;
+		}
+		// A stable assignment can be cached per cookie when LiteSpeed is the only page cache.
+		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
 		// Source pages always assign or serve. A matching cookie is the serve case.
@@ -566,6 +572,9 @@ class RWGO_Sitewide {
 			return;
 		}
 		if ( 'none' === $role ) {
+			return;
+		}
+		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
 		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
@@ -1557,11 +1566,15 @@ class RWGO_Sitewide {
 				'nocache' => true,
 			);
 		}
-		$fixed = self::ensure_assignment( $cfg );
-		$arm   = self::serving_arm( $fixed['arm'], false, $qa );
+		$fixed   = self::ensure_assignment( $cfg );
+		$arm     = self::serving_arm( $fixed['arm'], false, $qa );
+		$nocache = self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa );
+		if ( $nocache && self::litespeed_vary_caches_assigned_arm( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa, self::litespeed_only_page_cache() ) ) {
+			$nocache = false;
+		}
 		return array(
 			'arm'     => $arm,
-			'nocache' => self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa ),
+			'nocache' => $nocache,
 		);
 	}
 
@@ -2391,6 +2404,62 @@ class RWGO_Sitewide {
 			return true;
 		}
 		return in_array( (string) $arm, array( 'control', 'variant' ), true );
+	}
+
+	/**
+	 * LiteSpeed may store this response when the assignment cookie is already stable.
+	 *
+	 * Fresh cookies, QA overrides, and any other page cache stay uncacheable. With no
+	 * LiteSpeed plugin the flag is false, so the existing bypass is unchanged.
+	 *
+	 * @param bool   $assigning       Fresh visitor id.
+	 * @param bool   $rewritten       Cookie repaired.
+	 * @param string $arm             Arm this response will serve.
+	 * @param bool   $qa              QA override active.
+	 * @param bool   $litespeed_only  LiteSpeed Cache is active and no other page cache is.
+	 * @return bool
+	 */
+	public static function litespeed_vary_caches_assigned_arm( $assigning, $rewritten, $arm, $qa, $litespeed_only ) {
+		if ( $assigning || $rewritten || $qa || ! $litespeed_only ) {
+			return false;
+		}
+		return in_array( (string) $arm, array( 'control', 'variant' ), true );
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function litespeed_only_page_cache() {
+		if ( ! class_exists( 'RWGO_Cache_Compat', false ) || ! RWGO_Cache_Compat::litespeed_active() ) {
+			return false;
+		}
+		$available = RWGO_Cache_Compat::adapter_availability();
+		foreach ( array( 'rocket', 'w3tc', 'supercache', 'cloudflare' ) as $key ) {
+			if ( ! empty( $available[ $key ] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Returning visitor whose cookie will not be rewritten, and LiteSpeed can vary on it.
+	 *
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function response_can_use_litespeed_vary( array $cfg ) {
+		if ( self::is_bot_request() || self::is_editor_request() || '' !== self::qa_arm_from_request() ) {
+			return false;
+		}
+		$fixed = self::repair_cookie( self::raw_cookie(), self::experiment_key( $cfg ), self::control_weight( $cfg ), '' );
+		return self::litespeed_vary_caches_assigned_arm(
+			! empty( $fixed['assigning'] ),
+			! empty( $fixed['rewritten'] ),
+			isset( $fixed['arm'] ) ? (string) $fixed['arm'] : '',
+			false,
+			self::litespeed_only_page_cache()
+		);
 	}
 
 	/**
@@ -3730,6 +3799,10 @@ class RWGO_Sitewide {
 	 * @return void
 	 */
 	private static function purge_ids( array $ids ) {
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::purge_post_ids( $ids );
+			return;
+		}
 		foreach ( $ids as $id ) {
 			$id = (int) $id;
 			if ( $id <= 0 ) {
@@ -3751,6 +3824,10 @@ class RWGO_Sitewide {
 	 */
 	private static function purge_config( $cfg ) {
 		if ( ! is_array( $cfg ) ) {
+			return;
+		}
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::purge_experiment_change( array(), $cfg, 'saved' );
 			return;
 		}
 		foreach ( self::page_map( $cfg ) as $row ) {

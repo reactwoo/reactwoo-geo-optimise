@@ -56,17 +56,31 @@ class RWGO_REST_Tracking {
 	 * @return \WP_REST_Response
 	 */
 	public static function handle_tracking_nonce( $request ) {
-		if ( ! headers_sent() ) {
-			nocache_headers();
-			header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+		unset( $request );
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::send_nonce_nocache();
+		} elseif ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
 		}
-		return new \WP_REST_Response(
+		if ( function_exists( 'nocache_headers' ) && ! headers_sent() ) {
+			nocache_headers();
+		}
+		$response = new \WP_REST_Response(
 			array(
 				'nonce'   => wp_create_nonce( self::NONCE_ACTION ),
 				'restUrl' => rest_url( 'rwgo/v1/goal' ),
 			),
 			200
 		);
+		$headers = class_exists( 'RWGO_Cache_Compat', false )
+			? RWGO_Cache_Compat::nonce_response_headers()
+			: array(
+				'Cache-Control' => 'private, no-store, no-cache, must-revalidate, max-age=0',
+			);
+		foreach ( $headers as $name => $value ) {
+			$response->header( $name, $value );
+		}
+		return $response;
 	}
 
 	/**

@@ -132,6 +132,9 @@ class RWGO_Assignment {
 		setcookie( self::COOKIE, $json, time() + 30 * DAY_IN_SECONDS, $path, $dom, is_ssl(), true );
 		// Same-request reads in PHP.
 		$_COOKIE[ self::COOKIE ] = $json;
+		if ( class_exists( 'RWGO_Cache_Compat', false ) ) {
+			RWGO_Cache_Compat::on_new_assignment_cookie();
+		}
 	}
 
 	/**

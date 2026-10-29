@@ -75,6 +75,16 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertFalse( RWGO_Sitewide::context_skips_assignment( array() ) );
 	}
 
+	public function test_litespeed_caches_a_stable_assignment_separately(): void {
+		$this->assertFalse( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( true, false, 'control', false, true ) );
+		$this->assertFalse( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, true, 'variant', false, true ) );
+		$this->assertFalse( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, false, 'control', true, true ) );
+		$this->assertFalse( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, false, 'control', false, false ) );
+		$this->assertFalse( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, false, '', false, true ) );
+		$this->assertTrue( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, false, 'control', false, true ) );
+		$this->assertTrue( RWGO_Sitewide::litespeed_vary_caches_assigned_arm( false, false, 'variant', false, true ) );
+	}
+
 	public function test_returning_visitor_with_assignment_cookie_is_uncacheable(): void {
 		$id  = '0123456789abcdef0123456789abcdef';
 		$arm = RWGO_Sitewide::bucket_arm( $id, 'rwgo_sitewide', 0.5 );
