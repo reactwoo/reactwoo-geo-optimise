@@ -29,6 +29,27 @@ class RWGO_Cache_Compat {
 	private static $once = array();
 
 	/**
+	 * Post IDs already purged in this request.
+	 *
+	 * @var array<int, bool>
+	 */
+	private static $purged_post_ids = array();
+
+	/**
+	 * Paths already purged in this request.
+	 *
+	 * @var array<string, bool>
+	 */
+	private static $purged_paths = array();
+
+	/**
+	 * Purge batches that actually ran, for tests.
+	 *
+	 * @var array<int, array<string, mixed>>
+	 */
+	private static $purge_log = array();
+
+	/**
 	 * @return void
 	 */
 	public static function init() {
@@ -207,16 +228,22 @@ class RWGO_Cache_Compat {
 	 *
 	 * @return array<string, string>
 	 */
-	public static function nonce_response_headers() {
-		return array(
-			'Cache-Control'                  => 'private, no-store, no-cache, must-revalidate, max-age=0',
-			'Pragma'                         => 'no-cache',
-			'Expires'                        => 'Wed, 11 Jan 1984 05:00:00 GMT',
-			'CDN-Cache-Control'              => 'no-store',
-			'Cloudflare-CDN-Cache-Control'   => 'no-store',
-			'X-LiteSpeed-Cache-Control'      => 'no-cache',
-			'X-Accel-Expires'                => '0',
+	public static function nonce_response_headers( $litespeed_active = null ) {
+		if ( null === $litespeed_active ) {
+			$litespeed_active = self::litespeed_active();
+		}
+		$headers = array(
+			'Cache-Control'                => 'private, no-store, no-cache, must-revalidate, max-age=0',
+			'Pragma'                       => 'no-cache',
+			'Expires'                      => 'Wed, 11 Jan 1984 05:00:00 GMT',
+			'CDN-Cache-Control'            => 'no-store',
+			'Cloudflare-CDN-Cache-Control' => 'no-store',
+			'X-Accel-Expires'              => '0',
 		);
+		if ( $litespeed_active ) {
+			$headers['X-LiteSpeed-Cache-Control'] = 'no-cache';
+		}
+		return $headers;
 	}
 
 	/**
@@ -380,11 +407,57 @@ class RWGO_Cache_Compat {
 		if ( is_string( $reason ) && '' !== $reason ) {
 			$targets['reason'] = $reason;
 		}
-		$urls = self::urls_for_targets( $targets['post_ids'], $targets['paths'] );
-		self::purge_posts_and_urls( $targets['post_ids'], $urls );
-		if ( function_exists( 'do_action' ) ) {
-			do_action( 'rwgo_optimise_cache_purged', $targets['post_ids'], $urls, $targets['reason'] );
+		$fresh_ids   = array();
+		$fresh_paths = array();
+		foreach ( $targets['post_ids'] as $id ) {
+			$id = (int) $id;
+			if ( $id <= 0 || isset( self::$purged_post_ids[ $id ] ) ) {
+				continue;
+			}
+			self::$purged_post_ids[ $id ] = true;
+			$fresh_ids[]                  = $id;
 		}
+		foreach ( $targets['paths'] as $path ) {
+			$path = (string) $path;
+			if ( '' === $path || isset( self::$purged_paths[ $path ] ) ) {
+				continue;
+			}
+			self::$purged_paths[ $path ] = true;
+			$fresh_paths[]               = $path;
+		}
+		if ( array() === $fresh_ids && array() === $fresh_paths ) {
+			return;
+		}
+		$urls = self::urls_for_targets( $fresh_ids, $fresh_paths );
+		self::purge_posts_and_urls( $fresh_ids, $urls );
+		self::$purge_log[] = array(
+			'reason'   => $targets['reason'],
+			'post_ids' => $fresh_ids,
+			'paths'    => $fresh_paths,
+			'urls'     => $urls,
+		);
+		if ( function_exists( 'do_action' ) ) {
+			do_action( 'rwgo_optimise_cache_purged', $fresh_ids, $urls, $targets['reason'] );
+		}
+	}
+
+	/**
+	 * Forget request-level purge dedupe. Tests only.
+	 *
+	 * @return void
+	 */
+	public static function reset_purge_state() {
+		self::$purged_post_ids = array();
+		self::$purged_paths    = array();
+		self::$purge_log       = array();
+		self::$once            = array();
+	}
+
+	/**
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function purge_log() {
+		return self::$purge_log;
 	}
 
 	/**
@@ -392,14 +465,20 @@ class RWGO_Cache_Compat {
 	 * @return void
 	 */
 	public static function purge_post_ids( array $post_ids ) {
-		$ids = array();
+		$after = array(
+			'variants' => array(),
+		);
 		foreach ( $post_ids as $id ) {
 			$id = (int) $id;
-			if ( $id > 0 ) {
-				$ids[] = $id;
+			if ( $id <= 0 ) {
+				continue;
 			}
+			$after['variants'][] = array(
+				'variant_id' => 'var_b',
+				'page_id'    => $id,
+			);
 		}
-		self::purge_posts_and_urls( $ids, self::urls_for_targets( $ids, array() ) );
+		self::purge_experiment_change( array(), $after, 'saved' );
 	}
 
 	/**
@@ -653,7 +732,7 @@ class RWGO_Cache_Compat {
 	 */
 	public static function handle_clear_cache() {
 		if ( ! self::current_user_can_clear() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( self::CLEAR_NONCE );
 		$result = self::clear_optimise_cache();

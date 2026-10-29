@@ -187,6 +187,18 @@ $rwgo_form_mode = 'edit';
 		<?php endif; ?>
 
 		<?php
+		$rwgo_vb_status = ( $var_b_id > 0 && function_exists( 'get_post_status' ) ) ? (string) get_post_status( $var_b_id ) : '';
+		$rwgo_vb_blocks = class_exists( 'RWGO_Experiment_Service', false ) && RWGO_Experiment_Service::variant_status_blocks_traffic( $rwgo_vb_status );
+		$rwgo_test_is_active = isset( $rwgo_cfg['status'] ) && 'active' === sanitize_key( (string) $rwgo_cfg['status'] );
+		?>
+		<?php if ( $rwgo_test_is_active && $rwgo_vb_blocks ) : ?>
+			<div class="notice notice-warning rwgo-notice">
+				<p><strong><?php esc_html_e( 'Variant B is not published, so it receives no traffic.', 'reactwoo-geo-optimise' ); ?></strong>
+				<?php esc_html_e( 'Every visitor stays on Control until you publish Variant B. Geo Optimise leaves the duplicate as a draft so you can review it before it goes live.', 'reactwoo-geo-optimise' ); ?></p>
+			</div>
+		<?php endif; ?>
+
+		<?php
 		$rwgo_bind_health = class_exists( 'RWGO_Experiment_Repository', false )
 			? RWGO_Experiment_Repository::binding_health_warnings( $rwgo_cfg )
 			: array();

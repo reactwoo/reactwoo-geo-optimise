@@ -35,7 +35,7 @@ $rwgc_nav_current = isset( $rwgc_nav_current ) ? $rwgc_nav_current : 'rwgo-help'
 		</div>
 		<div class="rwgc-card">
 			<h2><?php esc_html_e( 'Two versions: Control (A) and Variant B', 'reactwoo-geo-optimise' ); ?></h2>
-			<p><?php esc_html_e( 'Control uses your source page. Variant B can be a duplicate, an existing page, or a new draft. After publishing, open each version from Tests → Edit Control / Edit Variant B.', 'reactwoo-geo-optimise' ); ?></p>
+			<p><?php esc_html_e( 'Control uses your source page. Variant B can be a duplicate, an existing page, or a new draft. A duplicate or blank variant stays a draft: the test can be active, but visitors stay on Control until you publish Variant B. After publishing, open each version from Tests → Edit Control / Edit Variant B.', 'reactwoo-geo-optimise' ); ?></p>
 			<p><a class="button rwgo-btn rwgo-btn--secondary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-tests' ) ); ?>"><?php esc_html_e( 'Open Tests', 'reactwoo-geo-optimise' ); ?></a></p>
 		</div>
 		<div class="rwgc-card">

@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Front-end goal and conversion requests no longer use a nonce baked into cached HTML. `rwgo-tracking.js` fetches a fresh nonce from `GET /rwgo/v1/tracking-nonce` before it posts, and that response is marked uncacheable. If the fresh nonce cannot be loaded, the goal is not sent with a stale token.
+- All-published site-wide coverage skips every variant page (including another test's Variant B) and every page that is already the control of an active test, so a variant is not copied again and visitors are not given both assignment cookies.
+- Elementor duplicates keep `_elementor_data` as JSON, including Atomic V4 nodes (`e-*` widgets, `$$type`, styles). Those documents are not run back through Elementor's document save, which was dropping the atomic tree and failing the duplicate check.
+- A promotion or page-map change purges each original and variant URL once per request. Saving the site-wide experiment purges the mapped originals and variants even when the stored option did not change.
+- `X-LiteSpeed-Cache-Control` is sent only when LiteSpeed Cache is active.
+- Admin actions that refuse the current user return HTTP 403.
+- A new test leaves Variant B as a draft so it can be reviewed before it is public. The create form, the Tests list, and Edit Test say that every visitor stays on Control until Variant B is published.
 
 ## [0.5.0] - 2026-10-29
 

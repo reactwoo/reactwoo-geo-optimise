@@ -185,12 +185,63 @@ class RWGOCacheCompatTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( 'https://example.com/wp-json/rwgo/v1/goal', $fields['restUrl'] );
 		$this->assertSame( 'https://example.com/wp-json/rwgo/v1/tracking-nonce', $fields['restNonceUrl'] );
 
-		$headers = RWGO_Cache_Compat::nonce_response_headers();
+		$headers = RWGO_Cache_Compat::nonce_response_headers( false );
 		$this->assertStringContainsString( 'no-store', $headers['Cache-Control'] );
 		$this->assertSame( 'no-store', $headers['CDN-Cache-Control'] );
 		$this->assertSame( 'no-store', $headers['Cloudflare-CDN-Cache-Control'] );
-		$this->assertSame( 'no-cache', $headers['X-LiteSpeed-Cache-Control'] );
+		$this->assertArrayNotHasKey( 'X-LiteSpeed-Cache-Control', $headers );
+		$this->assertSame( 'no-cache', RWGO_Cache_Compat::nonce_response_headers( true )['X-LiteSpeed-Cache-Control'] );
 		$this->assertArrayNotHasKey( 'nonce', $headers );
+	}
+
+	public function test_promoted_and_page_map_purges_run_once_and_sitewide_save_purges_the_map(): void {
+		RWGO_Cache_Compat::reset_purge_state();
+		$before = array(
+			'status'   => 'active',
+			'page_map' => array(
+				array(
+					'source_page_id'  => 10,
+					'variant_page_id' => 20,
+					'source_path'     => '/a/',
+					'variant_path'    => '/b/',
+				),
+			),
+		);
+		$after = $before;
+		$after['page_map'][0]['variant_page_id'] = 21;
+		$after['page_map'][0]['variant_path']    = '/c/';
+		RWGO_Cache_Compat::purge_experiment_change( $before, $after, 'page_map' );
+		RWGO_Cache_Compat::purge_experiment_change( $before, $after, 'page_map' );
+		$this->assertCount( 1, RWGO_Cache_Compat::purge_log() );
+
+		$promoted = array(
+			'status'           => 'completed',
+			'promoted_at'      => '2026-10-29T00:00:00+00:00',
+			'source_page_id'   => 10,
+			'promoted_from_id' => 21,
+		);
+		RWGO_Cache_Compat::purge_experiment_change( array(), $promoted, 'promoted' );
+		$this->assertCount( 1, RWGO_Cache_Compat::purge_log() );
+
+		$site = array(
+			'status'   => 'active',
+			'page_map' => array(
+				array(
+					'source_page_id'  => 30,
+					'variant_page_id' => 31,
+					'source_path'     => '/original/',
+					'variant_path'    => '/original-b/',
+				),
+			),
+		);
+		RWGO_Cache_Compat::purge_experiment_change( array(), $site, 'saved' );
+		$log = RWGO_Cache_Compat::purge_log();
+		$this->assertCount( 2, $log );
+		$this->assertSame( 'saved', $log[1]['reason'] );
+		$this->assertContains( 30, $log[1]['post_ids'] );
+		$this->assertContains( 31, $log[1]['post_ids'] );
+		$this->assertContains( '/original/', $log[1]['paths'] );
+		$this->assertContains( '/original-b/', $log[1]['paths'] );
 	}
 
 	public function test_clear_notice_names_only_adapters_that_ran(): void {

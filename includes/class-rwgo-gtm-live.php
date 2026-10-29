@@ -377,7 +377,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_connect() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_gtm_connect' );
 		$url = self::begin_connect();
@@ -395,7 +395,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_oauth_callback() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		$ok = isset( $_GET['google_oauth_success'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( $_GET['state'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -417,7 +417,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_disconnect() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_gtm_disconnect' );
 		update_option( self::OPTION_CONNECTED, 0, false );
@@ -430,7 +430,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_save_target() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_gtm_save_target' );
 		$target = array(
@@ -449,7 +449,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_push() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		$exp_id = isset( $_POST['rwgo_experiment_id'] ) ? (int) $_POST['rwgo_experiment_id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing
 		check_admin_referer( 'rwgo_gtm_push_' . $exp_id );
@@ -508,7 +508,7 @@ class RWGO_GTM_Live {
 	 */
 	public static function handle_tracking_mode() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_tracking_mode' );
 		$mode = isset( $_POST['rwgo_tracking_mode'] ) ? sanitize_key( wp_unslash( $_POST['rwgo_tracking_mode'] ) ) : 'simple'; // phpcs:ignore WordPress.Security.NonceVerification.Missing

@@ -7,6 +7,7 @@
 
 require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-sitewide.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-page-duplicator.php';
+require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-experiment-service.php';
 
 /**
  * @covers RWGO_Sitewide
@@ -106,9 +107,11 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 		$this->assertTrue( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'variant', false ) );
 		$this->assertFalse( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'none', true ) );
 		$this->assertFalse( RWGO_Sitewide::mapped_response_needs_cache_bypass( 'source', false ) );
-		$headers = RWGO_Sitewide::cache_bypass_headers();
+		$headers = RWGO_Sitewide::cache_bypass_headers( false );
 		$this->assertSame( 'private, no-store, max-age=0', $headers['Cache-Control'] );
 		$this->assertSame( 'Cookie', $headers['Vary'] );
+		$this->assertArrayNotHasKey( 'X-LiteSpeed-Cache-Control', $headers );
+		$this->assertSame( 'no-cache', RWGO_Sitewide::cache_bypass_headers( true )['X-LiteSpeed-Cache-Control'] );
 		$this->assertStringContainsString( 'no-store', $headers['Cache-Control'] );
 		$this->assertStringContainsString( 'private', $headers['Cache-Control'] );
 	}
@@ -671,6 +674,143 @@ class RWGOSitewideAssignmentTest extends PHPUnit\Framework\TestCase {
 	 * @param string $status  Post status.
 	 * @return array<string, mixed>
 	 */
+	public function test_unpublished_variant_blocks_traffic(): void {
+		$this->assertTrue( RWGO_Experiment_Service::variant_status_blocks_traffic( 'draft' ) );
+		$this->assertTrue( RWGO_Experiment_Service::variant_status_blocks_traffic( 'pending' ) );
+		$this->assertTrue( RWGO_Experiment_Service::variant_status_blocks_traffic( 'private' ) );
+		$this->assertFalse( RWGO_Experiment_Service::variant_status_blocks_traffic( 'publish' ) );
+		$this->assertFalse( RWGO_Experiment_Service::variant_status_blocks_traffic( '' ) );
+	}
+
+	public function test_all_pages_skips_experiment_variants_and_active_sources(): void {
+		$conflicts = RWGO_Sitewide::conflicting_experiment_ids(
+			array(
+				array(
+					'status'         => 'active',
+					'test_type'      => 'page_ab',
+					'source_page_id' => 10,
+					'variants'       => array(
+						array( 'variant_id' => 'control', 'page_id' => 10 ),
+						array( 'variant_id' => 'var_b', 'page_id' => 11 ),
+					),
+				),
+				array(
+					'status'         => 'paused',
+					'source_page_id' => 20,
+					'variants'       => array(
+						array( 'variant_id' => 'var_b', 'page_id' => 21 ),
+					),
+				),
+				array(
+					'status'   => 'active',
+					'test_type'=> 'sitewide',
+					'scope'    => 'site',
+					'page_map' => array(
+						array( 'source_page_id' => 40, 'variant_page_id' => 41 ),
+					),
+				),
+			)
+		);
+		$this->assertContains( 11, $conflicts['variant_ids'] );
+		$this->assertContains( 21, $conflicts['variant_ids'] );
+		$this->assertContains( 41, $conflicts['variant_ids'] );
+		$this->assertNotContains( 10, $conflicts['variant_ids'] );
+		$this->assertContains( 10, $conflicts['active_source_ids'] );
+		$this->assertContains( 40, $conflicts['active_source_ids'] );
+		$this->assertNotContains( 20, $conflicts['active_source_ids'] );
+
+		$cfg = array(
+			'mapping_mode' => 'all_published',
+			'future_pages' => 'include',
+			'page_map'     => array(),
+		);
+		$context = array(
+			'variant_ids'       => $conflicts['variant_ids'],
+			'active_source_ids' => $conflicts['active_source_ids'],
+		);
+		$this->assertSame( 'ineligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 11, 'home-variant-b', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'ineligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 21, 'paused-variant-b', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'ineligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 41, 'about-variant-b', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 10, 'home', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'excluded', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 40, 'about', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'eligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 20, 'paused-source', 1000 ), $cfg, $context ) );
+		$this->assertSame( 'eligible', RWGO_Sitewide::resolve_page_coverage( $this->page_record( 30, 'contact', 1000 ), $cfg, $context ) );
+
+		$copied = RWGO_Sitewide::select_bulk_pages(
+			array(
+				$this->page_record( 11, 'home-variant-b', 1000 ),
+				$this->page_record( 10, 'home', 1000 ),
+				$this->page_record( 30, 'contact', 1000 ),
+			),
+			$cfg,
+			'all',
+			array(),
+			$context
+		);
+		$ids = array();
+		foreach ( $copied as $page ) {
+			$ids[] = (int) $page['id'];
+		}
+		$this->assertSame( array( 30 ), $ids );
+	}
+
+	public function test_elementor_v4_data_is_copied_as_json_and_not_resaved(): void {
+		$tree = array(
+			array(
+				'id'         => 'flex1',
+				'elType'     => 'widget',
+				'widgetType' => 'e-flexbox',
+				'settings'   => array(
+					'content' => array(
+						'$$type' => 'html',
+						'value'  => 'Hello',
+					),
+				),
+				'styles'     => array(
+					'base' => array( 'color' => 'red' ),
+				),
+				'elements'   => array(),
+			),
+		);
+		$meta = array(
+			'_elementor_data'           => array( $tree ),
+			'_elementor_edit_mode'      => array( 'builder' ),
+			'_elementor_atomic_styles'  => array( array( 'class' => 'v4' ) ),
+			'_elementor_element_cache'  => array( '<div>cached source</div>' ),
+			'_elementor_css'            => array( '.cached{}' ),
+			'_wp_page_template'         => array( 'elementor_header_footer' ),
+		);
+		$copied = RWGO_Page_Duplicator::elementor_meta_for_copy( $meta );
+		$this->assertArrayNotHasKey( '_elementor_element_cache', $copied );
+		$this->assertArrayNotHasKey( '_elementor_css', $copied );
+		$this->assertSame( array( 'class' => 'v4' ), $copied['_elementor_atomic_styles'] );
+		$this->assertSame( 'builder', $copied['_elementor_edit_mode'] );
+		$this->assertSame( 'elementor_header_footer', $copied['_wp_page_template'] );
+		$decoded = json_decode( $copied['_elementor_data'], true );
+		$this->assertSame( 'e-flexbox', $decoded[0]['widgetType'] );
+		$this->assertSame( 'html', $decoded[0]['settings']['content']['$$type'] );
+		$this->assertFalse( RWGO_Page_Duplicator::elementor_duplicate_should_resave( $decoded ) );
+		$this->assertSame(
+			array(),
+			RWGO_Page_Duplicator::elementor_duplicate_failures( $tree, $copied['_elementor_data'], 'builder', 'builder' )
+		);
+		$this->assertContains(
+			'dest_elementor_data_empty',
+			RWGO_Page_Duplicator::elementor_duplicate_failures( $copied['_elementor_data'], '', 'builder', 'builder' )
+		);
+
+		$classic = array(
+			array(
+				'id'       => 's',
+				'elType'   => 'section',
+				'settings' => array( 'background' => 'white' ),
+				'elements' => array(),
+			),
+		);
+		$this->assertFalse( RWGO_Page_Duplicator::elementor_document_is_atomic( $classic ) );
+		$this->assertTrue( RWGO_Page_Duplicator::elementor_duplicate_should_resave( $classic ) );
+	}
+
 	private function page_record( $id, $slug, $created, $status = 'publish' ) {
 		return array(
 			'id'          => (int) $id,

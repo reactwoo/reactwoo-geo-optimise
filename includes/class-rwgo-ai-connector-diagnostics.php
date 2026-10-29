@@ -181,7 +181,7 @@ class RWGO_AI_Connector_Diagnostics {
 	 */
 	public static function handle_admin_post() {
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_die( esc_html__( 'You do not have permission to run AI Connector diagnostics.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'You do not have permission to run AI Connector diagnostics.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 
 		$action = isset( $_REQUEST['action'] ) ? sanitize_key( wp_unslash( (string) $_REQUEST['action'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

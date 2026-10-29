@@ -3460,7 +3460,7 @@ class RWGA_Admin {
 	 */
 	public static function handle_intelligence_sync() {
 		if ( ! current_user_can( RWGA_Capabilities::CAP_VIEW_REPORTS ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwga_intelligence_sync' );
 		$result = class_exists( 'RWGA_Intelligence_Sync_Service', false )
@@ -3483,7 +3483,7 @@ class RWGA_Admin {
 	 */
 	public static function handle_intelligence_interpret_test() {
 		if ( ! current_user_can( RWGA_Capabilities::CAP_RUN_AI ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwga_intelligence_interpret_test' );
 		$phrase = isset( $_POST['phrase'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['phrase'] ) ) : '';
@@ -3517,7 +3517,7 @@ class RWGA_Admin {
 	 */
 	public static function handle_intelligence_learning_toggle() {
 		if ( ! current_user_can( RWGA_Capabilities::CAP_VIEW_REPORTS ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwga_intelligence_learning_toggle' );
 		$enabled = ! empty( $_POST['enabled'] );
@@ -3531,7 +3531,7 @@ class RWGA_Admin {
 	 */
 	public static function handle_intelligence_memory_settings() {
 		if ( ! current_user_can( RWGA_Capabilities::CAP_VIEW_REPORTS ) ) {
-			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ) );
+			wp_die( esc_html__( 'Insufficient permissions.', 'reactwoo-geo-ai' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwga_intelligence_memory_settings' );
 		update_option( RWGA_Interpretation_Memory_Store::OPTION_LOCAL_ENABLED, ! empty( $_POST['local_enabled'] ) ? 1 : 0, false );

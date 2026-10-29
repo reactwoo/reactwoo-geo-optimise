@@ -30,7 +30,7 @@ class RWGO_Admin_Wizard {
 	 */
 	public static function handle_create_test() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_create_test' );
 
@@ -294,7 +294,7 @@ class RWGO_Admin_Wizard {
 	 */
 	public static function handle_update_test() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_update_test' );
 
@@ -1338,7 +1338,7 @@ class RWGO_Admin_Wizard {
 	 */
 	public static function handle_save_audience_rule_copy() {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
-			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ) );
+			wp_die( esc_html__( 'Forbidden.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_save_audience_rule_copy' );
 
