@@ -17,6 +17,21 @@ class RWGO_Platform_Client {
 	const PRODUCT_SLUG     = 'reactwoo-geo-optimise';
 
 	/**
+	 * Login timeout on the plugins-screen update path. Other API calls keep 30 seconds.
+	 */
+	const UPDATE_LOGIN_TIMEOUT = 10;
+
+	/**
+	 * How long a failed update-path login is remembered so the plugins screen does not retry it.
+	 */
+	const UPDATE_LOGIN_FAIL_TTL = 900;
+
+	/**
+	 * Failed update-path login.
+	 */
+	const UPDATE_LOGIN_FAIL_TRANSIENT = 'rwgo_updates_login_failed';
+
+	/**
 	 * @return string
 	 */
 	public static function get_api_base() {
@@ -74,13 +89,19 @@ class RWGO_Platform_Client {
 	 */
 	public static function clear_token_cache() {
 		delete_transient( self::TOKEN_TRANSIENT );
+		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
 	}
 
 	/**
+	 * Bearer for Geo Core's satellite updater.
+	 *
+	 * Geo Core passes the update-path login timeout when this callback accepts a parameter.
+	 *
+	 * @param int $login_timeout Login HTTP timeout in seconds.
 	 * @return string|null
 	 */
-	public static function get_bearer_for_updates() {
-		$token = self::get_access_token();
+	public static function get_bearer_for_updates( $login_timeout = self::UPDATE_LOGIN_TIMEOUT ) {
+		$token = self::login_for_updates( $login_timeout );
 		if ( is_wp_error( $token ) || ! is_string( $token ) || '' === $token ) {
 			return null;
 		}
@@ -88,9 +109,16 @@ class RWGO_Platform_Client {
 	}
 
 	/**
+	 * Bearer JWT for Authorization header, refreshed via login when needed.
+	 *
+	 * @param int $timeout Login HTTP timeout in seconds. The update path passes 10; other callers keep 30.
 	 * @return string|\WP_Error
 	 */
-	public static function get_access_token() {
+	public static function get_access_token( $timeout = 30 ) {
+		$timeout = (int) $timeout;
+		if ( $timeout < 1 ) {
+			$timeout = 30;
+		}
 		$cached = get_transient( self::TOKEN_TRANSIENT );
 		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
 			return (string) $cached['token'];
@@ -118,7 +146,7 @@ class RWGO_Platform_Client {
 		$response = wp_remote_post(
 			self::get_api_base() . self::LOGIN_PATH,
 			array(
-				'timeout' => 30,
+				'timeout' => $timeout,
 				'headers' => self::base_headers(),
 				'body'    => wp_json_encode( $body ),
 			)
@@ -150,6 +178,57 @@ class RWGO_Platform_Client {
 			$ttl
 		);
 		return $token;
+	}
+
+	/**
+	 * License login for plugin update checks.
+	 *
+	 * A valid cached JWT is reused. A login that failed in the last 15 minutes is not repeated.
+	 *
+	 * @param int $timeout Login HTTP timeout in seconds.
+	 * @return string|\WP_Error
+	 */
+	private static function login_for_updates( $timeout ) {
+		$timeout = (int) $timeout;
+		if ( $timeout < 1 ) {
+			$timeout = self::UPDATE_LOGIN_TIMEOUT;
+		}
+
+		$cached = get_transient( self::TOKEN_TRANSIENT );
+		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
+			delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+			return (string) $cached['token'];
+		}
+
+		if ( self::update_login_recently_failed() ) {
+			return new WP_Error(
+				'rwgo_login_cached_failure',
+				__( 'License login failed recently. Plugin update checks will retry in a few minutes.', 'reactwoo-geo-optimise' )
+			);
+		}
+
+		$token = self::get_access_token( $timeout );
+		if ( is_wp_error( $token ) || ! is_string( $token ) || '' === $token ) {
+			set_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT, '1', self::UPDATE_LOGIN_FAIL_TTL );
+			if ( is_wp_error( $token ) ) {
+				return $token;
+			}
+			return new WP_Error( 'rwgo_empty_token', __( 'License login returned an empty token.', 'reactwoo-geo-optimise' ) );
+		}
+
+		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		return $token;
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function update_login_recently_failed() {
+		if ( ! function_exists( 'get_transient' ) ) {
+			return false;
+		}
+		$failed = get_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		return false !== $failed && '' !== (string) $failed;
 	}
 
 	/**

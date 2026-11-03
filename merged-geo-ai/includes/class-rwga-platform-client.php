@@ -14,6 +14,21 @@ class RWGA_Platform_Client {
 	/** Last {@see get_bearer_for_updates()} failure for Settings → Plugin updates diagnostics. */
 	const BEARER_ERROR_TRANSIENT = 'rwga_updates_bearer_last_error';
 
+	/**
+	 * Login timeout on the plugins-screen update path. Other API calls keep 30 seconds.
+	 */
+	const UPDATE_LOGIN_TIMEOUT = 10;
+
+	/**
+	 * How long a failed update-path login is remembered so the plugins screen does not retry it.
+	 */
+	const UPDATE_LOGIN_FAIL_TTL = 900;
+
+	/**
+	 * Failed update-path login. Distinct from {@see BEARER_ERROR_TRANSIENT}, which stores diagnostic text.
+	 */
+	const UPDATE_LOGIN_FAIL_TRANSIENT = 'rwga_updates_login_failed';
+
 	const LOGIN_PATH           = '/api/v5/auth/login';
 	const DEFAULT_API_BASE     = 'https://api.reactwoo.com';
 	const DEFAULT_LICENSE_BASE = 'https://license.reactwoo.com';
@@ -248,6 +263,7 @@ class RWGA_Platform_Client {
 	public static function clear_token_cache() {
 		delete_transient( self::TOKEN_TRANSIENT );
 		delete_transient( self::BEARER_ERROR_TRANSIENT );
+		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
 		self::$license_key_request_memo = null;
 	}
 
@@ -292,8 +308,13 @@ class RWGA_Platform_Client {
 	 */
 	public static function prime_jwt_before_plugins_transient( $value, $expiration = 0, $transient = '' ) {
 		unset( $expiration, $transient );
+		// WordPress saves the existing object once, changing only last_checked, before it
+		// calls api.wordpress.org. That save must not log in.
+		if ( self::save_only_updates_last_checked( $value ) ) {
+			return $value;
+		}
 		if ( self::is_configured() ) {
-			self::get_access_token();
+			self::login_for_updates( self::UPDATE_LOGIN_TIMEOUT );
 		}
 		return $value;
 	}
@@ -311,7 +332,7 @@ class RWGA_Platform_Client {
 			return;
 		}
 		self::$jwt_warm_for_updates_done = true;
-		self::get_access_token();
+		self::login_for_updates( self::UPDATE_LOGIN_TIMEOUT );
 	}
 
 	/**
@@ -328,10 +349,15 @@ class RWGA_Platform_Client {
 	}
 
 	/**
+	 * Bearer for Geo Core's satellite updater.
+	 *
+	 * Geo Core passes the update-path login timeout when this callback accepts a parameter.
+	 *
+	 * @param int $login_timeout Login HTTP timeout in seconds.
 	 * @return string|null
 	 */
-	public static function get_bearer_for_updates() {
-		$token = self::get_access_token();
+	public static function get_bearer_for_updates( $login_timeout = self::UPDATE_LOGIN_TIMEOUT ) {
+		$token = self::login_for_updates( $login_timeout );
 		if ( is_wp_error( $token ) ) {
 			set_transient(
 				self::BEARER_ERROR_TRANSIENT,
@@ -359,9 +385,16 @@ class RWGA_Platform_Client {
 	}
 
 	/**
+	 * Bearer JWT for Authorization header, refreshed via login when needed.
+	 *
+	 * @param int $timeout Login HTTP timeout in seconds. The update path passes 10; other callers keep 30.
 	 * @return string|\WP_Error
 	 */
-	public static function get_access_token() {
+	public static function get_access_token( $timeout = 30 ) {
+		$timeout = (int) $timeout;
+		if ( $timeout < 1 ) {
+			$timeout = 30;
+		}
 		$cached = get_transient( self::TOKEN_TRANSIENT );
 		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
 			return (string) $cached['token'];
@@ -408,7 +441,7 @@ class RWGA_Platform_Client {
 		$response = wp_remote_post(
 			$login_url,
 			array(
-				'timeout' => 30,
+				'timeout' => $timeout,
 				'headers' => self::base_headers(),
 				'body'    => wp_json_encode( $body ),
 			)
@@ -470,6 +503,87 @@ class RWGA_Platform_Client {
 		self::log_license_api_trace( 'login_ok', $trace );
 
 		return $token;
+	}
+
+	/**
+	 * True when this set_site_transient only bumps last_checked on the object already stored.
+	 *
+	 * @param mixed $incoming Transient about to be saved.
+	 * @return bool
+	 */
+	private static function save_only_updates_last_checked( $incoming ) {
+		if ( ! is_object( $incoming ) || ! function_exists( 'get_site_transient' ) ) {
+			return false;
+		}
+		$stored = get_site_transient( 'update_plugins' );
+		if ( ! is_object( $stored ) ) {
+			return false;
+		}
+		if ( $stored === $incoming ) {
+			return true;
+		}
+		return self::without_last_checked( $stored ) == self::without_last_checked( $incoming );
+	}
+
+	/**
+	 * @param object $transient Transient object.
+	 * @return object
+	 */
+	private static function without_last_checked( $transient ) {
+		$copy = clone $transient;
+		unset( $copy->last_checked );
+		return $copy;
+	}
+
+	/**
+	 * License login for plugin update checks.
+	 *
+	 * A valid cached JWT is reused. A login that failed in the last 15 minutes is not repeated.
+	 *
+	 * @param int $timeout Login HTTP timeout in seconds.
+	 * @return string|\WP_Error
+	 */
+	private static function login_for_updates( $timeout ) {
+		$timeout = (int) $timeout;
+		if ( $timeout < 1 ) {
+			$timeout = self::UPDATE_LOGIN_TIMEOUT;
+		}
+
+		$cached = get_transient( self::TOKEN_TRANSIENT );
+		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
+			delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+			return (string) $cached['token'];
+		}
+
+		if ( self::update_login_recently_failed() ) {
+			return new WP_Error(
+				'rwga_login_cached_failure',
+				__( 'License login failed recently. Plugin update checks will retry in a few minutes.', 'reactwoo-geo-ai' )
+			);
+		}
+
+		$token = self::get_access_token( $timeout );
+		if ( is_wp_error( $token ) || ! is_string( $token ) || '' === $token ) {
+			set_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT, '1', self::UPDATE_LOGIN_FAIL_TTL );
+			if ( is_wp_error( $token ) ) {
+				return $token;
+			}
+			return new WP_Error( 'rwga_empty_token', __( 'License login returned an empty token.', 'reactwoo-geo-ai' ) );
+		}
+
+		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		return $token;
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function update_login_recently_failed() {
+		if ( ! function_exists( 'get_transient' ) ) {
+			return false;
+		}
+		$failed = get_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		return false !== $failed && '' !== (string) $failed;
 	}
 
 	/**
