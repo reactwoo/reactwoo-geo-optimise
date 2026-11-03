@@ -3,6 +3,30 @@
 ## Status
 done
 
+QA bump to **0.5.2** on the Foxhole zip-order and update-login branch. The branch was already even with `main`. Version was not tagged and the PR was not merged.
+
+## Files changed
+- `reactwoo-geo-optimise.php` — plugin header and `RWGO_VERSION` are 0.5.2.
+- `readme.txt` — stable tag 0.5.2 and changelog entry.
+- `CHANGELOG.md` — 0.5.2 notes for the zip order and the plugins-screen login path.
+- `README.md` — version line.
+- `tests/bootstrap.php` — `RWGO_VERSION` for the PHPUnit bootstrap.
+
+## Not changed
+- No tag and no merge.
+- Historical 0.5.1 changelog entries.
+
+## Commands
+- `python3 tests/test-zip-js-order.py` — passed.
+- `php tests/test-update-login.php` — passed.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (55 tests, 370 assertions).
+
+## Remaining errors
+- None.
+
+## Status
+done
+
 Release zips write `reactwoo-geo-optimise.php` and `readme.txt` first, then the other non-JS files, then `.js`, in a stable order. Entries 1, 2, 4, and 11–24 are never `.js`. On the plugins-screen update path, a save that only changes `last_checked` does not log in, a failed login is remembered for 15 minutes, and that login times out at 10 seconds. Other API calls still use 30 seconds. Version was not bumped. Not tagged and not merged.
 
 ## Files changed
