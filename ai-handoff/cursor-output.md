@@ -3,6 +3,30 @@
 ## Status
 done
 
+Invalid licence keys no longer start a 30-second login on every request. Version stays **0.5.2**. Not tagged and not merged.
+
+## Files changed
+- `merged-geo-ai/includes/class-rwga-platform-client.php` — every login caller shares the saved token and a 900-second failure window (transient plus an option). Front-end and WP-CLI requests do not start a login. Other logins time out at 10 seconds. Admin-post and admin-ajax may still use 30 seconds.
+- `includes/class-rwgo-platform-client.php` — the Optimise bearer and cloud client use the same rules.
+- `merged-geo-ai/includes/services/class-rwga-intelligence-sync-service.php` — the `init` sync does not call the API on ordinary front-end or CLI requests.
+- `tests/test-update-login.php` — two runs with a bad key make one login, and a dropped transient still blocks the next one.
+- `CHANGELOG.md`, `readme.txt` — 0.5.2 notes. Version was not bumped.
+
+## Not changed
+- Plugin version, `RWGO_VERSION`, and the readme stable tag stay 0.5.2.
+- No tag and no merge.
+
+## Commands
+- `php tests/test-update-login.php` — passed.
+- `python3 tests/test-zip-js-order.py` — passed.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — recorded below after the run.
+
+## Remaining errors
+- None from the login test.
+
+## Status
+done
+
 QA bump to **0.5.2** on the Foxhole zip-order and update-login branch. The branch was already even with `main`. Version was not tagged and the PR was not merged.
 
 ## Files changed

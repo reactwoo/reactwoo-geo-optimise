@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Release packages place `reactwoo-geo-optimise.php` and `readme.txt` first, then the other non-JavaScript files, then JavaScript, in a stable order. Entries 1, 2, 4, and 11–24 are not JavaScript files, so ClamAV Sanesecurity Foxhole `JS_Zip_1`, `JS_Zip_2`, `JS_Zip_4`, and `JS_Zip_11` through `JS_Zip_24` do not flag the zip.
-- The Plugins screen does not log in when WordPress saves `update_plugins` and only `last_checked` changed. A failed login on that path is remembered for 15 minutes, and the login times out after 10 seconds. Other API calls still use 30 seconds.
+- The Plugins screen does not log in when WordPress saves `update_plugins` and only `last_checked` changed. A failed login is remembered for 15 minutes (900 seconds), and that window is also stored as an option so a short object-cache TTL cannot drop it. Logins outside an admin action time out after 10 seconds. An admin-post or admin-ajax action can still wait 30 seconds.
+- An invalid licence key does not log in on an ordinary front-end view or on WP-CLI. The Geo AI intelligence sync that runs on `init` uses the same saved token and the same 900-second failure window as every other login caller.
 
 ## [0.5.1] - 2026-10-29
 

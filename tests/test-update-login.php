@@ -25,6 +25,16 @@ $GLOBALS['rw_posts']      = array();
 $GLOBALS['rw_transients'] = array();
 $GLOBALS['rw_site']       = false;
 $GLOBALS['rw_login_mode'] = 'token';
+$GLOBALS['rw_is_admin']   = true;
+$GLOBALS['rw_is_cli']     = false;
+$GLOBALS['rw_doing_cron'] = false;
+$GLOBALS['rw_doing_ajax'] = false;
+$GLOBALS['rw_options']    = array(
+	'rwga_settings' => array(
+		'reactwoo_license_key' => 'test-license',
+	),
+);
+$_SERVER['PHP_SELF'] = '/wp-admin/plugins.php';
 
 if ( ! class_exists( 'WP_Error', false ) ) {
 	/**
@@ -95,8 +105,55 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	 * @return mixed
 	 */
 	function apply_filters( $hook, $value ) { // phpcs:ignore
-		unset( $hook );
+		if ( 'rwga_platform_login_is_cli' === $hook || 'rwgo_platform_login_is_cli' === $hook ) {
+			return ! empty( $GLOBALS['rw_is_cli'] );
+		}
 		return $value;
+	}
+}
+if ( ! function_exists( 'is_admin' ) ) {
+	/**
+	 * @return bool
+	 */
+	function is_admin() {
+		return ! empty( $GLOBALS['rw_is_admin'] );
+	}
+}
+if ( ! function_exists( 'wp_doing_cron' ) ) {
+	/**
+	 * @return bool
+	 */
+	function wp_doing_cron() {
+		return ! empty( $GLOBALS['rw_doing_cron'] );
+	}
+}
+if ( ! function_exists( 'wp_doing_ajax' ) ) {
+	/**
+	 * @return bool
+	 */
+	function wp_doing_ajax() {
+		return ! empty( $GLOBALS['rw_doing_ajax'] );
+	}
+}
+if ( ! function_exists( 'get_locale' ) ) {
+	/**
+	 * @return string
+	 */
+	function get_locale() {
+		return 'en_US';
+	}
+}
+if ( ! function_exists( 'add_query_arg' ) ) {
+	/**
+	 * @param array<string, mixed>|string $args Args.
+	 * @param string                      $url URL.
+	 * @return string
+	 */
+	function add_query_arg( $args, $url = '' ) {
+		if ( ! is_array( $args ) ) {
+			return (string) $url;
+		}
+		return (string) $url . '?' . http_build_query( $args );
 	}
 }
 if ( ! function_exists( 'wp_json_encode' ) ) {
@@ -142,12 +199,28 @@ if ( ! function_exists( 'get_option' ) ) {
 	 * @return mixed
 	 */
 	function get_option( $key, $default = false ) {
-		if ( 'rwga_settings' === $key ) {
-			return array(
-				'reactwoo_license_key' => 'test-license',
-			);
-		}
-		return $default;
+		return array_key_exists( $key, $GLOBALS['rw_options'] ) ? $GLOBALS['rw_options'][ $key ] : $default;
+	}
+}
+if ( ! function_exists( 'update_option' ) ) {
+	/**
+	 * @param string $key Key.
+	 * @param mixed  $value Value.
+	 * @return bool
+	 */
+	function update_option( $key, $value ) {
+		$GLOBALS['rw_options'][ $key ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'delete_option' ) ) {
+	/**
+	 * @param string $key Key.
+	 * @return bool
+	 */
+	function delete_option( $key ) {
+		unset( $GLOBALS['rw_options'][ $key ] );
+		return true;
 	}
 }
 if ( ! function_exists( 'get_transient' ) ) {
@@ -389,14 +462,19 @@ rwgo_login_assert(
 
 $before = rwgo_login_posts();
 $direct = RWGA_Platform_Client::get_access_token();
-$direct_post = rwgo_login_last_post();
+$via_request = RWGA_Platform_Client::request( 'GET', '/api/v5/ai/assistant/usage', null, true );
 rwgo_login_assert(
-	'API calls outside the update path still use the 30 second login timeout',
-	is_wp_error( $direct ) && rwgo_login_posts() === $before + 1 && is_array( $direct_post ) && 30 === (int) $direct_post['args']['timeout']
+	'API callers share the failed-login cache',
+	is_wp_error( $direct ) && is_wp_error( $via_request ) && rwgo_login_posts() === $before
+);
+$fail_until = (int) get_option( RWGA_Platform_Client::UPDATE_LOGIN_FAIL_OPTION, 0 );
+rwgo_login_assert(
+	'the failed-login option lasts 900 seconds',
+	$fail_until >= time() + 890 && $fail_until <= time() + 900
 );
 rwgo_login_assert(
-	'an API login failure does not clear the update-path cache',
-	900 === rwgo_login_ttl( RWGA_Platform_Client::UPDATE_LOGIN_FAIL_TRANSIENT )
+	'the diagnostics failure flag also lasts 900 seconds',
+	900 === rwgo_login_ttl( RWGA_Platform_Client::BEARER_ERROR_TRANSIENT )
 );
 
 RWGA_Platform_Client::clear_token_cache();
@@ -445,9 +523,88 @@ $before = rwgo_login_posts();
 $direct = RWGO_Platform_Client::get_access_token();
 $direct_post = rwgo_login_last_post();
 rwgo_login_assert(
-	'Optimise API calls outside the update path keep the 30 second timeout',
-	'jwt-from-login' === $direct && rwgo_login_posts() === $before + 1 && is_array( $direct_post ) && 30 === (int) $direct_post['args']['timeout']
+	'Optimise API calls outside an admin action use the 10 second timeout',
+	'jwt-from-login' === $direct && rwgo_login_posts() === $before + 1 && is_array( $direct_post ) && 10 === (int) $direct_post['args']['timeout']
 );
+
+$_SERVER['PHP_SELF'] = '/wp-admin/admin-post.php';
+RWGA_Platform_Client::clear_token_cache();
+$GLOBALS['rw_login_mode'] = 'fail';
+$before = rwgo_login_posts();
+$posted = RWGA_Platform_Client::get_access_token( 30 );
+$posted_call = rwgo_login_last_post();
+rwgo_login_assert(
+	'an admin-post action may use the 30 second login timeout',
+	is_wp_error( $posted ) && rwgo_login_posts() === $before + 1 && is_array( $posted_call ) && 30 === (int) $posted_call['args']['timeout']
+);
+$_SERVER['PHP_SELF'] = '/wp-admin/plugins.php';
+
+$GLOBALS['rw_is_admin']   = false;
+$GLOBALS['rw_doing_cron'] = true;
+$GLOBALS['rw_is_cli']     = false;
+RWGA_Platform_Client::clear_token_cache();
+$before = rwgo_login_posts();
+$croned = RWGA_Platform_Client::get_access_token();
+$cron_call = rwgo_login_last_post();
+rwgo_login_assert(
+	'a cron login times out at 10 seconds',
+	is_wp_error( $croned ) && rwgo_login_posts() === $before + 1 && is_array( $cron_call ) && 10 === (int) $cron_call['args']['timeout']
+);
+$GLOBALS['rw_doing_cron'] = false;
+$GLOBALS['rw_is_admin']   = true;
+
+if ( ! defined( 'RWGA_VERSION' ) ) {
+	define( 'RWGA_VERSION', '0.4.68' );
+}
+if ( ! defined( 'RWGA_PATH' ) ) {
+	define( 'RWGA_PATH', dirname( __DIR__ ) . '/merged-geo-ai/' );
+}
+require_once dirname( __DIR__ ) . '/merged-geo-ai/includes/services/class-rwga-intelligence-sync-service.php';
+
+RWGA_Platform_Client::clear_token_cache();
+delete_option( RWGA_Intelligence_Sync_Service::OPTION_LAST_SYNC );
+$GLOBALS['rw_login_mode'] = 'fail';
+$GLOBALS['rw_is_admin']   = true;
+$GLOBALS['rw_is_cli']     = false;
+$before = rwgo_login_posts();
+RWGA_Intelligence_Sync_Service::maybe_auto_sync();
+RWGA_Intelligence_Sync_Service::maybe_auto_sync();
+rwgo_login_assert( 'two runs in a row with a bad key make at most one login', rwgo_login_posts() === $before + 1 );
+rwgo_login_assert(
+	'that shared failure is stored for 900 seconds',
+	900 === rwgo_login_ttl( RWGA_Platform_Client::UPDATE_LOGIN_FAIL_TRANSIENT )
+);
+$kept_until = (int) get_option( RWGA_Platform_Client::UPDATE_LOGIN_FAIL_OPTION, 0 );
+delete_transient( RWGA_Platform_Client::UPDATE_LOGIN_FAIL_TRANSIENT );
+$before = rwgo_login_posts();
+RWGA_Platform_Client::get_access_token();
+RWGA_Platform_Client::request( 'GET', '/api/v1/intelligence/geocore/bundle', null, true );
+rwgo_login_assert(
+	'a failure flag that leaves the transient early still blocks the next login',
+	rwgo_login_posts() === $before && $kept_until > time()
+);
+
+$GLOBALS['rw_is_cli']   = true;
+$GLOBALS['rw_is_admin'] = true;
+RWGA_Platform_Client::clear_token_cache();
+RWGO_Platform_Client::clear_token_cache();
+$before = rwgo_login_posts();
+RWGA_Intelligence_Sync_Service::maybe_auto_sync();
+RWGA_Platform_Client::get_access_token();
+RWGA_Platform_Client::maybe_warm_access_token_for_updates();
+RWGO_Platform_Client::get_access_token();
+RWGA_Intelligence_Sync_Service::maybe_auto_sync();
+RWGA_Platform_Client::get_access_token();
+rwgo_login_assert( 'WP-CLI runs do not log in', rwgo_login_posts() === $before && ! RWGA_Platform_Client::request_may_login() );
+
+$GLOBALS['rw_is_cli']   = false;
+$GLOBALS['rw_is_admin'] = false;
+RWGA_Platform_Client::clear_token_cache();
+$before = rwgo_login_posts();
+RWGA_Intelligence_Sync_Service::maybe_auto_sync();
+RWGA_Platform_Client::get_access_token();
+RWGO_Platform_Client::get_access_token();
+rwgo_login_assert( 'ordinary front-end requests do not log in', rwgo_login_posts() === $before && ! RWGO_Platform_Client::request_may_login() );
 
 if ( 0 !== $GLOBALS['rw_failed'] ) {
 	fwrite( STDERR, $GLOBALS['rw_failed'] . " failed\n" );

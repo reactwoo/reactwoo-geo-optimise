@@ -25,9 +25,15 @@ class RWGA_Platform_Client {
 	const UPDATE_LOGIN_FAIL_TTL = 900;
 
 	/**
-	 * Failed update-path login. Distinct from {@see BEARER_ERROR_TRANSIENT}, which stores diagnostic text.
+	 * Failed login. Distinct from {@see BEARER_ERROR_TRANSIENT}, which stores diagnostic text.
+	 * The value is the unix time when the window ends. The transient TTL is also 900 seconds.
 	 */
 	const UPDATE_LOGIN_FAIL_TRANSIENT = 'rwga_updates_login_failed';
+
+	/**
+	 * Same window as {@see UPDATE_LOGIN_FAIL_TRANSIENT}, stored as an option so a short object-cache TTL cannot drop it.
+	 */
+	const UPDATE_LOGIN_FAIL_OPTION = 'rwga_updates_login_failed_until';
 
 	const LOGIN_PATH           = '/api/v5/auth/login';
 	const DEFAULT_API_BASE     = 'https://api.reactwoo.com';
@@ -263,7 +269,7 @@ class RWGA_Platform_Client {
 	public static function clear_token_cache() {
 		delete_transient( self::TOKEN_TRANSIENT );
 		delete_transient( self::BEARER_ERROR_TRANSIENT );
-		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		self::forget_login_failure();
 		self::$license_key_request_memo = null;
 	}
 
@@ -365,7 +371,7 @@ class RWGA_Platform_Client {
 					'code'    => $token->get_error_code(),
 					'message' => $token->get_error_message(),
 				),
-				15 * MINUTE_IN_SECONDS
+				self::UPDATE_LOGIN_FAIL_TTL
 			);
 			return null;
 		}
@@ -376,7 +382,7 @@ class RWGA_Platform_Client {
 					'code'    => 'rwga_empty_token',
 					'message' => __( 'License login returned an empty token.', 'reactwoo-geo-ai' ),
 				),
-				15 * MINUTE_IN_SECONDS
+				self::UPDATE_LOGIN_FAIL_TTL
 			);
 			return null;
 		}
@@ -385,19 +391,37 @@ class RWGA_Platform_Client {
 	}
 
 	/**
+	 * Whether this request may start a new license login.
+	 *
+	 * Ordinary front-end views and WP-CLI commands may reuse a saved token, but they do not log in.
+	 *
+	 * @return bool
+	 */
+	public static function request_may_login() {
+		return ! self::request_skips_new_login();
+	}
+
+	/**
 	 * Bearer JWT for Authorization header, refreshed via login when needed.
 	 *
-	 * @param int $timeout Login HTTP timeout in seconds. The update path passes 10; other callers keep 30.
+	 * Every caller shares the saved token and the 900-second failed-login window.
+	 * Outside an admin-triggered action the HTTP timeout is 10 seconds.
+	 *
+	 * @param int $timeout Login HTTP timeout in seconds. Admin-post and admin-ajax may pass 30.
 	 * @return string|\WP_Error
 	 */
 	public static function get_access_token( $timeout = 30 ) {
-		$timeout = (int) $timeout;
-		if ( $timeout < 1 ) {
-			$timeout = 30;
-		}
 		$cached = get_transient( self::TOKEN_TRANSIENT );
 		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
+			self::forget_login_failure();
 			return (string) $cached['token'];
+		}
+
+		if ( self::login_recently_failed() ) {
+			return new WP_Error(
+				'rwga_login_cached_failure',
+				__( 'License login failed recently. It will be retried in a few minutes.', 'reactwoo-geo-ai' )
+			);
 		}
 
 		$license = self::get_license_key();
@@ -409,6 +433,15 @@ class RWGA_Platform_Client {
 		if ( '' === $domain ) {
 			return new WP_Error( 'rwga_no_domain', __( 'Could not determine this site domain for license login.', 'reactwoo-geo-ai' ) );
 		}
+
+		if ( self::request_skips_new_login() ) {
+			return new WP_Error(
+				'rwga_login_skipped',
+				__( 'License login does not run on this request.', 'reactwoo-geo-ai' )
+			);
+		}
+
+		$timeout = self::resolve_login_timeout( $timeout );
 
 		$body = array(
 			'license_key'  => $license,
@@ -451,6 +484,7 @@ class RWGA_Platform_Client {
 				'login_transport_error',
 				array( 'message' => $response->get_error_message() )
 			);
+			self::remember_login_failure();
 			return $response;
 		}
 
@@ -467,12 +501,14 @@ class RWGA_Platform_Client {
 					'body_snip' => is_string( $raw ) ? substr( $raw, 0, 240 ) : '',
 				)
 			);
+			self::remember_login_failure();
 			return new WP_Error( 'rwga_login_failed', $msg, array( 'status' => $code ) );
 		}
 
 		$token = isset( $data['access_token'] ) ? (string) $data['access_token'] : '';
 		if ( '' === $token ) {
 			self::log_license_api_trace( 'login_no_access_token', array( 'http' => $code ) );
+			self::remember_login_failure();
 			return new WP_Error( 'rwga_login_no_token', __( 'License login response did not include a token.', 'reactwoo-geo-ai' ) );
 		}
 
@@ -485,6 +521,7 @@ class RWGA_Platform_Client {
 			),
 			$ttl
 		);
+		self::forget_login_failure();
 
 		$claims = self::decode_jwt_payload_for_trace( $token );
 		$trace  = array(
@@ -536,54 +573,127 @@ class RWGA_Platform_Client {
 	}
 
 	/**
-	 * License login for plugin update checks.
-	 *
-	 * A valid cached JWT is reused. A login that failed in the last 15 minutes is not repeated.
+	 * License login for plugin update checks. Uses the same caches as {@see get_access_token()}.
 	 *
 	 * @param int $timeout Login HTTP timeout in seconds.
 	 * @return string|\WP_Error
 	 */
 	private static function login_for_updates( $timeout ) {
-		$timeout = (int) $timeout;
-		if ( $timeout < 1 ) {
-			$timeout = self::UPDATE_LOGIN_TIMEOUT;
-		}
-
-		$cached = get_transient( self::TOKEN_TRANSIENT );
-		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
-			delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
-			return (string) $cached['token'];
-		}
-
-		if ( self::update_login_recently_failed() ) {
-			return new WP_Error(
-				'rwga_login_cached_failure',
-				__( 'License login failed recently. Plugin update checks will retry in a few minutes.', 'reactwoo-geo-ai' )
-			);
-		}
-
-		$token = self::get_access_token( $timeout );
-		if ( is_wp_error( $token ) || ! is_string( $token ) || '' === $token ) {
-			set_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT, '1', self::UPDATE_LOGIN_FAIL_TTL );
-			if ( is_wp_error( $token ) ) {
-				return $token;
-			}
-			return new WP_Error( 'rwga_empty_token', __( 'License login returned an empty token.', 'reactwoo-geo-ai' ) );
-		}
-
-		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
-		return $token;
+		return self::get_access_token( (int) $timeout );
 	}
 
 	/**
 	 * @return bool
 	 */
-	private static function update_login_recently_failed() {
-		if ( ! function_exists( 'get_transient' ) ) {
+	private static function request_is_cli() {
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return true;
+		}
+		return (bool) apply_filters( 'rwga_platform_login_is_cli', false );
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function request_skips_new_login() {
+		if ( self::request_is_cli() ) {
+			return true;
+		}
+		if ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) {
 			return false;
 		}
-		$failed = get_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
-		return false !== $failed && '' !== (string) $failed;
+		if ( function_exists( 'is_admin' ) && is_admin() ) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * Admin-post and admin-ajax are the actions a person started. Other logins stay at 10 seconds.
+	 *
+	 * @return bool
+	 */
+	private static function is_admin_triggered_action() {
+		if ( self::request_is_cli() || ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ) ) {
+			return false;
+		}
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			return true;
+		}
+		$raw = isset( $_SERVER['PHP_SELF'] ) ? (string) $_SERVER['PHP_SELF'] : '';
+		if ( function_exists( 'wp_unslash' ) ) {
+			$raw = (string) wp_unslash( $raw );
+		}
+		$script = strtolower( basename( $raw ) );
+		return in_array( $script, array( 'admin-post.php', 'admin-ajax.php' ), true );
+	}
+
+	/**
+	 * @param int $timeout Requested timeout.
+	 * @return int
+	 */
+	private static function resolve_login_timeout( $timeout ) {
+		$timeout = (int) $timeout;
+		if ( $timeout < 1 ) {
+			$timeout = 30;
+		}
+		if ( ! self::is_admin_triggered_action() && $timeout > self::UPDATE_LOGIN_TIMEOUT ) {
+			return self::UPDATE_LOGIN_TIMEOUT;
+		}
+		return $timeout;
+	}
+
+	/**
+	 * @return bool
+	 */
+	private static function login_recently_failed() {
+		return self::login_failure_until() > time();
+	}
+
+	/**
+	 * @return int Unix time when the failure window ends, or 0.
+	 */
+	private static function login_failure_until() {
+		$until = 0;
+		if ( function_exists( 'get_option' ) ) {
+			$opt = get_option( self::UPDATE_LOGIN_FAIL_OPTION, 0 );
+			if ( is_numeric( $opt ) ) {
+				$until = (int) $opt;
+			}
+		}
+		if ( function_exists( 'get_transient' ) ) {
+			$cached = get_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+			if ( is_numeric( $cached ) ) {
+				$until = max( $until, (int) $cached );
+			} elseif ( false !== $cached && '' !== (string) $cached ) {
+				$until = max( $until, time() + 1 );
+			}
+		}
+		return $until;
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function remember_login_failure() {
+		if ( self::login_failure_until() > time() ) {
+			return;
+		}
+		$until = time() + self::UPDATE_LOGIN_FAIL_TTL;
+		set_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT, (string) $until, self::UPDATE_LOGIN_FAIL_TTL );
+		if ( function_exists( 'update_option' ) ) {
+			update_option( self::UPDATE_LOGIN_FAIL_OPTION, $until, false );
+		}
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function forget_login_failure() {
+		delete_transient( self::UPDATE_LOGIN_FAIL_TRANSIENT );
+		if ( function_exists( 'delete_option' ) ) {
+			delete_option( self::UPDATE_LOGIN_FAIL_OPTION );
+		}
 	}
 
 	/**
