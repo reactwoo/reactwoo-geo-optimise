@@ -19,10 +19,10 @@ Invalid licence keys no longer start a 30-second login on every request. Version
 ## Commands
 - `php tests/test-update-login.php` — passed.
 - `python3 tests/test-zip-js-order.py` — passed.
-- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — recorded below after the run.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (55 tests, 370 assertions).
 
 ## Remaining errors
-- None from the login test.
+- None.
 
 ## Status
 done
