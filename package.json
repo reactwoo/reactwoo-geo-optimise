@@ -7,6 +7,8 @@
     "geoCoreDependencySlug": "reactwoo-geocore"
   },
   "scripts": {
-    "package:zip": "python scripts/package_zip.py"
+    "package:zip": "python scripts/package_zip.py",
+    "test:zip-js-order": "python3 tests/test-zip-js-order.py",
+    "test:update-login": "php tests/test-update-login.php"
   }
 }

@@ -37,6 +37,10 @@ class RWGA_Intelligence_Sync_Service {
 	 * @return void
 	 */
 	public static function maybe_auto_sync() {
+		// init runs on the front end and on every WP-CLI command. A bad licence key must not log in there.
+		if ( class_exists( 'RWGA_Platform_Client', false ) && ! RWGA_Platform_Client::request_may_login() ) {
+			return;
+		}
 		$last = (int) get_option( self::OPTION_LAST_SYNC, 0 );
 		if ( $last > 0 && ( time() - $last ) < DAY_IN_SECONDS ) {
 			return;

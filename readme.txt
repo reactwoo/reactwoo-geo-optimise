@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,11 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.2 =
+* **Fix:** Release packages put the plugin file and readme first, then the other non-JavaScript files, then JavaScript, in the same order on every build. Entries 1, 2, 4, and 11–24 are not JavaScript files, so ClamAV Sanesecurity Foxhole `JS_Zip_1`, `JS_Zip_2`, `JS_Zip_4`, and `JS_Zip_11`–`JS_Zip_24` do not flag the zip.
+* **Fix:** The Plugins screen does not log in again when WordPress only updates the plugin-check time. A failed license login is skipped for 15 minutes (900 seconds). Logins outside an admin action wait 10 seconds.
+* **Fix:** An invalid licence key does not log in on every front-end view or WP-CLI command. Every login caller shares that 15-minute failure and the saved token.
 
 = 0.5.1 =
 * **Added:** The experiment assignment cookies are part of the LiteSpeed vary list, so the control page and variant B are cached separately. A returning visitor is cacheable when LiteSpeed is the only page cache. New cookies, bots, and other cache plugins still bypass the cache.
