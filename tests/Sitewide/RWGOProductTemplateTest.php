@@ -46,7 +46,7 @@ class RWGOProductTemplateTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( 'variant', $plan['delivered'] );
 		$this->assertSame( 0, $plan['swap_page_id'] );
 		$this->assertContains( 80, $plan['preload_template_ids'] );
-		$this->assertContains( 70, $plan['suppress_template_ids'] );
+		$this->assertNotContains( 70, $plan['suppress_template_ids'] );
 		$this->assertSame(
 			80,
 			RWGO_Theme_Context::translate_body_template( 'single', 70, 'variant', $plan['template_map'], $plan['usable_template_ids'], true, false )
@@ -176,8 +176,10 @@ class RWGOProductTemplateTest extends PHPUnit\Framework\TestCase {
 			)
 		);
 		$this->assertContains( 'theme_locked', $locked['reasons'] );
-		$this->assertSame( array(), $locked['template_map'] );
+		$this->assertNotEmpty( $locked['template_map'] );
 		$this->assertSame( array(), $locked['preload_template_ids'] );
+		$this->assertFalse( $locked['allow_variant_templates'] );
+		$this->assertSame( 70, RWGO_Theme_Context::translate_body_template( 'single', 80, 'variant', $locked['template_map'], $locked['usable_template_ids'], false, true ) );
 		$this->assertSame( 70, RWGO_Theme_Context::translate_body_template( 'single', 70, 'variant', $locked['template_map'], $locked['usable_template_ids'], false, true ) );
 	}
 
@@ -472,5 +474,148 @@ class RWGOProductTemplateTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( array(), $checked['template_map'] );
 		$this->assertSame( 11, $checked['page_map'][0]['variant_page_id'] );
 		$this->assertSame( 0, $checked['theme_context']['control']['header'] );
+	}
+
+	public function test_elementor_does_not_select_an_unassigned_variant_template() {
+		$cache = array(
+			'single' => array(
+				70 => array( 'include/product' ),
+				80 => array(),
+			),
+		);
+		$candidates = RWGO_Theme_Context::elementor_location_candidates( $cache, 'single' );
+		$this->assertSame( array( 70 ), $candidates );
+		$this->assertSame( 70, RWGO_Theme_Context::elementor_first_candidate( $candidates ) );
+		$this->assertFalse( RWGO_Theme_Context::template_is_independently_matched( array() ) );
+		$this->assertTrue( RWGO_Theme_Context::template_is_independently_matched( array( 'include/product' ) ) );
+	}
+
+	public function test_overlapping_conditions_cannot_leak_the_variant_when_the_arm_is_not_served() {
+		$cache = array(
+			'single' => array(
+				80 => array( 'include/product/in_product_tag/51' ),
+				70 => array( 'include/product/in_product_tag/51' ),
+			),
+		);
+		$candidates = RWGO_Theme_Context::elementor_location_candidates( $cache, 'product' );
+		$this->assertSame( array( 80, 70 ), $candidates );
+		$chosen = RWGO_Theme_Context::elementor_first_candidate( $candidates );
+		$this->assertSame( 80, $chosen );
+
+		$guard = RWGO_Theme_Context::condition_guard_from_config(
+			array(
+				'template_map'  => array(
+					array(
+						'location'            => 'single',
+						'source_template_id'  => 70,
+						'variant_template_id' => 80,
+					),
+				),
+				'theme_context' => array(
+					'control' => array( 'header' => 11 ),
+					'variant' => array( 'header' => 21 ),
+				),
+			)
+		);
+		RWGO_Theme_Context::set_condition_guard( $guard );
+		RWGO_Theme_Context::set_request_plan( null );
+		$this->assertSame( 70, RWGO_Theme_Context::filter_location_template( $chosen, 'single' ) );
+		$this->assertSame( 11, RWGO_Theme_Context::filter_location_template( 21, 'header' ) );
+
+		$status = array(
+			70 => 'publish',
+			80 => 'publish',
+		);
+		$types = array(
+			70 => 'elementor_library',
+			80 => 'elementor_library',
+		);
+		$map = array(
+			array(
+				'location'            => 'single',
+				'source_template_id'  => 70,
+				'variant_template_id' => 80,
+			),
+		);
+		$control = RWGO_Theme_Context::delivery_plan( 'control', 0, '', false, array(), $status, $types, true, $map );
+		$this->assertSame( 70, RWGO_Theme_Context::translate_body_template( 'single', 80, 'control', $control['template_map'], $control['usable_template_ids'], false, false ) );
+		$variant = RWGO_Theme_Context::delivery_plan( 'variant', 0, '', false, array(), $status, $types, true, $map );
+		$this->assertSame( 80, RWGO_Theme_Context::translate_body_template( 'single', 80, 'variant', $variant['template_map'], $variant['usable_template_ids'], true, false ) );
+		RWGO_Theme_Context::set_condition_guard( array() );
+	}
+
+	public function test_conditioned_variant_template_is_rejected_and_unassigned_variant_is_saved() {
+		$posts = array(
+			70 => array(
+				'type'                    => 'elementor_library',
+				'status'                  => 'publish',
+				'elementor_empty'         => false,
+				'elementor_template_type' => 'product',
+				'elementor_conditions'    => array( 'include/product/in_product_tag/51' ),
+			),
+			80 => array(
+				'type'                    => 'elementor_library',
+				'status'                  => 'publish',
+				'elementor_empty'         => false,
+				'elementor_template_type' => 'product',
+				'elementor_conditions'    => array( 'include/product/in_product_tag/51' ),
+			),
+			81 => array(
+				'type'                    => 'elementor_library',
+				'status'                  => 'publish',
+				'elementor_empty'         => false,
+				'elementor_template_type' => 'product',
+				'elementor_conditions'    => array(),
+			),
+		);
+		$collision = RWGO_Sitewide_Proposal::inspect(
+			array(
+				'page_map'     => array(),
+				'template_map' => array(
+					array(
+						'location'            => 'single',
+						'source_template_id'  => 70,
+						'variant_template_id' => 80,
+					),
+				),
+			),
+			$posts
+		);
+		$this->assertFalse( $collision['ok'] );
+		$this->assertContains( 'rwgo_variant_template_conditioned', array_column( $collision['errors'], 'code' ) );
+		$this->assertSame( 0, $collision['product_templates_ready'] );
+
+		$safe = RWGO_Sitewide_Proposal::inspect(
+			array(
+				'page_map'     => array(),
+				'template_map' => array(
+					array(
+						'location'            => 'single',
+						'source_template_id'  => 70,
+						'variant_template_id' => 81,
+					),
+				),
+			),
+			$posts
+		);
+		$this->assertTrue( $safe['ok'] );
+		$this->assertSame( 1, $safe['product_templates_ready'] );
+		$this->assertNotContains( 'rwgo_variant_template_conditioned', array_column( $safe['warnings'], 'code' ) );
+	}
+
+	public function test_head_styles_keep_the_canonical_page_and_the_product_post() {
+		$chrome = RWGO_Theme_Context::head_style_plan( array( 21 ), array( 11 ), array( 12 ) );
+		$this->assertSame( array( 21 ), $chrome['enqueue'] );
+		$this->assertSame( array( 11 ), $chrome['suppress'] );
+		$this->assertContains( 12, $chrome['retain'] );
+		$this->assertNotContains( 12, $chrome['suppress'] );
+
+		$product = RWGO_Theme_Context::head_style_plan( array( 80 ), array( 70, 2388 ), array( 2388 ) );
+		$this->assertSame( array( 80 ), $product['enqueue'] );
+		$this->assertSame( array( 70 ), $product['suppress'] );
+		$this->assertNotContains( 2388, $product['suppress'] );
+		$this->assertSame( 'elementor-post-70', RWGO_Theme_Context::elementor_style_handle( 70 ) );
+		$this->assertNotSame( 'woocommerce-general', RWGO_Theme_Context::elementor_style_handle( 70 ) );
+		$this->assertNotSame( 'elementor-frontend', RWGO_Theme_Context::elementor_style_handle( 12 ) );
 	}
 }

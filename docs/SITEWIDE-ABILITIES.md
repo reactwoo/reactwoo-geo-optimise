@@ -73,11 +73,11 @@ Mutation. Does not accept `status`. A new test is stored as `paused`. An existin
 }
 ```
 
-Blocking errors: `rwgo_malformed_id`, `rwgo_duplicate_source`, `rwgo_redirect_loop`, `rwgo_unknown_post`, `rwgo_wrong_post_type`, `rwgo_weight_range`, `rwgo_cookie_days`, `rwgo_revision_required`, `rwgo_revision_conflict`, `rwgo_template_location`, `rwgo_template_loop`, `rwgo_duplicate_template`, `rwgo_product_not_template`.
+Blocking errors: `rwgo_malformed_id`, `rwgo_duplicate_source`, `rwgo_redirect_loop`, `rwgo_unknown_post`, `rwgo_wrong_post_type`, `rwgo_weight_range`, `rwgo_cookie_days`, `rwgo_revision_required`, `rwgo_revision_conflict`, `rwgo_template_location`, `rwgo_template_loop`, `rwgo_duplicate_template`, `rwgo_product_not_template`, `rwgo_variant_template_conditioned`.
 
-Warnings, saved anyway while paused: `rwgo_variant_unpublished`, `rwgo_theme_template_unpublished`, `rwgo_theme_template_empty`, `rwgo_control_template_missing`, `rwgo_template_location_mismatch`.
+Warnings, saved anyway while paused: `rwgo_variant_unpublished`, `rwgo_theme_template_unpublished`, `rwgo_theme_template_empty`, `rwgo_control_template_missing`, `rwgo_template_location_mismatch`, `rwgo_source_template_unassigned`.
 
-Page IDs must be pages on this site. Template IDs must be `elementor_library` posts. `0` means that header or footer is not overridden. Omitting `template_map` leaves the stored product map unchanged. `product` and `single-product` are stored as `single`. A Woo product ID is rejected.
+Page IDs must be pages on this site. Template IDs must be `elementor_library` posts. `0` means that header or footer is not overridden. Omitting `template_map` leaves the stored product map unchanged. `product` and `single-product` are stored as `single`. A Woo product ID is rejected. A variant template with `_elementor_conditions` is rejected. The source template keeps its conditions. The variant template is published and has no conditions.
 
 ## reactwoo-geo-optimise/sitewide-set-status
 

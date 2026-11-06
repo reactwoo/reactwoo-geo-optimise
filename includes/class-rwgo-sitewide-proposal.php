@@ -432,6 +432,20 @@ class RWGO_Sitewide_Proposal {
 				(int) $post_id
 			);
 		}
+		if ( 'rwgo_variant_template_conditioned' === $code ) {
+			return sprintf(
+				/* translators: %d: variant template ID */
+				__( 'Template %d has Elementor display conditions. Remove them. A published variant template with conditions can be selected for every matching product when this plugin is paused or inactive. Leave it published and unassigned, and map it here.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_source_template_unassigned' === $code ) {
+			return sprintf(
+				/* translators: %d: source template ID */
+				__( 'Template %d has no Elementor display conditions, so Elementor will not select it for products. Keep the conditions on this source template. Do not copy them onto the variant.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
 		if ( 'rwgo_template_location_mismatch' === $code ) {
 			return sprintf(
 				/* translators: %d: template ID */
@@ -612,6 +626,9 @@ class RWGO_Sitewide_Proposal {
 			if ( class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::template_type_conflicts( $elementor_type, $location ) ) {
 				continue;
 			}
+			if ( class_exists( 'RWGO_Theme_Context', false ) && array_key_exists( 'elementor_conditions', $posts[ $id ] ) && RWGO_Theme_Context::template_is_independently_matched( $posts[ $id ]['elementor_conditions'] ) ) {
+				continue;
+			}
 			$chrome = true;
 			++$product_ready;
 		}
@@ -689,8 +706,8 @@ class RWGO_Sitewide_Proposal {
 			if ( ! is_array( $posts ) ) {
 				continue;
 			}
-			self::check_template_post( $source, $location, $posts, $errors, $warnings );
-			self::check_template_post( $variant, $location, $posts, $errors, $warnings );
+			self::check_template_post( $source, $location, false, $posts, $errors, $warnings );
+			self::check_template_post( $variant, $location, true, $posts, $errors, $warnings );
 		}
 		return $map;
 	}
@@ -703,7 +720,7 @@ class RWGO_Sitewide_Proposal {
 	 * @param array<int, array<string, mixed>>         $warnings Warnings.
 	 * @return void
 	 */
-	private static function check_template_post( $id, $location, array $posts, array &$errors, array &$warnings ) {
+	private static function check_template_post( $id, $location, $is_variant, array $posts, array &$errors, array &$warnings ) {
 		if ( ! array_key_exists( $id, $posts ) || null === $posts[ $id ] ) {
 			$errors[] = self::issue( 'rwgo_unknown_post', $id, '' );
 			return;
@@ -728,6 +745,16 @@ class RWGO_Sitewide_Proposal {
 		$elementor_type = isset( $record['elementor_template_type'] ) ? (string) $record['elementor_template_type'] : '';
 		if ( class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::template_type_conflicts( $elementor_type, $location ) ) {
 			$warnings[] = self::issue( 'rwgo_template_location_mismatch', $id, $elementor_type );
+		}
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) || ! array_key_exists( 'elementor_conditions', $record ) ) {
+			return;
+		}
+		$matched = RWGO_Theme_Context::template_is_independently_matched( $record['elementor_conditions'] );
+		if ( $is_variant && $matched ) {
+			$errors[] = self::issue( 'rwgo_variant_template_conditioned', $id, '' );
+		}
+		if ( ! $is_variant && ! $matched ) {
+			$warnings[] = self::issue( 'rwgo_source_template_unassigned', $id, '' );
 		}
 	}
 

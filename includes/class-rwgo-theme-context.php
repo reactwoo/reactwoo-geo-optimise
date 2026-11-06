@@ -43,6 +43,13 @@ class RWGO_Theme_Context {
 	private static $plan = null;
 
 	/**
+	 * Variant template ID => source template ID. Used when no arm is being served.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private static $guard = array();
+
+	/**
 	 * @return array<string, array<string, int>>
 	 */
 	public static function empty_context() {
@@ -203,6 +210,161 @@ class RWGO_Theme_Context {
 			return ! in_array( $type, self::single_template_types(), true );
 		}
 		return false;
+	}
+
+	/**
+	 * Elementor stores Theme Builder rules in `_elementor_conditions` and in
+	 * the option `elementor_pro_theme_builder_conditions`.
+	 *
+	 * @param mixed $raw Meta value or one cache bucket.
+	 * @return array<int, string>
+	 */
+	public static function condition_rules_from_meta( $raw ) {
+		if ( is_string( $raw ) ) {
+			$trimmed = trim( $raw );
+			if ( '' === $trimmed ) {
+				return array();
+			}
+			$decoded = json_decode( $trimmed, true );
+			if ( is_array( $decoded ) ) {
+				$raw = $decoded;
+			} else {
+				$raw = array( $trimmed );
+			}
+		}
+		if ( ! is_array( $raw ) ) {
+			return array();
+		}
+		$rules = array();
+		foreach ( $raw as $rule ) {
+			if ( ! is_string( $rule ) ) {
+				continue;
+			}
+			$rule = trim( $rule );
+			if ( '' !== $rule ) {
+				$rules[] = $rule;
+			}
+		}
+		return $rules;
+	}
+
+	/**
+	 * A template with any saved rule is eligible for Elementor's own matcher.
+	 *
+	 * @param mixed $raw Rules.
+	 * @return bool
+	 */
+	public static function template_is_independently_matched( $raw ) {
+		return array() !== self::condition_rules_from_meta( $raw );
+	}
+
+	/**
+	 * Templates Elementor can select for a location without this plugin.
+	 *
+	 * `Locations_Manager` asks the conditions manager for documents that have
+	 * rules, then uses the first document (`key()` / `reset()`). A published
+	 * library template with no rules is not in that list. Two templates that
+	 * share a rule can both match, and the first one is printed. Putting the
+	 * variant first is the leak this guard is for.
+	 *
+	 * @param array<string, mixed> $cache    Location => template ID => rules.
+	 * @param string               $location Theme Builder location.
+	 * @return array<int, int> Candidate IDs in cache order.
+	 */
+	public static function elementor_location_candidates( array $cache, $location ) {
+		$location = sanitize_key( (string) $location );
+		if ( 'product' === $location || 'single-product' === $location ) {
+			$location = self::LOCATION_SINGLE;
+		}
+		$bucket = array();
+		if ( isset( $cache[ $location ] ) && is_array( $cache[ $location ] ) ) {
+			$bucket = $cache[ $location ];
+		}
+		$ids = array();
+		foreach ( $bucket as $template_id => $rules ) {
+			if ( ! self::template_is_independently_matched( $rules ) ) {
+				continue;
+			}
+			$id = (int) $template_id;
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
+		return $ids;
+	}
+
+	/**
+	 * @param array<int, int> $candidates Ordered condition matches.
+	 * @return int First ID Elementor prints, or 0 when nothing matches.
+	 */
+	public static function elementor_first_candidate( array $candidates ) {
+		foreach ( $candidates as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				return $id;
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Stored config.
+	 * @return array{restore:array<int, int>,map:array<int, array<string, int|string>>}
+	 */
+	public static function condition_guard_from_config( array $cfg ) {
+		$restore = array();
+		$map     = self::normalize_template_map( isset( $cfg['template_map'] ) ? $cfg['template_map'] : array() );
+		foreach ( $map as $row ) {
+			$restore[ (int) $row['variant_template_id'] ] = (int) $row['source_template_id'];
+		}
+		$theme = self::normalize( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() );
+		foreach ( array( 'header', 'footer' ) as $location ) {
+			$variant = (int) $theme['variant'][ $location ];
+			if ( $variant > 0 ) {
+				$restore[ $variant ] = (int) $theme['control'][ $location ];
+			}
+		}
+		return array(
+			'restore' => $restore,
+			'map'     => $map,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $guard Guard from condition_guard_from_config().
+	 * @return void
+	 */
+	public static function set_condition_guard( array $guard ) {
+		self::$guard = $guard;
+	}
+
+	/**
+	 * @return array<string, mixed>
+	 */
+	public static function condition_guard() {
+		return self::$guard;
+	}
+
+	/**
+	 * When this response is not serving the variant arm, a variant template
+	 * Elementor already chose is replaced with its source. Zero hides the
+	 * location rather than printing the variant.
+	 *
+	 * @param int                  $elementor_id ID from the condition matcher.
+	 * @param array<string, mixed> $guard        Restore map.
+	 * @param bool                 $allow_variant This response may print variants.
+	 * @return int
+	 */
+	public static function restore_unserved_template( $elementor_id, array $guard, $allow_variant ) {
+		$elementor_id = (int) $elementor_id;
+		if ( $allow_variant || $elementor_id <= 0 ) {
+			return $elementor_id;
+		}
+		$restore = isset( $guard['restore'] ) && is_array( $guard['restore'] ) ? $guard['restore'] : array();
+		if ( ! array_key_exists( $elementor_id, $restore ) ) {
+			return $elementor_id;
+		}
+		return max( 0, (int) $restore[ $elementor_id ] );
 	}
 
 	/**
@@ -379,6 +541,14 @@ class RWGO_Theme_Context {
 		);
 		if ( $theme_locked ) {
 			$plan['reasons'][] = 'theme_locked';
+			$body = self::body_template_plan( 'control', $template_map, $template_status, $template_type, $template_empty );
+			$plan['template_map']        = $body['template_map'];
+			$plan['usable_template_ids'] = $body['usable_template_ids'];
+			$plan['owned_variant_template_ids'] = array_values(
+				array_unique( array_merge( $owned, $body['owned_variant_template_ids'] ) )
+			);
+			$plan['preload_template_ids'] = array();
+			$plan['allow_variant_templates'] = false;
 			return $plan;
 		}
 		$arm = $assigned;
@@ -425,13 +595,6 @@ class RWGO_Theme_Context {
 				$printed    = (int) $plan[ $location ];
 				if ( $control_id > 0 && $printed > 0 && $control_id !== $printed ) {
 					$suppress[] = $control_id;
-				}
-			}
-			foreach ( $plan['template_map'] as $row ) {
-				$variant_id = (int) $row['variant_template_id'];
-				$source_id  = (int) $row['source_template_id'];
-				if ( in_array( $variant_id, $plan['preload_template_ids'], true ) && $source_id !== $variant_id ) {
-					$suppress[] = $source_id;
 				}
 			}
 		}
@@ -577,13 +740,22 @@ class RWGO_Theme_Context {
 	 * @return int
 	 */
 	public static function filter_location_template( $template_id, $location = '' ) {
+		$template_id = (int) $template_id;
+		$location    = sanitize_key( (string) $location );
 		if ( ! is_array( self::$plan ) ) {
-			return (int) $template_id;
+			$id = self::restore_unserved_template( $template_id, self::$guard, false );
+			if ( $id !== $template_id ) {
+				self::sync_printed_document_css( $template_id, $id );
+			}
+			return $id;
 		}
-		$location = sanitize_key( (string) $location );
+		$selected = (int) $template_id;
 		$override = 0;
 		if ( isset( self::$plan[ $location ] ) ) {
 			$override = (int) self::$plan[ $location ];
+		}
+		if ( empty( self::$plan['allow_variant_templates'] ) ) {
+			$template_id = self::restore_unserved_template( $template_id, self::$guard, false );
 		}
 		$owned = isset( self::$plan['owned_variant_template_ids'] ) && is_array( self::$plan['owned_variant_template_ids'] )
 			? self::$plan['owned_variant_template_ids']
@@ -607,7 +779,7 @@ class RWGO_Theme_Context {
 		if ( function_exists( 'apply_filters' ) ) {
 			$id = (int) apply_filters( 'rwgo_theme_location_template_id', $id, $location, self::$plan );
 		}
-		self::sync_printed_document_css( (int) $template_id, (int) $id );
+		self::sync_printed_document_css( $selected, (int) $id );
 		return $id;
 	}
 
@@ -627,27 +799,74 @@ class RWGO_Theme_Context {
 	public static function translate_body_template( $location, $elementor_id, $arm, array $template_map, array $usable_ids, $allow_variant, $theme_locked ) {
 		$elementor_id = (int) $elementor_id;
 		$location     = self::canonical_body_location( $location );
-		if ( '' === $location || $theme_locked ) {
+		if ( '' === $location ) {
 			return $elementor_id;
 		}
 		$usable = array();
 		foreach ( $usable_ids as $id ) {
 			$usable[] = (int) $id;
 		}
+		$serve_variant = ( 'variant' === $arm && $allow_variant && ! $theme_locked );
 		foreach ( self::normalize_template_map( $template_map ) as $row ) {
 			if ( $row['location'] !== $location ) {
 				continue;
 			}
 			$source  = (int) $row['source_template_id'];
 			$variant = (int) $row['variant_template_id'];
-			if ( 'variant' === $arm && $allow_variant && $elementor_id === $source ) {
-				return in_array( $variant, $usable, true ) ? $variant : $elementor_id;
+			if ( $elementor_id !== $source && $elementor_id !== $variant ) {
+				continue;
 			}
-			if ( 'control' === $arm && $elementor_id === $variant ) {
+			if ( ! $serve_variant ) {
 				return in_array( $source, $usable, true ) ? $source : 0;
 			}
+			if ( in_array( $variant, $usable, true ) ) {
+				return $variant;
+			}
+			return in_array( $source, $usable, true ) ? $source : 0;
 		}
 		return $elementor_id;
+	}
+
+	/**
+	 * Stylesheets for one response. Only Elementor document handles are
+	 * listed. A retained post is never suppressed, including the canonical
+	 * page when only the header changes and the product post when its body
+	 * template changes.
+	 *
+	 * @param array<int, int> $printed IDs that will be printed.
+	 * @param array<int, int> $replaced IDs Elementor selected and this arm replaced.
+	 * @param array<int, int> $retain IDs whose document CSS must stay.
+	 * @return array{enqueue:array<int,int>,suppress:array<int,int>,retain:array<int,int>}
+	 */
+	public static function head_style_plan( array $printed, array $replaced, array $retain ) {
+		$printed = self::positive_ids( $printed );
+		$retain  = self::positive_ids( array_merge( $retain, $printed ) );
+		$suppress = array();
+		foreach ( self::positive_ids( $replaced ) as $id ) {
+			if ( ! in_array( $id, $retain, true ) ) {
+				$suppress[] = $id;
+			}
+		}
+		return array(
+			'enqueue'  => $printed,
+			'suppress' => $suppress,
+			'retain'   => $retain,
+		);
+	}
+
+	/**
+	 * @param array<int, mixed> $ids IDs.
+	 * @return array<int, int>
+	 */
+	private static function positive_ids( array $ids ) {
+		$out = array();
+		foreach ( $ids as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 && ! in_array( $id, $out, true ) ) {
+				$out[] = $id;
+			}
+		}
+		return $out;
 	}
 
 	/**
@@ -742,23 +961,33 @@ class RWGO_Theme_Context {
 		if ( ! is_array( self::$plan ) ) {
 			return;
 		}
-		$ids = array();
+		$printed = array();
+		foreach ( array( 'swap_page_id', 'header', 'footer' ) as $key ) {
+			if ( ! empty( self::$plan[ $key ] ) ) {
+				$printed[] = (int) self::$plan[ $key ];
+			}
+		}
+		if ( ! empty( self::$plan['preload_template_ids'] ) && is_array( self::$plan['preload_template_ids'] ) ) {
+			foreach ( self::$plan['preload_template_ids'] as $id ) {
+				$printed[] = (int) $id;
+			}
+		}
+		$replaced = array();
 		if ( ! empty( self::$plan['suppress_template_ids'] ) && is_array( self::$plan['suppress_template_ids'] ) ) {
 			foreach ( self::$plan['suppress_template_ids'] as $id ) {
-				$ids[] = (int) $id;
+				$replaced[] = (int) $id;
 			}
 		}
 		if ( ! empty( self::$plan['replaced_body_id'] ) ) {
-			$replaced = (int) self::$plan['replaced_body_id'];
-			$swap     = isset( self::$plan['swap_page_id'] ) ? (int) self::$plan['swap_page_id'] : 0;
-			if ( $replaced > 0 && $replaced !== $swap ) {
-				$ids[] = $replaced;
-			}
+			$replaced[] = (int) self::$plan['replaced_body_id'];
 		}
-		foreach ( array_unique( $ids ) as $id ) {
-			if ( $id > 0 ) {
-				self::suppress_document_css( $id );
-			}
+		$retain = array();
+		if ( empty( self::$plan['swap_page_id'] ) && ! empty( self::$plan['retain_post_id'] ) ) {
+			$retain[] = (int) self::$plan['retain_post_id'];
+		}
+		$plan = self::head_style_plan( $printed, $replaced, $retain );
+		foreach ( $plan['suppress'] as $id ) {
+			self::suppress_document_css( (int) $id );
 		}
 	}
 

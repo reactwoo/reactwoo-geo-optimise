@@ -28,7 +28,8 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 = 0.5.6 =
 * **Added:** A site-wide test can map Elementor single/product body templates from the template Elementor already matches to a variant template. The queried product stays in place, so price and add to cart are unchanged. Woo products are not copied. Cart, checkout, account, and wp-admin stay excluded. Unpublished variant templates fall back to the source and are not published by saving.
 * **Added:** Read, validate, and save report the template map, publication, template type, and coverage. The site-wide screen edits the same map.
-* **Fix:** The template that is actually printed enqueues its Elementor document CSS, including when the swap happens after the page head. The replaced template stylesheet is dequeued.
+* **Fix:** The template that is actually printed enqueues its Elementor document CSS, including when the swap happens after the page head. Only that replaced Elementor document stylesheet is dequeued. The canonical page, the product post, and other plugin stylesheets stay queued.
+* **Fix:** A variant product template with Elementor display conditions is rejected. Elementor selects conditioned templates before this plugin runs, including while a test is paused and while this plugin is off. The supported variant template is published and has no display conditions. While this plugin is active, a conditioned variant template is still sent back to its source on control, paused, and excluded pages.
 * **Fix:** A paused test no longer redirects a variant URL when WordPress preview is active, the rwgo preview nonce matches this login session, or a `mosmcp_preview` token matches its stored hash. A token on its own does not reveal a draft. An rwgo nonce from another session, including the connector, shows a session notice and leaves the page unchanged.
 
 = 0.5.5 =

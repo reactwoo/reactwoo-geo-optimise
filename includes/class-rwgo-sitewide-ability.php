@@ -415,7 +415,7 @@ class RWGO_Sitewide_Ability {
 				),
 				'template_map'      => array(
 					'type'        => 'array',
-					'description' => __( 'Elementor single/product body templates. location is single. source_template_id is the template Elementor already matches. variant_template_id is the B template. Do not send Woo product IDs.', 'reactwoo-geo-optimise' ),
+					'description' => __( 'Elementor single/product body templates. location is single. source_template_id is the template Elementor already matches and must keep its display conditions. variant_template_id is a published template with no display conditions. Do not send Woo product IDs.', 'reactwoo-geo-optimise' ),
 					'items'       => array(
 						'type'                 => 'object',
 						'additionalProperties' => false,
@@ -647,11 +647,13 @@ class RWGO_Sitewide_Ability {
 		$raw   = function_exists( 'get_post_meta' ) ? get_post_meta( $id, '_elementor_data', true ) : '';
 		$empty = ! is_string( $raw ) || '' === trim( $raw ) || '[]' === trim( $raw );
 		$elementor_type = function_exists( 'get_post_meta' ) ? get_post_meta( $id, '_elementor_template_type', true ) : '';
+		$conditions     = function_exists( 'get_post_meta' ) ? get_post_meta( $id, '_elementor_conditions', true ) : array();
 		return array(
 			'type'                    => isset( $post->post_type ) ? (string) $post->post_type : '',
 			'status'                  => isset( $post->post_status ) ? (string) $post->post_status : '',
 			'elementor_empty'         => $empty,
 			'elementor_template_type' => is_string( $elementor_type ) ? $elementor_type : '',
+			'elementor_conditions'    => class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::condition_rules_from_meta( $conditions ) : array(),
 		);
 	}
 

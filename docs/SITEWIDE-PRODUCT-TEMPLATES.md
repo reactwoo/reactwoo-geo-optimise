@@ -1,49 +1,56 @@
 # Product template map
 
-The site-wide arm is still the `rwgo_site` cookie. Page bodies stay on the page map. Header and footer stay in the four template fields. A Woo product is not a page, and it is not copied. Elementor Theme Builder already chooses a single template for that product. This map replaces that chosen template with the variant template when the visitor’s arm is variant.
+The site-wide arm is the `rwgo_site` cookie. Page bodies stay on the page map. Header and footer stay in the four template fields. A Woo product is not copied. Elementor Theme Builder selects one single template for that product from display conditions. This plugin then prints the mapped variant template only while the variant arm is being served. The queried post remains the product.
 
-The queried post remains the product, so dynamic price, stock, and add to cart stay on it. Cart, checkout, my-account, and wp-admin are unchanged.
+## How Elementor chooses a template
 
-## What the webmaster creates
+Elementor Pro does this before Optimise runs:
 
-For each source template below, create a **new** Elementor Theme Builder template. Do not edit the source template and do not duplicate the Woo product.
+1. Rules are stored on the template as `_elementor_conditions` and copied into the option `elementor_pro_theme_builder_conditions`, keyed by location (`single`, `header`, `footer`) and template ID.
+2. `Conditions_Manager::get_documents_for_location()` returns the templates whose rules match the current request. A published template with no rules is not in that list.
+3. `Locations_Manager` prints the first matching document. Two templates with the same rule can both match. The first one wins. `enqueue_styles()` also queues `elementor-post-{id}` for every match, not only the one that is printed.
+4. Pro 3.9 and newer then passes that ID through `elementor/theme/get_location_templates/template_id`. That is the filter Optimise uses.
 
-1. Templates → Theme Builder → Add New → Single Product (or duplicate the source template into a new template).
-2. Design variant B.
-3. Display conditions: copy the source template’s conditions. The engine swaps the template Elementor’s conditions already selected. It does not publish the new template.
-4. Publish the B template in Elementor when the design is ready. Until then the source template keeps printing and the site-wide screen warns. Saving the map does not publish it.
+Copying the source conditions onto a published B template puts B in that list. Elementor can select B for every matching product when the experiment is paused, when the arm is control, on cart, checkout, and account, and when this plugin is inactive. The filter cannot run if the plugin is off.
+
+## Supported B template
+
+Create a new Theme Builder single-product template. Do not edit the source template and do not duplicate the Woo product.
+
+1. Design B.
+2. Publish the template in WordPress so its document CSS exists.
+3. Display conditions: none. Do not add an Include row. The template stays unassigned. It must not appear under Theme Builder as a template that displays on products.
+4. Leave the source template’s conditions exactly as they are. That is what makes Elementor select the source.
 5. On Geo Optimise → Site-wide test, add one line per pair:
 
 ```text
 single,SOURCE_TEMPLATE_ID,VARIANT_TEMPLATE_ID
 ```
 
-`product` is accepted and stored as `single`. Leave header and footer in their own fields.
+`product` is stored as `single`. Saving a variant template that has any `_elementor_conditions` rule fails with `rwgo_variant_template_conditioned`. A source template with no rules is saved and warned as `rwgo_source_template_unassigned`, because Elementor will not select it and the swap will not run.
 
-These are the source templates to pair. The B column is empty until the new templates exist. The IDs are the templates to duplicate, not values the plugin hardcodes.
+These source templates already have the conditions to keep. The B column is a new unassigned template.
 
-| Products | Source template | Condition to copy onto B | B template |
-| --- | --- | --- | --- |
-| Core, tag 51, product 2388 | 2999 | Same conditions as 2999 | Create, then map `single,2999,B` |
-| Pro, tag 52, product 2294 | 3003 | Same conditions as 3003 | Create, then map `single,3003,B` |
-| Commerce, tag 53, product 2893 | 3044 | Same conditions as 3044 | Create, then map `single,3044,B` |
-| Maintenance 3654 | 3697 | Same conditions as 3697 | Create, then map `single,3697,B` |
-| Maintenance 3657 | 3698 | Same conditions as 3698 | Create, then map `single,3698,B` |
-| Maintenance 3660 | 3699 | Same conditions as 3699 | Create, then map `single,3699,B` |
-| Fallback for Atomic 3527, Atomic Pro 3494, Optimise 2891, Decision Cloud 3166, and support SKUs | 3593 | Same include/product conditions as 3593 | Create, then map `single,3593,B` |
+| Products | Source, keep its conditions | Map line |
+| --- | --- | --- |
+| Core, tag 51, product 2388 | 2999 | `single,2999,B` |
+| Pro, tag 52, product 2294 | 3003 | `single,3003,B` |
+| Commerce, tag 53, product 2893 | 3044 | `single,3044,B` |
+| Maintenance 3654 | 3697 | `single,3697,B` |
+| Maintenance 3657 | 3698 | `single,3698,B` |
+| Maintenance 3660 | 3699 | `single,3699,B` |
+| Fallback include/product for Atomic 3527, Atomic Pro 3494, Optimise 2891, Decision Cloud 3166, and support SKUs | 3593 | `single,3593,B` |
 
-A published non-empty B template of type product or single is what makes that row ready. A header template in this map is kept and warned, and it does not count as ready. Elementor Pro theme locations have to be active before any of these rows print. Without Pro, the IDs are saved and the product body is unchanged.
+While this plugin is active, a variant template that does have conditions is still sent back to its source on the control arm, on a paused or ended test, when no delivery plan is built, and on cart, checkout, account, and other excluded pages. That does not protect the site when the plugin is inactive. Unassigned B templates are the configuration that cannot leak.
 
-The same arm follows the visitor from a page to a product. The page map does not need the product IDs.
-
-## Preview
-
-Use **Preview variant B** on the Site-wide screen while logged in to that browser. The nonce belongs to that login session.
-
-A preview URL created through the connector uses the connector’s session. In the browser the nonce does not match. The page is not changed. A manager sees a notice: the link is from another login session. That notice does not show draft content. There is no shared nonce.
-
-`preview=true` that WordPress accepts with `is_preview()` still opens. A `mosmcp_preview` link still opens when its token matches the stored hash for that post and has not expired. Any other token does not reveal the draft, and a paused test still sends a mapped variant URL back to the original.
+Header and footer are a separate field. Do not give a variant header an Entire Site condition either. Cart, checkout, account, and wp-admin keep the source templates.
 
 ## Styles
 
-The printed template’s `elementor-post-{id}` stylesheet is queued before the head and, if the location is printed after the head, printed with that template. The stylesheet of the template that was replaced is dequeued. Button colors are not edited here. If a B header still looks wrong after this build, the remaining difference is in the Elementor document, which is edited on staging.
+The canonical page, or the product post, keeps `elementor-post-{that id}`. A header-only swap does not dequeue it. A product-body swap dequeues `elementor-post-{source template}` only when that template was the one replaced, and it does not dequeue the product post or handles such as `woocommerce-general` and `elementor-frontend`. The variant document is queued as `elementor-post-{variant id}`.
+
+A desktop menu that stacks, or a mobile menu button that shows above the desktop menu, was seen in a browser on the B header. This repository does not include Elementor Pro, so that layout was not reproduced here. It can be the header widget’s own CSS. Fix that in the B header on the site. This plugin does not change those widget styles.
+
+## What was not executed
+
+Elementor Pro is not installed in this workspace. `get_documents_for_location()` was not called. The candidate order above is the contract read from Elementor Pro’s locations manager: only templates with rules are candidates, and the first candidate is the one printed before the filter. The regression tests model that contract. They do not boot Pro’s renderer.
