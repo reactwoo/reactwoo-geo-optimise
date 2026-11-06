@@ -95,6 +95,9 @@ Staging upload only. Not tagged and not published to the ReactWoo update catalog
 
 ## [Unreleased]
 
+### Fixed
+- On a WordPress.org copy of Geo Core, the shared updater is a stub and ignores Optimise, so a published release never appears. Optimise then checks `reactwoo-geo-optimise` on the stable channel itself, with the license token. A ReactWoo-channel Geo Core still does that check once.
+
 ### Changed
 - **Slug-swap promotion (Mode B):** Scaffold present (`RWGO_Promotion_Slug_Scaffold`); UI not exposed until ordering and redirects are fully validated.
 

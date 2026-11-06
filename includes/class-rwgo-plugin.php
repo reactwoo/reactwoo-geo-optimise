@@ -50,6 +50,7 @@ class RWGO_Plugin {
 		}
 
 		require_once RWGO_PATH . 'includes/class-rwgo-platform-client.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-self-updater.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-staging-asset-fix.php';
 		RWGO_Staging_Asset_Fix::init();
@@ -201,6 +202,9 @@ class RWGO_Plugin {
 				'get_api_base_callback' => array( 'RWGO_Platform_Client', 'get_api_base' ),
 			)
 		);
+		if ( class_exists( 'RWGO_Self_Updater', false ) ) {
+			RWGO_Self_Updater::register_fallback();
+		}
 	}
 
 	/**
