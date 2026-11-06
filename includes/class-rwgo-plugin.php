@@ -119,6 +119,7 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-page-goal-meta.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-elementor-page-goal.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-swapper.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-theme-context.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-sitewide.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';

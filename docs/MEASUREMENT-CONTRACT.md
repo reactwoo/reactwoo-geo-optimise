@@ -49,6 +49,8 @@ Existing goal_id + handler_id matching remains the source of truth for conversio
 
 Helper: `RWGO_Exposure::record()` from `RWGO_Runtime::maybe_record_variant_served()`. Dedupes via `event_instance_id` (`exp_*` hash of experiment+variant+session+UTC day).
 
+The assignment cookie is the stable arm. Exposure and conversions count the experience that was actually delivered. A signed preview (`rwgo_preview` plus `rwgo_preview_nonce`) does not write that cookie and does not record either event. When the WordPress Consent API is active, statistics consent is required before those events are stored. A refused consent does not fall back to an IP and user-agent hash. Setup, preview, and rollback for the site-wide test are in `docs/SITEWIDE-AB.md`.
+
 ### Client dataLayer
 
 On page load (sessionStorage-deduped), `rwgo-tracking.js` pushes `rwgo_experiment_exposure`.

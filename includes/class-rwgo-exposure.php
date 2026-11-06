@@ -28,6 +28,9 @@ class RWGO_Exposure {
 	 * @return array<string, mixed>|null Normalized payload when newly recorded; null if skipped/deduped.
 	 */
 	public static function record( array $cfg, $variant_slug, $page_context_id, $page_variant_id, $experiment_id = 0 ) {
+		if ( class_exists( 'RWGO_Theme_Context', false ) && ! RWGO_Theme_Context::allow_measurement() ) {
+			return null;
+		}
 		$experiment_key = isset( $cfg['experiment_key'] ) ? sanitize_text_field( (string) $cfg['experiment_key'] ) : '';
 		$variant_slug   = sanitize_key( (string) $variant_slug );
 		if ( '' === $experiment_key || '' === $variant_slug ) {
@@ -35,6 +38,9 @@ class RWGO_Exposure {
 		}
 
 		$session_hash = self::session_hash();
+		if ( '' === $session_hash ) {
+			return null;
+		}
 		$instance_id  = self::instance_id( $experiment_key, $variant_slug, $session_hash );
 
 		if ( class_exists( 'RWGO_Event_Store', false ) && RWGO_Event_Store::has_event_instance_id( $instance_id ) ) {
@@ -84,14 +90,24 @@ class RWGO_Exposure {
 	 * @return string
 	 */
 	public static function session_hash() {
-		$raw = '';
-		$cookie_name = class_exists( 'RWGO_Assignment', false ) ? RWGO_Assignment::COOKIE : 'rwgo_ab';
-		if ( ! empty( $_COOKIE[ $cookie_name ] ) && is_string( $_COOKIE[ $cookie_name ] ) ) {
-			$raw = (string) wp_unslash( $_COOKIE[ $cookie_name ] );
+		$raw   = '';
+		$names = array( 'rwgo_ab', 'rwgo_site' );
+		if ( class_exists( 'RWGO_Assignment', false ) ) {
+			array_unshift( $names, RWGO_Assignment::COOKIE );
+		}
+		foreach ( array_unique( $names ) as $cookie_name ) {
+			if ( ! empty( $_COOKIE[ $cookie_name ] ) && is_string( $_COOKIE[ $cookie_name ] ) ) {
+				$raw = (string) wp_unslash( $_COOKIE[ $cookie_name ] );
+				break;
+			}
 		}
 		if ( '' === $raw ) {
-			$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
-			$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
+			$fingerprint = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::may_use_network_fingerprint() : true;
+			if ( ! $fingerprint ) {
+				return '';
+			}
+			$ip  = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) $_SERVER['REMOTE_ADDR'] : '';
+			$ua  = isset( $_SERVER['HTTP_USER_AGENT'] ) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 			$raw = $ip . '|' . $ua . '|' . gmdate( 'Y-m-d' );
 		}
 		return substr( hash( 'sha256', $raw ), 0, 32 );

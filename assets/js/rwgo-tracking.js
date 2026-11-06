@@ -5,7 +5,7 @@
 	'use strict';
 
 	var cfg = typeof rwgoTracking === 'undefined' ? null : rwgoTracking;
-	if (!cfg || !cfg.experiments || !cfg.experiments.length) {
+	if (!cfg || cfg.measure === false || !cfg.experiments || !cfg.experiments.length) {
 		return;
 	}
 

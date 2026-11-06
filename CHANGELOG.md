@@ -67,6 +67,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Site-wide tests can name an Elementor header and footer for control and for variant B. The visitor’s arm selects those templates. Elementor display conditions do not. Cart, checkout, and account keep the normal templates. Saving the test does not publish pages or templates.
+- The site-wide screen warns when a variant page or template is unpublished, when the control template is missing, or when a page is both an original and a variant.
+- Managers get a signed preview link for control and variant B. The link does not write the assignment cookie and is not counted as exposure or a conversion.
+
+### Fixed
+- An unpublished variant page no longer counts as a variant view. The original body stays in place. A published variant header or footer can still be the delivered experience.
+- A paused or ended site-wide test sends a direct variant URL back to the original page once. Pairs that would redirect in a circle are ignored.
+- Exposure and conversions wait for statistics consent when the WordPress Consent API is active. A refused consent is not turned into an IP and user-agent hash. Preview and bot traffic are not measured.
+- A configured header or footer split is not stored as one shared cache entry, including on URLs that are not in the page map. LiteSpeed can still vary a stable assignment when it is the only page cache.
+
 ### Changed
 - **Slug-swap promotion (Mode B):** Scaffold present (`RWGO_Promotion_Slug_Scaffold`); UI not exposed until ordering and redirects are fully validated.
 

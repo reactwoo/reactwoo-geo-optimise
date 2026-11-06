@@ -112,6 +112,16 @@ class RWGO_REST_Tracking {
 			);
 		}
 
+		if ( class_exists( 'RWGO_Theme_Context', false ) && ! RWGO_Theme_Context::allow_measurement() ) {
+			return new \WP_REST_Response(
+				array(
+					'recorded' => false,
+					'reason'   => 'consent',
+				),
+				200
+			);
+		}
+
 		$referer = wp_get_referer();
 		if ( is_string( $referer ) && '' !== $referer ) {
 			$ref_host = wp_parse_url( $referer, PHP_URL_HOST );
