@@ -77,6 +77,53 @@ class RWGOSelfUpdaterTest extends PHPUnit\Framework\TestCase {
 		$this->assertFalse( RWGO_Self_Updater::is_last_checked_only( $stored, $incoming ) );
 	}
 
+	public function test_https_package_rejects_credentials_and_token_markers(): void {
+		$this->assertTrue( RWGO_Self_Updater::package_is_https( 'https://downloads.example/plugin.zip' ) );
+		$this->assertFalse( RWGO_Self_Updater::package_is_https( 'http://downloads.example/plugin.zip' ) );
+		$this->assertFalse( RWGO_Self_Updater::package_is_https( 'https://user:secret@downloads.example/plugin.zip' ) );
+		$this->assertFalse( RWGO_Self_Updater::package_is_https( 'https://downloads.example/plugin.zip?license_key=abc' ) );
+		$this->assertNull(
+			RWGO_Self_Updater::offer_from_response(
+				'0.5.3',
+				200,
+				array(
+					'update'       => true,
+					'version'      => '0.5.5',
+					'download_url' => 'https://downloads.example/plugin.zip?access_token=abc',
+				)
+			)
+		);
+	}
+
+	public function test_check_body_uses_the_optimise_slug_and_stable_channel_without_the_token(): void {
+		$seen = array();
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
+			static function () {
+				return 'sekret-token';
+			},
+		);
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] = array(
+			static function ( $value, $body ) use ( &$seen ) {
+				$seen = $body;
+				return array(
+					'code' => 401,
+					'data' => array( 'update' => false, 'error' => 'Missing license token' ),
+				);
+			},
+		);
+		try {
+			$this->assertNull( RWGO_Self_Updater::request_offer( '0.5.3' ) );
+		} finally {
+			unset( $GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'], $GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] );
+		}
+		$this->assertSame( 'reactwoo-geo-optimise', $seen['slug'] );
+		$this->assertSame( 'stable', $seen['channel'] );
+		$this->assertSame( '0.5.3', $seen['current_version'] );
+		$this->assertArrayNotHasKey( 'license_key', $seen );
+		$this->assertArrayNotHasKey( 'access_token', $seen );
+		$this->assertStringNotContainsString( 'sekret-token', wp_json_encode( $seen ) );
+	}
+
 	public function test_request_without_a_bearer_does_not_call_the_catalog(): void {
 		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
 			static function () {

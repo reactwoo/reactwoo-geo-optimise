@@ -43,7 +43,7 @@ class RWGO_Self_Updater {
 		if ( function_exists( 'has_filter' ) && class_exists( 'RWGC_Satellite_Updater', false ) ) {
 			$hooked = false !== has_filter( 'pre_set_site_transient_update_plugins', array( 'RWGC_Satellite_Updater', 'filter_update_transient' ) );
 		}
-		if ( ! self::should_install_fallback( $hooked ) ) {
+		if ( ! self::should_install_fallback( $hooked ) || ! function_exists( 'add_filter' ) ) {
 			return;
 		}
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'filter_update_transient' ), 50, 1 );
@@ -85,7 +85,7 @@ class RWGO_Self_Updater {
 		}
 		$version = (string) $data['version'];
 		$package = (string) $data['download_url'];
-		if ( ! preg_match( '#^https://#i', $package ) ) {
+		if ( ! self::package_is_https( $package ) ) {
 			return null;
 		}
 		if ( version_compare( (string) $current, $version, '>=' ) ) {
@@ -164,10 +164,34 @@ class RWGO_Self_Updater {
 			}
 		}
 		$offer = self::request_offer( $current );
-		if ( null === $offer || ! function_exists( 'download_url' ) ) {
+		if ( null === $offer || ! self::package_is_https( $offer['package'] ) || ! function_exists( 'download_url' ) ) {
 			return $reply;
 		}
 		return download_url( $offer['package'], 300 );
+	}
+
+	/**
+	 * Signed catalog URLs must be https and must not carry the license token.
+	 *
+	 * @param string $package Download URL.
+	 * @return bool
+	 */
+	public static function package_is_https( $package ) {
+		if ( ! is_string( $package ) || ! preg_match( '#^https://#i', $package ) ) {
+			return false;
+		}
+		$parts = function_exists( 'wp_parse_url' ) ? wp_parse_url( $package ) : parse_url( $package );
+		if ( ! is_array( $parts ) || empty( $parts['host'] ) ) {
+			return false;
+		}
+		if ( isset( $parts['user'] ) || isset( $parts['pass'] ) ) {
+			return false;
+		}
+		$haystack = strtolower( $package );
+		if ( false !== strpos( $haystack, 'bearer ' ) || false !== strpos( $haystack, 'license_key' ) || false !== strpos( $haystack, 'access_token' ) ) {
+			return false;
+		}
+		return true;
 	}
 
 	/**
