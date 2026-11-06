@@ -39,6 +39,9 @@ class RWGO_Runtime {
 		if ( is_admin() || wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 			return;
 		}
+		if ( class_exists( 'RWGO_Theme_Context', false ) && ! RWGO_Theme_Context::allow_measurement() ) {
+			return;
+		}
 		if ( ! class_exists( 'RWGO_Experiment_Repository', false ) || ! class_exists( 'RWGO_Stats', false ) || ! class_exists( 'RWGO_Experiment_Service', false ) ) {
 			return;
 		}
@@ -131,6 +134,9 @@ class RWGO_Runtime {
 				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
 				error_log( '[RWGO] enqueue_tracking skipped: no context post_id (not singular/home/shop or filter returned 0).' );
 			}
+			return;
+		}
+		if ( class_exists( 'RWGO_Theme_Context', false ) && ! RWGO_Theme_Context::allow_measurement() ) {
 			return;
 		}
 		$config = RWGO_Goal_Registry::build_frontend_config( $pid );

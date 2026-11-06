@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.2
+Stable tag: 0.5.4
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,18 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.4 =
+* **Added:** WordPress Abilities for the site-wide test: read, validate, save, set status, and a signed preview link. Names are `reactwoo-geo-optimise/sitewide-read`, `sitewide-validate`, `sitewide-save`, `sitewide-set-status`, and `sitewide-preview-link`. They appear when the Abilities API is present, including the miniOrange MCP gateway. Saving stays paused and does not publish drafts. Only set-status with confirm true can activate, and only when a variant is actually ready.
+* **Fix:** The admin save uses the same page-map and template checks. A stale revision is not written over a newer save.
+
+= 0.5.3 =
+* **Added:** A site-wide test can name Elementor header and footer templates for control and variant B. The visitor arm selects them. Display conditions do not. Cart, checkout, and account keep the normal templates. Saving does not publish drafts.
+* **Added:** The site-wide screen warns when a variant page or template is unpublished, when the control template is missing, or when a page is both an original and a variant.
+* **Added:** Preview control and Preview variant B are signed links. They do not write the assignment cookie and they are not counted.
+* **Fix:** An unpublished variant page stays on the original body and is not counted as a variant view. A paused or ended test sends a variant URL back to the original once.
+* **Fix:** Exposure and conversions wait for statistics consent when the WordPress Consent API is active. A header or footer split is not stored as one shared cache entry. Those templates are printed only when Elementor Pro theme locations are active.
+* **Staging:** This build is for a manual staging upload. It is not a tagged update. Install Geo Core 1.9.26 and Elementor 4.3.6 first. See the site-wide test screen and the repository doc `docs/SITEWIDE-AB.md`.
 
 = 0.5.2 =
 * **Fix:** Release packages put the plugin file and readme first, then the other non-JavaScript files, then JavaScript, in the same order on every build. Entries 1, 2, 4, and 11–24 are not JavaScript files, so ClamAV Sanesecurity Foxhole `JS_Zip_1`, `JS_Zip_2`, `JS_Zip_4`, and `JS_Zip_11`–`JS_Zip_24` do not flag the zip.

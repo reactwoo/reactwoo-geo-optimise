@@ -119,6 +119,8 @@ class RWGO_Plugin {
 		require_once RWGO_PATH . 'includes/class-rwgo-page-goal-meta.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-elementor-page-goal.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-page-swapper.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-theme-context.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-sitewide-proposal.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-sitewide.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-runtime.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-admin-wizard.php';
@@ -148,6 +150,8 @@ class RWGO_Plugin {
 		RWGO_Elementor_Page_Goal::init();
 		RWGO_Runtime::init();
 		RWGO_Sitewide::init();
+		require_once RWGO_PATH . 'includes/class-rwgo-sitewide-ability.php';
+		RWGO_Sitewide_Ability::init();
 		RWGO_Cache_Compat::init();
 		if ( class_exists( 'RWGO_Measurement_Stamper', false ) ) {
 			add_action( 'rwgo_post_duplicate_variant', array( 'RWGO_Measurement_Stamper', 'on_post_duplicate_variant' ), 20, 2 );

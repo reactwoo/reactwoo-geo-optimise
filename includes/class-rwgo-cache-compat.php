@@ -326,6 +326,11 @@ class RWGO_Cache_Compat {
 				}
 			}
 		}
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			foreach ( RWGO_Theme_Context::referenced_post_ids( $cfg ) as $theme_id ) {
+				$ids[] = (int) $theme_id;
+			}
+		}
 		$out = array();
 		foreach ( $ids as $id ) {
 			$id = (int) $id;

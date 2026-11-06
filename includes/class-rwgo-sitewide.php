@@ -31,6 +31,11 @@
  * are included or skipped from that policy. Public requests only read the
  * stored map; they do not query every page on the site.
  *
+ * Header and footer templates are optional Elementor locations on the same
+ * arm. They are not chosen by Elementor display conditions. An unpublished
+ * variant page stays on the original body. A signed preview shows one arm
+ * without writing the assignment cookie and without recording exposure.
+ *
  * @package ReactWooGeoOptimise
  */
 
@@ -180,6 +185,20 @@ class RWGO_Sitewide {
 	private static $reserved_ids_cache = null;
 
 	/**
+	 * Arm stored for measurement on this request. Empty when the view is not counted.
+	 *
+	 * @var string
+	 */
+	private static $measurement_arm = '';
+
+	/**
+	 * True after this request chose an arm for a mapped page or a theme split.
+	 *
+	 * @var bool
+	 */
+	private static $request_resolved = false;
+
+	/**
 	 * Priorities for the swapped-content filter. One pass only.
 	 *
 	 * Priority 0 runs before do_blocks (9), wpautop (10), and do_shortcode (11),
@@ -196,8 +215,12 @@ class RWGO_Sitewide {
 	 * @return void
 	 */
 	public static function init() {
+		add_action( 'init', array( __CLASS__, 'capture_preview' ), 0 );
 		add_action( 'init', array( __CLASS__, 'maybe_mark_uncacheable' ), 0 );
 		add_action( 'litespeed_init', array( __CLASS__, 'litespeed_cache' ) );
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			add_filter( 'elementor/theme/get_location_templates/template_id', array( 'RWGO_Theme_Context', 'filter_location_template' ), 20, 2 );
+		}
 		foreach ( self::swapped_content_hook_priorities() as $priority ) {
 			add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), (int) $priority );
 		}
@@ -525,16 +548,22 @@ class RWGO_Sitewide {
 		if ( self::request_is_skipped() ) {
 			return;
 		}
+		if ( '' !== self::qa_arm_from_request() ) {
+			self::send_uncacheable();
+			return;
+		}
 		$cfg = self::active_config();
 		if ( null === $cfg ) {
 			return;
 		}
-		$role = self::role_for_current_uri( $cfg );
-		if ( 'none' === $role ) {
+		$role  = self::role_for_current_uri( $cfg );
+		$theme = self::theme_split_active( $cfg );
+		if ( 'none' === $role && ! $theme ) {
 			return;
 		}
-		if ( self::is_bot_request() ) {
-			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
+		$bot = self::is_bot_request();
+		if ( $bot ) {
+			if ( self::split_request_needs_cache_bypass( $role, true, $theme, true ) ) {
 				self::send_uncacheable();
 			}
 			return;
@@ -543,9 +572,9 @@ class RWGO_Sitewide {
 		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
-		// Source pages always assign or serve. A matching cookie is the serve case.
-		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
-		if ( self::mapped_response_needs_cache_bypass( $role, $serves_or_assigns ) ) {
+		// Source pages and theme-split pages assign or serve. A matching cookie is the serve case.
+		$serves_or_assigns = ( 'source' === $role ) || ( $theme && 'none' === $role ) || self::incoming_cookie_matches( $cfg );
+		if ( self::split_request_needs_cache_bypass( $role, $serves_or_assigns, $theme, false ) ) {
 			self::send_uncacheable();
 		}
 	}
@@ -563,22 +592,23 @@ class RWGO_Sitewide {
 		if ( null === $cfg ) {
 			return;
 		}
-		$role = self::role_for_current_uri( $cfg );
+		$role  = self::role_for_current_uri( $cfg );
+		$theme = self::theme_split_active( $cfg );
 		if ( self::is_bot_request() ) {
-			if ( self::bot_mapped_response_needs_cache_bypass( $role ) ) {
+			if ( self::split_request_needs_cache_bypass( $role, true, $theme, true ) ) {
 				self::send_uncacheable();
 				do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-bot' );
 			}
 			return;
 		}
-		if ( 'none' === $role ) {
+		if ( 'none' === $role && ! $theme ) {
 			return;
 		}
 		if ( self::response_can_use_litespeed_vary( $cfg ) ) {
 			return;
 		}
-		$serves_or_assigns = ( 'source' === $role ) || self::incoming_cookie_matches( $cfg );
-		if ( ! self::mapped_response_needs_cache_bypass( $role, $serves_or_assigns ) ) {
+		$serves_or_assigns = ( 'source' === $role ) || ( $theme && 'none' === $role ) || self::incoming_cookie_matches( $cfg );
+		if ( ! self::split_request_needs_cache_bypass( $role, $serves_or_assigns, $theme, false ) ) {
 			return;
 		}
 		do_action( 'litespeed_control_set_nocache', 'rwgo-sitewide-assign' );
@@ -595,8 +625,12 @@ class RWGO_Sitewide {
 		if ( self::request_is_skipped() ) {
 			return;
 		}
-		$cfg = self::active_config();
-		if ( null === $cfg ) {
+		$cfg = self::get_config();
+		if ( ! self::is_sitewide_config( $cfg ) || empty( $cfg['page_map'] ) || ! is_array( $cfg['page_map'] ) ) {
+			return;
+		}
+		$status = isset( $cfg['status'] ) ? (string) $cfg['status'] : '';
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) || ! RWGO_Theme_Context::experiment_canonicalizes_variant_urls( $status ) ) {
 			return;
 		}
 		$pid = self::queried_page_id();
@@ -604,13 +638,29 @@ class RWGO_Sitewide {
 		if ( null === $row ) {
 			return;
 		}
-		$source = (int) $row['source_page_id'];
-		$url    = function_exists( 'get_permalink' ) ? get_permalink( $source ) : '';
-		if ( ! is_string( $url ) || '' === $url ) {
+		$source        = (int) $row['source_page_id'];
+		$url           = function_exists( 'get_permalink' ) ? get_permalink( $source ) : '';
+		$variant_ids   = array();
+		$variant_paths = array();
+		foreach ( self::page_map( $cfg ) as $mapped ) {
+			$variant_ids[] = (int) $mapped['variant_page_id'];
+			if ( '' !== $mapped['variant_path'] ) {
+				$variant_paths[ RWGO_Theme_Context::normalize_path( $mapped['variant_path'] ) ] = true;
+			}
+		}
+		$target = RWGO_Theme_Context::safe_variant_redirect(
+			$source,
+			(int) $row['variant_page_id'],
+			is_string( $url ) ? $url : '',
+			isset( $row['source_path'] ) ? (string) $row['source_path'] : '',
+			$variant_ids,
+			$variant_paths
+		);
+		if ( '' === $target ) {
 			return;
 		}
 		$arm = 'control';
-		if ( ! self::is_bot_request() && ! self::is_editor_request() ) {
+		if ( RWGO_Theme_Context::experiment_serves_arms( $status ) && ! self::is_bot_request() && ! self::is_editor_request() && '' === self::qa_arm_from_request() ) {
 			$fixed = self::ensure_assignment( $cfg );
 			$arm   = $fixed['arm'];
 		}
@@ -620,7 +670,7 @@ class RWGO_Sitewide {
 			header( 'X-RWGO-Arm: ' . $arm );
 			header( 'X-RWGO-Sitewide-Redirect: original' );
 		}
-		wp_safe_redirect( $url, 302 );
+		wp_safe_redirect( $target, 302 );
 		exit;
 	}
 
@@ -631,14 +681,28 @@ class RWGO_Sitewide {
 		if ( self::request_is_skipped() || self::$handled ) {
 			return;
 		}
-		$cfg = self::active_config();
+		$preview = self::qa_arm_from_request();
+		$cfg     = self::active_config();
+		if ( null === $cfg && '' !== $preview ) {
+			$stored = self::get_config();
+			if ( self::is_sitewide_config( $stored ) && ! empty( $stored['page_map'] ) && is_array( $stored['page_map'] ) ) {
+				$cfg = $stored;
+			}
+		}
 		if ( null === $cfg ) {
 			self::maybe_record_goal_page( null );
 			return;
 		}
-		$pid = self::queried_page_id();
-		$row = self::row_for_source_page( $cfg, $pid );
-		if ( null === $row ) {
+		$pid    = self::queried_page_id();
+		$row    = self::row_for_source_page( $cfg, $pid );
+		$theme  = self::theme_split_active( $cfg );
+		$locked = self::current_variant_theme_locked( $pid );
+		if ( $locked ) {
+			self::apply_locked_theme( $cfg );
+			self::maybe_record_goal_page( $cfg );
+			return;
+		}
+		if ( null === $row && ! $theme ) {
 			self::maybe_record_goal_page( $cfg );
 			return;
 		}
@@ -646,23 +710,12 @@ class RWGO_Sitewide {
 		self::$original_page_id     = $pid;
 		self::$source_post_content  = self::post_content_for( $pid );
 		self::$variant_post_content = '';
-		self::$variant_swapped   = false;
-		self::$variant_page_id   = 0;
-		self::$variant_head_meta = null;
+		self::$variant_swapped      = false;
+		self::$variant_page_id      = 0;
+		self::$variant_head_meta    = null;
 		$decision                   = self::decide( $cfg );
-		$arm                   = $decision['arm'];
-		self::$rendered_arm    = $arm;
-		if ( $decision['nocache'] ) {
-			self::send_uncacheable();
-		}
-		if ( ! headers_sent() ) {
-			header( 'X-RWGO-Arm: ' . $arm );
-		}
-		$variant_id = (int) $row['variant_page_id'];
-		if ( 'variant' === $arm && $variant_id > 0 && $variant_id !== $pid ) {
-			self::swap_query_to( $variant_id );
-		}
-		self::record_exposure( $cfg, $arm, $pid, ( 'variant' === $arm && $variant_id > 0 ) ? $variant_id : $pid );
+		$variant_id                 = ( null !== $row ) ? (int) $row['variant_page_id'] : 0;
+		self::apply_delivery( $cfg, $decision['arm'], $variant_id, ! empty( $decision['nocache'] ), ! empty( $decision['measure'] ) );
 		self::maybe_record_goal_page( $cfg );
 	}
 
@@ -1107,7 +1160,7 @@ class RWGO_Sitewide {
 			? __( 'Site test: Variant', 'reactwoo-geo-optimise' )
 			: __( 'Site test: Control', 'reactwoo-geo-optimise' );
 		if ( self::qa_arm_from_request() !== '' ) {
-			$label .= ' ' . __( '(forced)', 'reactwoo-geo-optimise' );
+			$label .= ' ' . __( '(preview, not tracked)', 'reactwoo-geo-optimise' );
 		}
 		$bar->add_node(
 			array(
@@ -1146,7 +1199,9 @@ class RWGO_Sitewide {
 		$job_on    = is_array( $job ) && ! empty( $job['active'] );
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'Site-wide design test', 'reactwoo-geo-optimise' ) . '</h1>';
-		echo '<p>' . esc_html__( 'One arm per visitor. Mapped pages keep their original URL. Unmapped pages stay on the original and the visitor keeps their arm.', 'reactwoo-geo-optimise' ) . '</p>';
+		echo '<p>' . esc_html__( 'One arm per visitor. Mapped pages keep their original URL. Unmapped pages keep that arm when a header or footer is set. Visitors stay on the original page body until each variant page is published. This screen does not publish pages or templates.', 'reactwoo-geo-optimise' ) . '</p>';
+		self::render_audit( $cfg );
+		self::render_preview_links( $map );
 		if ( ! empty( $_GET['rwgo_saved'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Site-wide test saved.', 'reactwoo-geo-optimise' ) . '</p></div>';
 		}
@@ -1188,8 +1243,10 @@ class RWGO_Sitewide {
 			echo '<div class="notice notice-info"><p>' . esc_html( sprintf( /* translators: %d: number of variant pages created so far */ __( 'Creating variant pages in batches so a large site is not processed in one request. Created so far: %d.', 'reactwoo-geo-optimise' ), $created ) ) . ' <a href="' . esc_url( $continue ) . '">' . esc_html__( 'Continue now', 'reactwoo-geo-optimise' ) . '</a></p></div>';
 			echo '<meta http-equiv="refresh" content="1;url=' . esc_url( $continue ) . '" />';
 		}
+		self::render_rejected_save();
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'rwgo_save_sitewide' );
+		echo '<input type="hidden" name="rwgo_sw_revision" value="' . esc_attr( (string) ( isset( $cfg['revision'] ) ? (int) $cfg['revision'] : 0 ) ) . '" />';
 		echo '<input type="hidden" name="action" value="rwgo_save_sitewide" />';
 		echo '<table class="form-table"><tbody>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_status">' . esc_html__( 'Status', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_status" name="rwgo_sw_status">';
@@ -1241,6 +1298,19 @@ class RWGO_Sitewide {
 		echo '<p class="description">' . esc_html__( 'Copies each page with the page duplicator and fills the page map. Original URLs stay the same. Variant URLs redirect back. A large site is copied a few pages at a time.', 'reactwoo-geo-optimise' ) . '</p>';
 		echo '<p><button type="submit" class="button" name="rwgo_sw_do_bulk" value="1">' . esc_html__( 'Create variant pages and fill the map', 'reactwoo-geo-optimise' ) . '</button></p>';
 		echo '</td></tr>';
+		$theme = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::normalize( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() )
+			: array(
+				'control' => array( 'header' => 0, 'footer' => 0 ),
+				'variant' => array( 'header' => 0, 'footer' => 0 ),
+			);
+		echo '<tr><th scope="row">' . esc_html__( 'Elementor header and footer', 'reactwoo-geo-optimise' ) . '</th><td>';
+		echo '<p class="description">' . esc_html__( 'Optional Elementor template IDs (elementor_library). The visitor arm selects them. Elementor display conditions do not. Leave a field at 0 to keep Elementor’s own choice, except a variant template listed here is not shown to the control arm. Cart, checkout, and account stay on the normal templates. Unpublished templates are skipped and are not published by saving.', 'reactwoo-geo-optimise' ) . '</p>';
+		echo '<p><label for="rwgo_sw_header_a">' . esc_html__( 'Control header ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_header_a" type="number" min="0" class="small-text" name="rwgo_sw_header_a" value="' . esc_attr( (string) (int) $theme['control']['header'] ) . '" /></p>';
+		echo '<p><label for="rwgo_sw_footer_a">' . esc_html__( 'Control footer ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_footer_a" type="number" min="0" class="small-text" name="rwgo_sw_footer_a" value="' . esc_attr( (string) (int) $theme['control']['footer'] ) . '" /></p>';
+		echo '<p><label for="rwgo_sw_header_b">' . esc_html__( 'Variant B header ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_header_b" type="number" min="0" class="small-text" name="rwgo_sw_header_b" value="' . esc_attr( (string) (int) $theme['variant']['header'] ) . '" /></p>';
+		echo '<p><label for="rwgo_sw_footer_b">' . esc_html__( 'Variant B footer ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_footer_b" type="number" min="0" class="small-text" name="rwgo_sw_footer_b" value="' . esc_attr( (string) (int) $theme['variant']['footer'] ) . '" /></p>';
+		echo '</td></tr>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_goals">' . esc_html__( 'Goal page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_goals" class="regular-text" name="rwgo_sw_goals" value="' . esc_attr( $goals ) . '" /><p class="description">' . esc_html__( 'Comma-separated. A view of these pages (for example the contact thank-you page) counts for the site-wide arm.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
 		echo '<tr><th scope="row">' . esc_html__( 'WooCommerce purchase', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_purchase" value="1" ' . checked( $buy, true, false ) . ' /> ' . esc_html__( 'Attribute purchases to the site-wide arm', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
 		echo '</tbody></table>';
@@ -1256,8 +1326,18 @@ class RWGO_Sitewide {
 			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_save_sitewide' );
-		$old  = self::get_config();
-		$cfg  = self::config_from_post( $old );
+		$old = self::get_config();
+		$cfg = self::config_from_post( $old );
+		if ( isset( $_POST['rwgo_sw_revision'] ) && class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			$revision_code = RWGO_Sitewide_Proposal::revision_error( $old, wp_unslash( $_POST['rwgo_sw_revision'] ), true );
+			if ( '' !== $revision_code ) {
+				self::reject_save( array( RWGO_Sitewide_Proposal::issue( $revision_code, 0, '' ) ) );
+			}
+		}
+		$blocking = self::validate_admin_config( $cfg );
+		if ( ! empty( $blocking ) ) {
+			self::reject_save( $blocking );
+		}
 		$bulk = ! empty( $_POST['rwgo_sw_do_bulk'] );
 		if ( $bulk ) {
 			$scope    = isset( $_POST['rwgo_sw_bulk_scope'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_bulk_scope'] ) ) : 'selected';
@@ -1320,7 +1400,14 @@ class RWGO_Sitewide {
 		if ( method_exists( $order, 'get_meta' ) && $order->get_meta( '_rwgo_sitewide_purchase', true ) ) {
 			return;
 		}
-		$arm = self::sticky_arm( $cfg );
+		$measure = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::allow_measurement() : true;
+		if ( ! $measure ) {
+			return;
+		}
+		$assigned = self::sticky_arm( $cfg );
+		$arm      = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::conversion_arm( $assigned, self::experience_available( $cfg ), true )
+			: $assigned;
 		if ( '' === $arm ) {
 			return;
 		}
@@ -1329,6 +1416,379 @@ class RWGO_Sitewide {
 			$order->update_meta_data( '_rwgo_sitewide_purchase', self::report_slug( $arm ) );
 			$order->save();
 		}
+	}
+
+	/**
+	 * Read the signed preview query once per request.
+	 *
+	 * @return void
+	 */
+	public static function capture_preview() {
+		self::qa_arm_from_request();
+	}
+
+	/**
+	 * Preview changes the served arm only. The assignment cookie stays on the bucket.
+	 *
+	 * @param string $raw         Cookie JSON.
+	 * @param string $key         Experiment key.
+	 * @param float  $weight      Control weight.
+	 * @param string $preview_arm control|variant or empty.
+	 * @return array{cookie_arm:string,serve:string,measure:bool}
+	 */
+	public static function preview_serving( $raw, $key, $weight, $preview_arm ) {
+		$cookie      = self::repair_cookie( $raw, $key, $weight, '' );
+		$preview_arm = in_array( $preview_arm, array( 'control', 'variant' ), true ) ? $preview_arm : '';
+		return array(
+			'cookie_arm' => (string) $cookie['arm'],
+			'serve'      => '' !== $preview_arm ? $preview_arm : (string) $cookie['arm'],
+			'measure'    => '' === $preview_arm,
+		);
+	}
+
+	/**
+	 * @param string $role              source|variant|none.
+	 * @param bool   $serves_or_assigns Response assigns or serves an arm.
+	 * @param bool   $theme_split       Header or footer templates are configured.
+	 * @param bool   $is_bot            Known bot.
+	 * @return bool
+	 */
+	public static function split_request_needs_cache_bypass( $role, $serves_or_assigns, $theme_split, $is_bot ) {
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			return RWGO_Theme_Context::request_needs_cache_bypass( $role, (bool) $serves_or_assigns, (bool) $theme_split, (bool) $is_bot );
+		}
+		if ( $is_bot ) {
+			return self::bot_mapped_response_needs_cache_bypass( $role );
+		}
+		return self::mapped_response_needs_cache_bypass( $role, $serves_or_assigns );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function theme_ids_configured( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return false;
+		}
+		return RWGO_Theme_Context::theme_split_configured( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function theme_split_active( array $cfg ) {
+		if ( ! self::theme_ids_configured( $cfg ) || ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			return false;
+		}
+		return true;
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return void
+	 */
+	private static function apply_locked_theme( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return;
+		}
+		$plan = RWGO_Theme_Context::delivery_plan(
+			'control',
+			0,
+			'',
+			true,
+			isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
+			array(),
+			array()
+		);
+		RWGO_Theme_Context::set_request_plan( $plan );
+		if ( self::theme_split_active( $cfg ) ) {
+			self::send_uncacheable();
+		}
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg         Config.
+	 * @param string               $assigned    Assigned or preview arm.
+	 * @param int                  $variant_id  Variant page for this URL.
+	 * @param bool                 $nocache     Send the private cache bypass.
+	 * @param bool                 $measure     Count exposure for the delivered arm.
+	 * @return void
+	 */
+	private static function apply_delivery( array $cfg, $assigned, $variant_id, $nocache, $measure ) {
+		$variant_id = (int) $variant_id;
+		$status     = '';
+		if ( $variant_id > 0 && function_exists( 'get_post_status' ) ) {
+			$status = (string) get_post_status( $variant_id );
+		}
+		$records   = self::template_post_records( $cfg );
+		$locations = class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::elementor_pro_locations_loaded();
+		$plan      = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::delivery_plan(
+				$assigned,
+				$variant_id,
+				$status,
+				false,
+				isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
+				$records['status'],
+				$records['type'],
+				$locations
+			)
+			: array(
+				'delivered'    => $assigned,
+				'swap_page_id' => ( 'variant' === $assigned && 'publish' === $status ) ? $variant_id : 0,
+				'header'       => 0,
+				'footer'       => 0,
+			);
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			RWGO_Theme_Context::set_request_plan( $plan );
+		}
+		$delivered              = isset( $plan['delivered'] ) ? (string) $plan['delivered'] : 'control';
+		self::$rendered_arm     = $delivered;
+		self::$request_resolved = true;
+		$open                   = $measure && ( class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::allow_measurement() : true );
+		self::$measurement_arm  = $open ? $delivered : '';
+		if ( $nocache ) {
+			self::send_uncacheable();
+		}
+		if ( ! function_exists( 'headers_sent' ) || ! headers_sent() ) {
+			header( 'X-RWGO-Arm: ' . $delivered );
+			header( 'X-RWGO-Assigned: ' . sanitize_key( (string) $assigned ) );
+			if ( '' !== self::qa_arm_from_request() ) {
+				header( 'X-RWGO-Preview: 1' );
+			}
+		}
+		$swap = isset( $plan['swap_page_id'] ) ? (int) $plan['swap_page_id'] : 0;
+		if ( $swap > 0 && $swap !== self::$original_page_id ) {
+			self::swap_query_to( $swap );
+		}
+		if ( $open ) {
+			$rendered = self::$variant_swapped ? self::$variant_page_id : self::$original_page_id;
+			self::record_exposure( $cfg, $delivered, self::$original_page_id, $rendered > 0 ? $rendered : self::$original_page_id );
+		}
+	}
+
+	/**
+	 * @param int $page_id Queried page.
+	 * @return bool
+	 */
+	private static function current_variant_theme_locked( $page_id ) {
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return false;
+		}
+		$page_id = (int) $page_id;
+		$slug    = '';
+		if ( $page_id > 0 && function_exists( 'get_post_field' ) ) {
+			$slug = (string) get_post_field( 'post_name', $page_id );
+		}
+		$coverage        = self::coverage_from_config( self::get_config() );
+		$transaction_ids = array();
+		if ( function_exists( 'wc_get_page_id' ) ) {
+			foreach ( array( 'cart', 'checkout', 'myaccount' ) as $key ) {
+				$transaction_ids[] = (int) wc_get_page_id( $key );
+			}
+		}
+		return RWGO_Theme_Context::variant_theme_locked(
+			$slug,
+			$page_id,
+			$transaction_ids,
+			! empty( $coverage['exclude_system_pages'] ),
+			self::woocommerce_system_page_ids(),
+			self::system_page_slugs()
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return array{status:array<int,string>,type:array<int,string>}
+	 */
+	private static function template_post_records( array $cfg ) {
+		$status = array();
+		$types  = array();
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return array(
+				'status' => $status,
+				'type'   => $types,
+			);
+		}
+		foreach ( RWGO_Theme_Context::referenced_post_ids( $cfg ) as $id ) {
+			$id = (int) $id;
+			if ( function_exists( 'get_post_status' ) ) {
+				$status[ $id ] = (string) get_post_status( $id );
+			}
+			if ( function_exists( 'get_post_type' ) ) {
+				$types[ $id ] = (string) get_post_type( $id );
+			}
+		}
+		return array(
+			'status' => $status,
+			'type'   => $types,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function experience_available( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return true;
+		}
+		$pages = array();
+		foreach ( self::page_map( $cfg ) as $row ) {
+			$id = (int) $row['variant_page_id'];
+			if ( $id > 0 && function_exists( 'get_post_status' ) ) {
+				$pages[ $id ] = (string) get_post_status( $id );
+			}
+		}
+		$records = self::template_post_records( $cfg );
+		$theme   = isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array();
+		if ( ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			$theme = RWGO_Theme_Context::normalize( $theme );
+			$theme['variant']['header'] = 0;
+			$theme['variant']['footer'] = 0;
+		}
+		return RWGO_Theme_Context::experience_is_deliverable(
+			$pages,
+			$theme,
+			$records['status'],
+			$records['type']
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return void
+	 */
+	private static function render_audit( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return;
+		}
+		$rows   = isset( $cfg['page_map'] ) && is_array( $cfg['page_map'] ) ? $cfg['page_map'] : array();
+		$pages  = array();
+		$seen   = array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$variant = (int) ( $row['variant_page_id'] ?? 0 );
+			if ( $variant <= 0 || isset( $seen[ $variant ] ) || ! function_exists( 'get_post_status' ) ) {
+				continue;
+			}
+			$seen[ $variant ] = true;
+			$pages[ $variant ] = (string) get_post_status( $variant );
+		}
+		$records  = self::template_post_records( $cfg );
+		$warnings = RWGO_Theme_Context::audit(
+			$rows,
+			$pages,
+			isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
+			$records['status'],
+			$records['type']
+		);
+		if ( self::theme_ids_configured( $cfg ) && ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			$warnings[] = array(
+				'code'    => 'elementor_pro_required',
+				'post_id' => 0,
+			);
+		}
+		if ( empty( $warnings ) ) {
+			return;
+		}
+		$printed = array();
+		echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'This test is not showing every variant yet.', 'reactwoo-geo-optimise' ) . '</strong></p><ul>';
+		foreach ( $warnings as $warning ) {
+			if ( ! is_array( $warning ) ) {
+				continue;
+			}
+			$code = isset( $warning['code'] ) ? (string) $warning['code'] : '';
+			$id   = isset( $warning['post_id'] ) ? (int) $warning['post_id'] : 0;
+			$key  = $code . ':' . $id;
+			if ( isset( $printed[ $key ] ) || ( 'control_template_missing' === $code && isset( $printed['control_template_missing'] ) ) ) {
+				continue;
+			}
+			$printed[ $key ] = true;
+			if ( 'control_template_missing' === $code ) {
+				$printed['control_template_missing'] = true;
+			}
+			echo '<li>' . esc_html( self::audit_message( $code, $id ) ) . '</li>';
+		}
+		echo '</ul></div>';
+	}
+
+	/**
+	 * @param string $code    Warning code.
+	 * @param int    $post_id Related post.
+	 * @return string
+	 */
+	private static function audit_message( $code, $post_id ) {
+		$post_id = (int) $post_id;
+		if ( 'variant_page_unpublished' === $code ) {
+			return sprintf(
+				/* translators: %d: variant page ID */
+				__( 'Variant page %d is not published. Visitors keep the original page body. Saving this screen does not publish it.', 'reactwoo-geo-optimise' ),
+				$post_id
+			);
+		}
+		if ( 'theme_template_unavailable' === $code ) {
+			return sprintf(
+				/* translators: %d: Elementor template ID */
+				__( 'Template %d is not a published Elementor header or footer. It is left unused and is not published automatically.', 'reactwoo-geo-optimise' ),
+				$post_id
+			);
+		}
+		if ( 'control_template_missing' === $code ) {
+			return __( 'Set the control header and footer too. A variant template selected by Elementor display conditions is hidden from the control arm, so control visitors need their own template IDs.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'elementor_pro_required' === $code ) {
+			return __( 'Elementor Pro theme locations are not active. Header and footer IDs are saved and are not printed until Elementor Pro is active. The variant page body is unchanged.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'redirect_loop' === $code ) {
+			return sprintf(
+				/* translators: %d: page ID that is both an original and a variant */
+				__( 'Page %d is both an original and a variant. That pair is ignored so the test cannot redirect in a circle.', 'reactwoo-geo-optimise' ),
+				$post_id
+			);
+		}
+		return '';
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $map Filtered page map.
+	 * @return void
+	 */
+	private static function render_preview_links( array $map ) {
+		if ( ! function_exists( 'wp_create_nonce' ) || ! function_exists( 'add_query_arg' ) || ! class_exists( 'RWGO_Theme_Context', false ) ) {
+			return;
+		}
+		$base = function_exists( 'home_url' ) ? home_url( '/' ) : '';
+		if ( ! empty( $map[0]['source_page_id'] ) && function_exists( 'get_permalink' ) ) {
+			$link = get_permalink( (int) $map[0]['source_page_id'] );
+			if ( is_string( $link ) && '' !== $link ) {
+				$base = $link;
+			}
+		}
+		if ( ! is_string( $base ) || '' === $base ) {
+			return;
+		}
+		$nonce = wp_create_nonce( RWGO_Theme_Context::PREVIEW_ACTION );
+		echo '<p>';
+		foreach ( array(
+			'control' => __( 'Preview control', 'reactwoo-geo-optimise' ),
+			'variant' => __( 'Preview variant B', 'reactwoo-geo-optimise' ),
+		) as $arm => $label ) {
+			$url = add_query_arg(
+				array(
+					'rwgo_preview'       => $arm,
+					'rwgo_preview_nonce' => $nonce,
+				),
+				$base
+			);
+			echo '<a class="button" style="margin-right:8px" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
+		}
+		echo '</p>';
+		echo '<p class="description">' . esc_html__( 'Preview links work for your user only. They do not write the visitor assignment cookie and they are not counted as exposure or conversions. A link without the nonce does nothing. Publish variant pages before expecting visitors to see variant page bodies.', 'reactwoo-geo-optimise' ) . '</p>';
 	}
 
 	/**
@@ -1410,6 +1870,9 @@ class RWGO_Sitewide {
 				'source_path'     => isset( $row['source_path'] ) ? (string) $row['source_path'] : '',
 				'variant_path'    => isset( $row['variant_path'] ) ? (string) $row['variant_path'] : '',
 			);
+		}
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			$out = RWGO_Theme_Context::page_map_without_loops( $out );
 		}
 		return $out;
 	}
@@ -1540,12 +2003,23 @@ class RWGO_Sitewide {
 	 * @return string
 	 */
 	private static function qa_arm_from_request() {
-		if ( empty( $_GET['rwgo_arm'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			return '';
+		$preview = isset( $_GET['rwgo_preview'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwgo_preview'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$legacy  = isset( $_GET['rwgo_arm'] ) ? sanitize_key( wp_unslash( (string) $_GET['rwgo_arm'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$can     = false;
+		if ( class_exists( 'RWGO_Admin', false ) ) {
+			$can = RWGO_Admin::can_manage();
+		} elseif ( function_exists( 'current_user_can' ) ) {
+			$can = current_user_can( 'manage_options' );
 		}
-		$arm = sanitize_key( wp_unslash( (string) $_GET['rwgo_arm'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		$ok  = function_exists( 'current_user_can' ) && current_user_can( 'manage_options' );
-		return self::qa_override_allowed( $ok, $arm );
+		$nonce = isset( $_GET['rwgo_preview_nonce'] ) ? (string) wp_unslash( $_GET['rwgo_preview_nonce'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$ok    = '' !== $nonce && function_exists( 'wp_verify_nonce' ) && wp_verify_nonce( $nonce, class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::PREVIEW_ACTION : 'rwgo_preview' );
+		$arm   = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::preview_arm( $preview, $legacy, $can, (bool) $ok )
+			: ( $can && $ok ? self::qa_override_allowed( true, '' !== $preview ? $preview : $legacy ) : '' );
+		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			RWGO_Theme_Context::set_preview( '' !== $arm );
+		}
+		return $arm;
 	}
 
 	/**
@@ -1553,28 +2027,39 @@ class RWGO_Sitewide {
 	 * @return array{arm:string,nocache:bool}
 	 */
 	private static function decide( array $cfg ) {
+		$preview = self::qa_arm_from_request();
 		if ( self::is_bot_request() ) {
 			return array(
 				'arm'     => 'control',
 				'nocache' => true,
+				'measure' => false,
 			);
 		}
-		$qa = self::qa_arm_from_request();
-		if ( self::is_editor_request() && '' === $qa ) {
+		if ( '' !== $preview ) {
+			return array(
+				'arm'     => $preview,
+				'nocache' => true,
+				'measure' => false,
+			);
+		}
+		if ( self::is_editor_request() ) {
 			return array(
 				'arm'     => 'control',
 				'nocache' => true,
+				'measure' => false,
 			);
 		}
 		$fixed   = self::ensure_assignment( $cfg );
-		$arm     = self::serving_arm( $fixed['arm'], false, $qa );
-		$nocache = self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa );
-		if ( $nocache && self::litespeed_vary_caches_assigned_arm( $fixed['assigning'], $fixed['rewritten'], $arm, '' !== $qa, self::litespeed_only_page_cache() ) ) {
+		$arm     = self::serving_arm( $fixed['arm'], false, '' );
+		$nocache = self::served_arm_needs_cache_bypass( $fixed['assigning'], $fixed['rewritten'], $arm, false );
+		if ( $nocache && self::litespeed_vary_caches_assigned_arm( $fixed['assigning'], $fixed['rewritten'], $arm, false, self::litespeed_only_page_cache() ) ) {
 			$nocache = false;
 		}
+		$measure = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::allow_measurement() : true;
 		return array(
 			'arm'     => $arm,
 			'nocache' => $nocache,
+			'measure' => $measure,
 		);
 	}
 
@@ -1584,7 +2069,7 @@ class RWGO_Sitewide {
 	 */
 	private static function ensure_assignment( array $cfg ) {
 		$key   = self::experiment_key( $cfg );
-		$fixed = self::repair_cookie( self::raw_cookie(), $key, self::control_weight( $cfg ), self::qa_arm_from_request() );
+		$fixed = self::repair_cookie( self::raw_cookie(), $key, self::control_weight( $cfg ), '' );
 		if ( $fixed['rewritten'] || $fixed['assigning'] ) {
 			self::write_cookie( $cfg, $fixed );
 		}
@@ -2570,6 +3055,9 @@ class RWGO_Sitewide {
 	 * @return void
 	 */
 	private static function record_exposure( array $cfg, $arm, $source, $rendered ) {
+		if ( class_exists( 'RWGO_Theme_Context', false ) && ! RWGO_Theme_Context::allow_measurement() ) {
+			return;
+		}
 		$key  = self::experiment_key( $cfg );
 		$slug = self::report_slug( $arm );
 		if ( class_exists( 'RWGO_Stats', false ) ) {
@@ -2600,8 +3088,19 @@ class RWGO_Sitewide {
 		if ( ! in_array( $pid, $goals, true ) && ! in_array( $rendered, $goals, true ) ) {
 			return;
 		}
-		$arm = '' !== self::$rendered_arm ? self::$rendered_arm : self::sticky_arm( $cfg );
-		if ( '' === $arm || self::is_bot_request() ) {
+		if ( self::is_bot_request() ) {
+			return;
+		}
+		if ( self::$request_resolved ) {
+			$arm = self::$measurement_arm;
+		} else {
+			$measure  = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::allow_measurement() : true;
+			$assigned = self::sticky_arm( $cfg );
+			$arm      = class_exists( 'RWGO_Theme_Context', false )
+				? RWGO_Theme_Context::conversion_arm( $assigned, self::experience_available( $cfg ), $measure )
+				: ( $measure ? $assigned : '' );
+		}
+		if ( '' === $arm ) {
 			return;
 		}
 		self::fire_goal( $cfg, $arm, 'page_view', 'sitewide_destination', $pid, $rendered );
@@ -3290,6 +3789,20 @@ class RWGO_Sitewide {
 			'exclude_page_ids'      => self::parse_id_list( isset( $_POST['rwgo_sw_exclude_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_exclude_ids'] ) : '' ),
 			'future_pages'          => $future,
 			'coverage_baseline_gmt' => $baseline,
+			'theme_context'         => class_exists( 'RWGO_Theme_Context', false )
+				? RWGO_Theme_Context::normalize(
+					array(
+						'control' => array(
+							'header' => isset( $_POST['rwgo_sw_header_a'] ) ? (int) wp_unslash( $_POST['rwgo_sw_header_a'] ) : 0,
+							'footer' => isset( $_POST['rwgo_sw_footer_a'] ) ? (int) wp_unslash( $_POST['rwgo_sw_footer_a'] ) : 0,
+						),
+						'variant' => array(
+							'header' => isset( $_POST['rwgo_sw_header_b'] ) ? (int) wp_unslash( $_POST['rwgo_sw_header_b'] ) : 0,
+							'footer' => isset( $_POST['rwgo_sw_footer_b'] ) ? (int) wp_unslash( $_POST['rwgo_sw_footer_b'] ) : 0,
+						),
+					)
+				)
+				: array(),
 			'variants'              => array(
 				array(
 					'variant_id' => 'control',
@@ -3325,7 +3838,89 @@ class RWGO_Sitewide {
 	 * @param array<int, int>|null    $purge_ids When set, purge only these ids.
 	 * @return void
 	 */
+	/**
+	 * Store a prepared config. When $expected_revision is set, a stale read does not overwrite a newer save.
+	 *
+	 * @param array<string, mixed> $cfg Expected config, without relying on a raw option blob from the client.
+	 * @param mixed                $expected_revision Revision from the last read, or null for the admin form after its own check.
+	 * @return array<string, mixed>
+	 */
+	public static function store_config( array $cfg, $expected_revision = null ) {
+		$stored = get_option( self::OPTION, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+		$prev = isset( $stored['revision'] ) ? (int) $stored['revision'] : 0;
+		if ( null !== $expected_revision && '' !== $expected_revision && class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			$code = RWGO_Sitewide_Proposal::revision_error( array( 'revision' => $prev ), $expected_revision, true );
+			if ( '' !== $code ) {
+				return array( 'code' => $code );
+			}
+		}
+		$cfg['revision'] = $prev + 1;
+		self::persist_config( $cfg, $stored );
+		return $cfg;
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config about to be saved from the admin form.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function validate_admin_config( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			return array();
+		}
+		$posts   = class_exists( 'RWGO_Sitewide_Ability', false ) ? RWGO_Sitewide_Ability::records_for_config( $cfg ) : null;
+		$checked = RWGO_Sitewide_Proposal::inspect( $cfg, $posts );
+		return $checked['errors'];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $errors Blocking issues.
+	 * @return void
+	 */
+	private static function reject_save( array $errors ) {
+		if ( function_exists( 'set_transient' ) && function_exists( 'get_current_user_id' ) ) {
+			set_transient( 'rwgo_sw_save_err_' . get_current_user_id(), $errors, 120 );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_rejected=1' ) );
+		exit;
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function render_rejected_save() {
+		if ( empty( $_GET['rwgo_rejected'] ) || ! function_exists( 'get_transient' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+		$key    = 'rwgo_sw_save_err_' . get_current_user_id();
+		$errors = get_transient( $key );
+		delete_transient( $key );
+		if ( ! is_array( $errors ) || array() === $errors ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'The site-wide test was not saved.', 'reactwoo-geo-optimise' ) . '</strong></p><ul>';
+		foreach ( $errors as $error ) {
+			if ( ! is_array( $error ) || empty( $error['message'] ) ) {
+				continue;
+			}
+			echo '<li>' . esc_html( (string) $error['message'] ) . '</li>';
+		}
+		echo '</ul></div>';
+	}
+
+	/**
+	 * @param array<string, mixed>    $cfg       Config to store.
+	 * @param array<string, mixed>|null $old     Previous config. Purge both maps when this is an array and $purge_ids is null.
+	 * @param array<int, int>|null    $purge_ids When set, purge only these ids.
+	 * @return void
+	 */
 	private static function persist_config( array $cfg, $old, ?array $purge_ids = null ) {
+		$prev = is_array( $old ) && isset( $old['revision'] ) ? (int) $old['revision'] : 0;
+		if ( ! isset( $cfg['revision'] ) || (int) $cfg['revision'] <= $prev ) {
+			$cfg['revision'] = $prev + 1;
+		}
 		update_option( self::OPTION, $cfg, false );
 		self::reset_map_index();
 		self::sync_experiment_post( $cfg );

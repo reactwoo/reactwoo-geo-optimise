@@ -5,6 +5,34 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-11-06
+
+Staging upload only. Not tagged and not published to the ReactWoo update catalog.
+
+### Added
+- WordPress Abilities API integration for the site-wide test: `reactwoo-geo-optimise/sitewide-read`, `sitewide-validate`, `sitewide-save`, `sitewide-set-status`, and `sitewide-preview-link`. Abilities are public to REST and MCP when WordPress provides the API. They are skipped when the API is absent.
+- Save writes a typed page map and header and footer IDs, stays paused for a new test, and does not change status. Activation is only `sitewide-set-status` with `confirm` true, and it refuses to go active while every variant page and template is unpublished or empty.
+- A revision from the last read is required. A stale revision does not overwrite a newer save.
+- The admin screen uses the same checks for malformed IDs, duplicate originals, and redirect loops.
+
+### Fixed
+- Header and footer IDs are validated as Elementor library posts. Empty draft templates are reported and are not published or copied.
+
+## [0.5.3] - 2026-11-06
+
+Staging upload only. Not tagged and not published to the ReactWoo update catalog.
+
+### Added
+- Site-wide tests can name an Elementor header and footer for control and for variant B. The visitor’s arm selects them. Elementor display conditions do not. Cart, checkout, and account keep the normal templates. Saving the test does not publish pages or templates.
+- The site-wide screen warns when a variant page or template is unpublished, when the control template is missing, or when a page is both an original and a variant.
+- Managers get a signed preview link for control and variant B. The link does not write the assignment cookie and is not counted as exposure or a conversion.
+
+### Fixed
+- An unpublished variant page no longer counts as a variant view. The original body stays in place. A published variant header or footer can still be the delivered experience.
+- A paused or ended site-wide test sends a direct variant URL back to the original page once. Pairs that would redirect in a circle are ignored.
+- Exposure and conversions wait for statistics consent when the WordPress Consent API is active. A refused consent is not turned into an IP and user-agent hash. Preview and bot traffic are not measured.
+- A configured header or footer split is not stored as one shared cache entry, including on URLs that are not in the page map. LiteSpeed can still vary a stable assignment when it is the only page cache. Header and footer IDs are printed only when Elementor Pro theme locations are active. Without that, a published library template is not counted as variant B.
+
 ## [0.5.2] - 2026-11-03
 
 ### Fixed
