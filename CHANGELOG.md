@@ -5,6 +5,19 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2026-11-06
+
+Staging upload only. Not tagged and not published to the ReactWoo update catalog.
+
+### Added
+- WordPress Abilities API integration for the site-wide test: `reactwoo-geo-optimise/sitewide-read`, `sitewide-validate`, `sitewide-save`, `sitewide-set-status`, and `sitewide-preview-link`. Abilities are public to REST and MCP when WordPress provides the API. They are skipped when the API is absent.
+- Save writes a typed page map and header and footer IDs, stays paused for a new test, and does not change status. Activation is only `sitewide-set-status` with `confirm` true, and it refuses to go active while every variant page and template is unpublished or empty.
+- A revision from the last read is required. A stale revision does not overwrite a newer save.
+- The admin screen uses the same checks for malformed IDs, duplicate originals, and redirect loops.
+
+### Fixed
+- Header and footer IDs are validated as Elementor library posts. Empty draft templates are reported and are not published or copied.
+
 ## [0.5.3] - 2026-11-06
 
 Staging upload only. Not tagged and not published to the ReactWoo update catalog.

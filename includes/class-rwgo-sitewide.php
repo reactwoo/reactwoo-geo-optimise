@@ -1243,8 +1243,10 @@ class RWGO_Sitewide {
 			echo '<div class="notice notice-info"><p>' . esc_html( sprintf( /* translators: %d: number of variant pages created so far */ __( 'Creating variant pages in batches so a large site is not processed in one request. Created so far: %d.', 'reactwoo-geo-optimise' ), $created ) ) . ' <a href="' . esc_url( $continue ) . '">' . esc_html__( 'Continue now', 'reactwoo-geo-optimise' ) . '</a></p></div>';
 			echo '<meta http-equiv="refresh" content="1;url=' . esc_url( $continue ) . '" />';
 		}
+		self::render_rejected_save();
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
 		wp_nonce_field( 'rwgo_save_sitewide' );
+		echo '<input type="hidden" name="rwgo_sw_revision" value="' . esc_attr( (string) ( isset( $cfg['revision'] ) ? (int) $cfg['revision'] : 0 ) ) . '" />';
 		echo '<input type="hidden" name="action" value="rwgo_save_sitewide" />';
 		echo '<table class="form-table"><tbody>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_status">' . esc_html__( 'Status', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_status" name="rwgo_sw_status">';
@@ -1324,8 +1326,18 @@ class RWGO_Sitewide {
 			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_save_sitewide' );
-		$old  = self::get_config();
-		$cfg  = self::config_from_post( $old );
+		$old = self::get_config();
+		$cfg = self::config_from_post( $old );
+		if ( isset( $_POST['rwgo_sw_revision'] ) && class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			$revision_code = RWGO_Sitewide_Proposal::revision_error( $old, wp_unslash( $_POST['rwgo_sw_revision'] ), true );
+			if ( '' !== $revision_code ) {
+				self::reject_save( array( RWGO_Sitewide_Proposal::issue( $revision_code, 0, '' ) ) );
+			}
+		}
+		$blocking = self::validate_admin_config( $cfg );
+		if ( ! empty( $blocking ) ) {
+			self::reject_save( $blocking );
+		}
 		$bulk = ! empty( $_POST['rwgo_sw_do_bulk'] );
 		if ( $bulk ) {
 			$scope    = isset( $_POST['rwgo_sw_bulk_scope'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_bulk_scope'] ) ) : 'selected';
@@ -3826,7 +3838,89 @@ class RWGO_Sitewide {
 	 * @param array<int, int>|null    $purge_ids When set, purge only these ids.
 	 * @return void
 	 */
+	/**
+	 * Store a prepared config. When $expected_revision is set, a stale read does not overwrite a newer save.
+	 *
+	 * @param array<string, mixed> $cfg Expected config, without relying on a raw option blob from the client.
+	 * @param mixed                $expected_revision Revision from the last read, or null for the admin form after its own check.
+	 * @return array<string, mixed>
+	 */
+	public static function store_config( array $cfg, $expected_revision = null ) {
+		$stored = get_option( self::OPTION, array() );
+		if ( ! is_array( $stored ) ) {
+			$stored = array();
+		}
+		$prev = isset( $stored['revision'] ) ? (int) $stored['revision'] : 0;
+		if ( null !== $expected_revision && '' !== $expected_revision && class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			$code = RWGO_Sitewide_Proposal::revision_error( array( 'revision' => $prev ), $expected_revision, true );
+			if ( '' !== $code ) {
+				return array( 'code' => $code );
+			}
+		}
+		$cfg['revision'] = $prev + 1;
+		self::persist_config( $cfg, $stored );
+		return $cfg;
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config about to be saved from the admin form.
+	 * @return array<int, array<string, mixed>>
+	 */
+	public static function validate_admin_config( array $cfg ) {
+		if ( ! class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
+			return array();
+		}
+		$posts   = class_exists( 'RWGO_Sitewide_Ability', false ) ? RWGO_Sitewide_Ability::records_for_config( $cfg ) : null;
+		$checked = RWGO_Sitewide_Proposal::inspect( $cfg, $posts );
+		return $checked['errors'];
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>> $errors Blocking issues.
+	 * @return void
+	 */
+	private static function reject_save( array $errors ) {
+		if ( function_exists( 'set_transient' ) && function_exists( 'get_current_user_id' ) ) {
+			set_transient( 'rwgo_sw_save_err_' . get_current_user_id(), $errors, 120 );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_rejected=1' ) );
+		exit;
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function render_rejected_save() {
+		if ( empty( $_GET['rwgo_rejected'] ) || ! function_exists( 'get_transient' ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+		$key    = 'rwgo_sw_save_err_' . get_current_user_id();
+		$errors = get_transient( $key );
+		delete_transient( $key );
+		if ( ! is_array( $errors ) || array() === $errors ) {
+			return;
+		}
+		echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'The site-wide test was not saved.', 'reactwoo-geo-optimise' ) . '</strong></p><ul>';
+		foreach ( $errors as $error ) {
+			if ( ! is_array( $error ) || empty( $error['message'] ) ) {
+				continue;
+			}
+			echo '<li>' . esc_html( (string) $error['message'] ) . '</li>';
+		}
+		echo '</ul></div>';
+	}
+
+	/**
+	 * @param array<string, mixed>    $cfg       Config to store.
+	 * @param array<string, mixed>|null $old     Previous config. Purge both maps when this is an array and $purge_ids is null.
+	 * @param array<int, int>|null    $purge_ids When set, purge only these ids.
+	 * @return void
+	 */
 	private static function persist_config( array $cfg, $old, ?array $purge_ids = null ) {
+		$prev = is_array( $old ) && isset( $old['revision'] ) ? (int) $old['revision'] : 0;
+		if ( ! isset( $cfg['revision'] ) || (int) $cfg['revision'] <= $prev ) {
+			$cfg['revision'] = $prev + 1;
+		}
 		update_option( self::OPTION, $cfg, false );
 		self::reset_map_index();
 		self::sync_experiment_post( $cfg );

@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.3
+Stable tag: 0.5.4
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,10 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.4 =
+* **Added:** WordPress Abilities for the site-wide test: read, validate, save, set status, and a signed preview link. Names are `reactwoo-geo-optimise/sitewide-read`, `sitewide-validate`, `sitewide-save`, `sitewide-set-status`, and `sitewide-preview-link`. They appear when the Abilities API is present, including the miniOrange MCP gateway. Saving stays paused and does not publish drafts. Only set-status with confirm true can activate, and only when a variant is actually ready.
+* **Fix:** The admin save uses the same page-map and template checks. A stale revision is not written over a newer save.
 
 = 0.5.3 =
 * **Added:** A site-wide test can name Elementor header and footer templates for control and variant B. The visitor arm selects them. Display conditions do not. Cart, checkout, and account keep the normal templates. Saving does not publish drafts.
