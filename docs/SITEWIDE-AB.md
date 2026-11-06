@@ -72,6 +72,34 @@ While variant B is rendered at the original URL, the canonical URL and `og:url` 
 
 Paused and ended tests do not assign an arm and do not swap the body. A direct hit on a variant URL redirects once to the original. If a page is both an original and a variant, that pair is ignored and the screen warns, so the redirect cannot loop.
 
+## Staging install of 0.5.3
+
+This zip is a manual staging upload. It is not tagged `v0.5.3` and it is not published to `api.reactwoo.com`. Production stays on the published 0.5.2 catalog until staging QA passes and a later tag is cut.
+
+Install, in this order, on the staging site only:
+
+1. WordPress 6.8 or newer. Elementor 4.3.6 refuses older WordPress.
+2. PHP 8.1 or newer. Geo Core 1.9.26 refuses older PHP. Optimise’s own header still says PHP 7.4, and that is not enough once Geo Core is current.
+3. ReactWoo Geo Core **1.9.26** (tag `v1.9.26`, commit `d16f4f6`, 2026-11-04). That is the latest published Geo Core Free. 1.9.26 is the MaxMind setup fix on top of the 1.9.25 Foxhole zip and update-link fix. Activate it before Optimise.
+4. Elementor **4.3.6** (wordpress.org, updated 2026-11-02). That is the latest published Elementor free plugin and the Atomic editor line. Update Elementor Pro to the matching 4.3 Pro build before testing header and footer locations. Pro is not on wordpress.org, so this repository cannot vendor it. Theme locations need Elementor Pro 3.9 or newer. Elementor Pro 4.3 is the build that matches Atomic 4.3.6.
+5. Upload `reactwoo-geo-optimise-0.5.3.zip` through Plugins → Add New → Upload. Confirm the Plugins screen shows **0.5.3**. Do not use the ReactWoo update button for this build. That button still serves 0.5.2.
+
+Leave customer drafts unpublished.
+
+### Tests to run on real staging
+
+Use a manager account. Do not run these on production.
+
+1. Open **Site-wide test**. Confirm the warning list names any unpublished variant page and any unpublished header or footer. Confirm Save does not change those posts to Published.
+2. Enter the real original/variant pairs and the four Elementor library IDs. Set control weight to 50. Leave status **Paused**. Save.
+3. Click **Preview variant B**. The address bar keeps the original page URL and includes `rwgo_preview=variant` plus `rwgo_preview_nonce`. The admin bar says the preview is not tracked. If the variant page is still a draft, the body stays the original. A published variant header or footer changes only when Elementor Pro theme locations are active. Confirm the variant header markup is in the HTML, not only `X-RWGO-Arm`. Response headers include `X-RWGO-Preview: 1` and `Cache-Control: private, no-store`. If Elementor Pro is inactive, the screen warns and the header IDs are not printed.
+4. Click **Preview control**. The variant header and footer do not appear. A variant template whose Elementor display condition is “entire site” must still not appear.
+5. Open the same original URL in a private window while the test is paused. The body is the original. Open the variant page URL. It redirects once to the original and does not loop.
+6. Set the test **Active**. In a private window, reload the original URL twice. `X-RWGO-Arm` stays the same. `Vary` contains `Cookie` once. `Cache-Control` contains `private` and `no-store` unless LiteSpeed is the only page cache and the cookie is already stable.
+7. Open cart, checkout, and account while assigned to variant B. Prices and the normal header and footer stay in place.
+8. With a statistics-consent plugin using the WordPress Consent API, refuse statistics and reload. The arm can still stick. The tracking script is not printed and a goal is not stored.
+9. Set the test back to **Paused** before leaving staging.
+
 ## Staging rollout
 
 1. Deploy this build to staging. Do not tag a release and do not publish customer drafts as part of the deploy.
@@ -89,10 +117,15 @@ Paused and ended tests do not assign an arm and do not swap the body. A direct h
 
 ## Rollback
 
-1. Set the site-wide test to **Paused** or **Ended** and save. Visitors stay on the original body. Variant URLs redirect home. No pages are deleted.
-2. If a cached page still shows the wrong arm, use **Clear Optimise cache** and purge the CDN for the original URLs and the template URLs.
-3. To remove the header and footer binding without ending the page test, set all four template IDs to `0` and save.
-4. Code rollback is a revert of this change. Stored `rwgo_sitewide_experiment` keeps `theme_context`. Older plugin code ignores that key. The page map is unchanged.
+Do this on staging before any production upload. Nothing here deletes pages or publishes drafts.
+
+1. Set the site-wide test to **Paused** or **Ended** and save. Visitors stay on the original body. Variant URLs redirect home.
+2. Set the four template IDs to `0` and save if you want the page test to remain without header and footer binding.
+3. Plugins → deactivate ReactWoo Geo Optimise 0.5.3 → Delete, then install the published **0.5.2** package. Do not delete Geo Core. The stored option `rwgo_sitewide_experiment` remains. 0.5.2 ignores `theme_context` and keeps the page map.
+4. Use **Clear Optimise cache** and purge the CDN for the original URLs, the variant URLs, and the header and footer template URLs.
+5. Confirm the Plugins screen shows Optimise 0.5.2 and Geo Core 1.9.26, then load the original URL in a private window. It serves the original body and does not set `X-RWGO-Preview`.
+
+Production rollback is the same sequence and is only relevant after a later tagged publish. This branch has not been tagged.
 
 ## Admin fields
 

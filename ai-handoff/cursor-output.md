@@ -25,7 +25,11 @@ Site-wide A/B: bind Elementor header and footer to the existing arm, keep unpubl
 - `php -l` on the changed PHP files — no syntax errors.
 - `php tests/integration/theme-ab-routing.php` — all checks passed.
 - `php tests/sitewide-assert.php` — all checks passed.
-- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (71 tests, 440 assertions).
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (72 tests, 444 assertions).
+- Local WordPress at `http://127.0.0.1:8093` only. Not staging.reactwoo.com. WordPress 7.1.4, Elementor 4.3.6, Geo Core 1.9.26, Optimise 0.5.3 activated. Draft variant stayed draft. Variant URL returned 302 once. With Elementor Pro absent, a variant assignment kept the original body and `X-RWGO-Arm: control`.
+
+## Not published
+- No tag, no update-catalog publish, no merge, no production deploy.
 
 ## Remaining errors
 None from the unit and routing checks. WordPress, Elementor, and a CDN were not booted in this run.

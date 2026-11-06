@@ -1455,11 +1455,22 @@ class RWGO_Sitewide {
 	 * @param array<string, mixed> $cfg Config.
 	 * @return bool
 	 */
-	private static function theme_split_active( array $cfg ) {
+	private static function theme_ids_configured( array $cfg ) {
 		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
 			return false;
 		}
 		return RWGO_Theme_Context::theme_split_configured( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() );
+	}
+
+	/**
+	 * @param array<string, mixed> $cfg Config.
+	 * @return bool
+	 */
+	private static function theme_split_active( array $cfg ) {
+		if ( ! self::theme_ids_configured( $cfg ) || ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			return false;
+		}
+		return true;
 	}
 
 	/**
@@ -1499,8 +1510,9 @@ class RWGO_Sitewide {
 		if ( $variant_id > 0 && function_exists( 'get_post_status' ) ) {
 			$status = (string) get_post_status( $variant_id );
 		}
-		$records = self::template_post_records( $cfg );
-		$plan    = class_exists( 'RWGO_Theme_Context', false )
+		$records   = self::template_post_records( $cfg );
+		$locations = class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::elementor_pro_locations_loaded();
+		$plan      = class_exists( 'RWGO_Theme_Context', false )
 			? RWGO_Theme_Context::delivery_plan(
 				$assigned,
 				$variant_id,
@@ -1508,7 +1520,8 @@ class RWGO_Sitewide {
 				false,
 				isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
 				$records['status'],
-				$records['type']
+				$records['type'],
+				$locations
 			)
 			: array(
 				'delivered'    => $assigned,
@@ -1618,9 +1631,15 @@ class RWGO_Sitewide {
 			}
 		}
 		$records = self::template_post_records( $cfg );
+		$theme   = isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array();
+		if ( ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			$theme = RWGO_Theme_Context::normalize( $theme );
+			$theme['variant']['header'] = 0;
+			$theme['variant']['footer'] = 0;
+		}
 		return RWGO_Theme_Context::experience_is_deliverable(
 			$pages,
-			isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
+			$theme,
 			$records['status'],
 			$records['type']
 		);
@@ -1656,6 +1675,12 @@ class RWGO_Sitewide {
 			$records['status'],
 			$records['type']
 		);
+		if ( self::theme_ids_configured( $cfg ) && ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
+			$warnings[] = array(
+				'code'    => 'elementor_pro_required',
+				'post_id' => 0,
+			);
+		}
 		if ( empty( $warnings ) ) {
 			return;
 		}
@@ -1703,6 +1728,9 @@ class RWGO_Sitewide {
 		}
 		if ( 'control_template_missing' === $code ) {
 			return __( 'Set the control header and footer too. A variant template selected by Elementor display conditions is hidden from the control arm, so control visitors need their own template IDs.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'elementor_pro_required' === $code ) {
+			return __( 'Elementor Pro theme locations are not active. Header and footer IDs are saved and are not printed until Elementor Pro is active. The variant page body is unchanged.', 'reactwoo-geo-optimise' );
 		}
 		if ( 'redirect_loop' === $code ) {
 			return sprintf(

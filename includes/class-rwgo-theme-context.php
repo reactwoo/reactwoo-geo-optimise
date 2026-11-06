@@ -76,6 +76,21 @@ class RWGO_Theme_Context {
 	 * @param array<string, mixed> $theme Theme context.
 	 * @return bool
 	 */
+	/**
+	 * Elementor Pro owns header and footer locations. Elementor free can store
+	 * the library post, and it does not print those locations.
+	 *
+	 * @return bool
+	 */
+	public static function elementor_pro_locations_loaded() {
+		return class_exists( '\ElementorPro\Modules\ThemeBuilder\Module', false )
+			|| class_exists( '\ElementorPro\Modules\ThemeBuilder\Classes\Locations_Manager', false );
+	}
+
+	/**
+	 * @param array<string, mixed> $theme Theme context.
+	 * @return bool
+	 */
 	public static function theme_split_configured( $theme ) {
 		$theme = self::normalize( $theme );
 		foreach ( array( 'control', 'variant' ) as $arm ) {
@@ -196,7 +211,7 @@ class RWGO_Theme_Context {
 	 * @param array<int, string>   $template_type   Template ID => post type.
 	 * @return array<string, mixed>
 	 */
-	public static function delivery_plan( $assigned_arm, $variant_page_id, $variant_status, $theme_locked, $theme, array $template_status, array $template_type ) {
+	public static function delivery_plan( $assigned_arm, $variant_page_id, $variant_status, $theme_locked, $theme, array $template_status, array $template_type, $locations_available = true ) {
 		$assigned        = in_array( $assigned_arm, array( 'control', 'variant' ), true ) ? $assigned_arm : 'control';
 		$theme           = self::normalize( $theme );
 		$variant_page_id = (int) $variant_page_id;
@@ -238,6 +253,14 @@ class RWGO_Theme_Context {
 			if ( $configured > 0 && 0 === (int) $plan[ $location ] ) {
 				$plan['reasons'][] = 'theme_template_unavailable';
 			}
+		}
+		if ( ! $locations_available ) {
+			$plan['header']                  = 0;
+			$plan['footer']                  = 0;
+			$plan['allow_variant_templates'] = false;
+			$plan['reasons'][]               = 'elementor_pro_locations_missing';
+			$plan['delivered']               = ( 'variant' === $plan['body'] ) ? 'variant' : 'control';
+			return $plan;
 		}
 		$chrome = ( (int) $plan['header'] > 0 || (int) $plan['footer'] > 0 );
 		if ( 'variant' === $assigned && ( 'variant' === $plan['body'] || $chrome ) ) {

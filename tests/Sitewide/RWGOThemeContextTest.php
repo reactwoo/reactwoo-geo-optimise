@@ -142,6 +142,23 @@ class RWGOThemeContextTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( 21, RWGO_Theme_Context::location_template_id( 'header', 21, 0, array( 21 ), true ) );
 	}
 
+	public function test_missing_elementor_pro_locations_do_not_count_as_variant_chrome(): void {
+		$plan = RWGO_Theme_Context::delivery_plan(
+			'variant',
+			4038,
+			'draft',
+			false,
+			$this->theme(),
+			$this->published_templates(),
+			$this->library_types(),
+			false
+		);
+		$this->assertSame( 0, $plan['header'] );
+		$this->assertSame( 'control', $plan['delivered'] );
+		$this->assertContains( 'elementor_pro_locations_missing', $plan['reasons'] );
+		$this->assertFalse( RWGO_Theme_Context::elementor_pro_locations_loaded() );
+	}
+
 	public function test_checkout_never_receives_variant_chrome(): void {
 		$this->assertTrue(
 			RWGO_Theme_Context::variant_theme_locked( 'checkout', 90, array( 90 ), false, array(), array( 'shop' ) )
