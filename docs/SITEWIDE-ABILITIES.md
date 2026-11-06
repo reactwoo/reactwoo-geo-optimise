@@ -14,7 +14,7 @@ None of these abilities publish a page or an Elementor template. Empty draft tem
 
 Read only. No input.
 
-Output includes `status`, `revision`, `experiment_key`, `control_weight_percent`, `cookie_days`, `page_map`, `theme_context`, `warnings`, `errors`, `ready`, `licensed`, `elementor_pro_locations`, `saved: false`, `published: false`.
+Output includes `status`, `revision`, `experiment_key`, `control_weight_percent`, `cookie_days`, `page_map`, `theme_context`, `template_map`, `coverage`, `warnings`, `errors`, `ready`, `licensed`, `elementor_pro_locations`, `saved: false`, `published: false`. `coverage` lists page pairs, product template pairs, how many product templates are published and non-empty, whether Elementor Pro locations are loaded, and the excluded surfaces `cart`, `checkout`, `my-account`, and `admin`.
 
 ## reactwoo-geo-optimise/sitewide-validate
 
@@ -54,17 +54,30 @@ Mutation. Does not accept `status`. A new test is stored as `paused`. An existin
         "variant": { "type": "object", "properties": { "header": { "type": "integer", "minimum": 0 }, "footer": { "type": "integer", "minimum": 0 } } }
       }
     },
+    "template_map": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["location", "source_template_id", "variant_template_id"],
+        "properties": {
+          "location": { "type": "string", "enum": ["single", "product", "single-product"] },
+          "source_template_id": { "type": "integer", "minimum": 1 },
+          "variant_template_id": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
     "goal_page_ids": { "type": "array", "items": { "type": "integer", "minimum": 1 } },
     "track_purchase": { "type": "boolean" }
   }
 }
 ```
 
-Blocking errors: `rwgo_malformed_id`, `rwgo_duplicate_source`, `rwgo_redirect_loop`, `rwgo_unknown_post`, `rwgo_wrong_post_type`, `rwgo_weight_range`, `rwgo_cookie_days`, `rwgo_revision_required`, `rwgo_revision_conflict`.
+Blocking errors: `rwgo_malformed_id`, `rwgo_duplicate_source`, `rwgo_redirect_loop`, `rwgo_unknown_post`, `rwgo_wrong_post_type`, `rwgo_weight_range`, `rwgo_cookie_days`, `rwgo_revision_required`, `rwgo_revision_conflict`, `rwgo_template_location`, `rwgo_template_loop`, `rwgo_duplicate_template`, `rwgo_product_not_template`.
 
-Warnings, saved anyway while paused: `rwgo_variant_unpublished`, `rwgo_theme_template_unpublished`, `rwgo_theme_template_empty`, `rwgo_control_template_missing`.
+Warnings, saved anyway while paused: `rwgo_variant_unpublished`, `rwgo_theme_template_unpublished`, `rwgo_theme_template_empty`, `rwgo_control_template_missing`, `rwgo_template_location_mismatch`.
 
-Page IDs must be pages on this site. Template IDs must be `elementor_library` posts. `0` means that location is not overridden.
+Page IDs must be pages on this site. Template IDs must be `elementor_library` posts. `0` means that header or footer is not overridden. Omitting `template_map` leaves the stored product map unchanged. `product` and `single-product` are stored as `single`. A Woo product ID is rejected.
 
 ## reactwoo-geo-optimise/sitewide-set-status
 
@@ -83,7 +96,7 @@ The only ability that changes status. `confirm` must be true.
 }
 ```
 
-`active` returns `rwgo_not_ready` unless a mapped variant page is published, or Elementor Pro theme locations are loaded and a variant header or footer is a published non-empty Elementor template. `paused` and `ended` do not require that.
+`active` returns `rwgo_not_ready` unless a mapped variant page is published, or Elementor Pro theme locations are loaded and a variant header, footer, or product template is a published non-empty Elementor template of the right kind. `paused` and `ended` do not require that.
 
 ## reactwoo-geo-optimise/sitewide-preview-link
 
@@ -99,7 +112,7 @@ The only ability that changes status. `confirm` must be true.
 }
 ```
 
-Output: `ok`, `arm`, `url`, `measures: false`, `assigns: false`. The URL contains `rwgo_preview` and `rwgo_preview_nonce` for the current user. It does not write `rwgo_site` and it does not record exposure.
+Output: `ok`, `arm`, `url`, `measures: false`, `assigns: false`, `session_bound: true`, `diagnostic: rwgo_preview_requires_browser_session`. The URL contains `rwgo_preview` and `rwgo_preview_nonce` for the login session that created it. It does not write `rwgo_site` and it does not record exposure. Opening that URL from the connector session in a browser does not match the nonce. The page stays as it was and a manager sees `rwgo_preview_session_mismatch`. Use Preview variant B on the Site-wide screen in the logged-in browser. A `mosmcp_preview` or `rwgo_preview` parameter is not authorization by itself.
 
 ## Errors
 

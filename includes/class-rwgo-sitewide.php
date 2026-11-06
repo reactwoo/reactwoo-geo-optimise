@@ -199,6 +199,13 @@ class RWGO_Sitewide {
 	private static $request_resolved = false;
 
 	/**
+	 * Manager-visible preview failure. Empty when the page was not asked to preview, or the nonce matched.
+	 *
+	 * @var string
+	 */
+	private static $preview_diagnostic = '';
+
+	/**
 	 * Priorities for the swapped-content filter. One pass only.
 	 *
 	 * Priority 0 runs before do_blocks (9), wpautop (10), and do_shortcode (11),
@@ -220,7 +227,13 @@ class RWGO_Sitewide {
 		add_action( 'litespeed_init', array( __CLASS__, 'litespeed_cache' ) );
 		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
 			add_filter( 'elementor/theme/get_location_templates/template_id', array( 'RWGO_Theme_Context', 'filter_location_template' ), 20, 2 );
+			add_action( 'wp_enqueue_scripts', array( 'RWGO_Theme_Context', 'enqueue_plan_documents' ), 20 );
+			add_action( 'wp_enqueue_scripts', array( 'RWGO_Theme_Context', 'suppress_replaced_documents' ), PHP_INT_MAX );
+			add_action( 'wp_head', array( 'RWGO_Theme_Context', 'suppress_replaced_documents' ), 7 );
 		}
+		add_action( 'admin_bar_menu', array( __CLASS__, 'render_preview_diagnostic_node' ), 100 );
+		add_action( 'wp_footer', array( __CLASS__, 'render_preview_diagnostic_note' ), 1 );
+		add_action( 'send_headers', array( __CLASS__, 'send_preview_diagnostic_header' ) );
 		foreach ( self::swapped_content_hook_priorities() as $priority ) {
 			add_filter( 'the_content', array( __CLASS__, 'filter_swapped_variant_content' ), (int) $priority );
 		}
@@ -636,6 +649,20 @@ class RWGO_Sitewide {
 		$pid = self::queried_page_id();
 		$row = self::row_for_variant_page( $cfg, $pid );
 		if ( null === $row ) {
+			return;
+		}
+		$signed    = self::qa_arm_from_request();
+		$wp_preview = function_exists( 'is_preview' ) && is_preview();
+		$shareable = self::shareable_preview_matches( $pid );
+		if ( class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::canonical_redirect_blocked( $wp_preview, $signed, $shareable ) ) {
+			self::send_uncacheable();
+			RWGO_Theme_Context::set_preview( true );
+			if ( $shareable && '' === $signed ) {
+				self::$handled = true;
+			}
+			if ( ! headers_sent() ) {
+				header( 'X-RWGO-Preview: 1' );
+			}
 			return;
 		}
 		$source        = (int) $row['source_page_id'];
@@ -1311,6 +1338,23 @@ class RWGO_Sitewide {
 		echo '<p><label for="rwgo_sw_header_b">' . esc_html__( 'Variant B header ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_header_b" type="number" min="0" class="small-text" name="rwgo_sw_header_b" value="' . esc_attr( (string) (int) $theme['variant']['header'] ) . '" /></p>';
 		echo '<p><label for="rwgo_sw_footer_b">' . esc_html__( 'Variant B footer ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_footer_b" type="number" min="0" class="small-text" name="rwgo_sw_footer_b" value="' . esc_attr( (string) (int) $theme['variant']['footer'] ) . '" /></p>';
 		echo '</td></tr>';
+		$template_rows = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::normalize_template_map( isset( $cfg['template_map'] ) ? $cfg['template_map'] : array() )
+			: array();
+		$template_text = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::template_map_text( $template_rows ) : '';
+		$locations_on  = class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::elementor_pro_locations_loaded();
+		echo '<tr><th scope="row"><label for="rwgo_sw_template_map">' . esc_html__( 'Product template map', 'reactwoo-geo-optimise' ) . '</label></th><td>';
+		echo '<textarea id="rwgo_sw_template_map" name="rwgo_sw_template_map" rows="8" class="large-text code" placeholder="' . esc_attr__( "single,SOURCE_TEMPLATE_ID,VARIANT_TEMPLATE_ID", 'reactwoo-geo-optimise' ) . '">' . esc_textarea( $template_text ) . '</textarea>';
+		echo '<p class="description">' . esc_html__( 'One Elementor product body per line: single, source template ID, variant template ID. The source is the Theme Builder template Elementor already matches for that product. The variant is a new template with the same display conditions. The product itself stays the queried post, so price, stock, and add to cart stay on that product. Do not put Woo product IDs here and do not duplicate products. Header and footer stay in the fields above. Cart, checkout, account, and wp-admin are unchanged. An unpublished or empty variant template falls back to the source and is not published by saving.', 'reactwoo-geo-optimise' ) . '</p>';
+		echo '<p class="description">' . esc_html(
+			sprintf(
+				/* translators: 1: pair count, 2: whether Elementor Pro locations are active */
+				__( 'Coverage: %1$d product template pair(s). Elementor Pro theme locations: %2$s. Ready pairs are counted on save from published, non-empty templates.', 'reactwoo-geo-optimise' ),
+				count( $template_rows ),
+				$locations_on ? __( 'active', 'reactwoo-geo-optimise' ) : __( 'not active', 'reactwoo-geo-optimise' )
+			)
+		) . '</p>';
+		echo '</td></tr>';
 		echo '<tr><th scope="row"><label for="rwgo_sw_goals">' . esc_html__( 'Goal page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_goals" class="regular-text" name="rwgo_sw_goals" value="' . esc_attr( $goals ) . '" /><p class="description">' . esc_html__( 'Comma-separated. A view of these pages (for example the contact thank-you page) counts for the site-wide arm.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
 		echo '<tr><th scope="row">' . esc_html__( 'WooCommerce purchase', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_purchase" value="1" ' . checked( $buy, true, false ) . ' /> ' . esc_html__( 'Attribute purchases to the site-wide arm', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
 		echo '</tbody></table>';
@@ -1337,6 +1381,9 @@ class RWGO_Sitewide {
 		$blocking = self::validate_admin_config( $cfg );
 		if ( ! empty( $blocking ) ) {
 			self::reject_save( $blocking );
+		}
+		if ( class_exists( 'RWGO_Theme_Context', false ) && isset( $cfg['template_map'] ) ) {
+			$cfg['template_map'] = RWGO_Theme_Context::normalize_template_map( $cfg['template_map'] );
 		}
 		$bulk = ! empty( $_POST['rwgo_sw_do_bulk'] );
 		if ( $bulk ) {
@@ -1471,7 +1518,11 @@ class RWGO_Sitewide {
 		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
 			return false;
 		}
-		return RWGO_Theme_Context::theme_split_configured( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() );
+		if ( RWGO_Theme_Context::theme_split_configured( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() ) ) {
+			return true;
+		}
+		$map = isset( $cfg['template_map'] ) ? $cfg['template_map'] : array();
+		return array() !== RWGO_Theme_Context::normalize_template_map( $map );
 	}
 
 	/**
@@ -1533,7 +1584,9 @@ class RWGO_Sitewide {
 				isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
 				$records['status'],
 				$records['type'],
-				$locations
+				$locations,
+				isset( $cfg['template_map'] ) && is_array( $cfg['template_map'] ) ? $cfg['template_map'] : array(),
+				isset( $records['empty'] ) ? $records['empty'] : array()
 			)
 			: array(
 				'delivered'    => $assigned,
@@ -1542,6 +1595,10 @@ class RWGO_Sitewide {
 				'footer'       => 0,
 			);
 		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
+			$swap_id = isset( $plan['swap_page_id'] ) ? (int) $plan['swap_page_id'] : 0;
+			if ( $swap_id > 0 && $swap_id !== (int) self::$original_page_id ) {
+				$plan['replaced_body_id'] = (int) self::$original_page_id;
+			}
 			RWGO_Theme_Context::set_request_plan( $plan );
 		}
 		$delivered              = isset( $plan['delivered'] ) ? (string) $plan['delivered'] : 'control';
@@ -1557,6 +1614,9 @@ class RWGO_Sitewide {
 			header( 'X-RWGO-Assigned: ' . sanitize_key( (string) $assigned ) );
 			if ( '' !== self::qa_arm_from_request() ) {
 				header( 'X-RWGO-Preview: 1' );
+			}
+			if ( '' !== self::$preview_diagnostic ) {
+				header( 'X-RWGO-Preview-Diagnostic: ' . self::$preview_diagnostic );
 			}
 		}
 		$swap = isset( $plan['swap_page_id'] ) ? (int) $plan['swap_page_id'] : 0;
@@ -1601,15 +1661,19 @@ class RWGO_Sitewide {
 
 	/**
 	 * @param array<string, mixed> $cfg Config.
-	 * @return array{status:array<int,string>,type:array<int,string>}
+	 * @return array{status:array<int,string>,type:array<int,string>,empty:array<int,bool>,elementor_type:array<int,string>}
 	 */
 	private static function template_post_records( array $cfg ) {
 		$status = array();
 		$types  = array();
+		$empty  = array();
+		$elementor_type = array();
 		if ( ! class_exists( 'RWGO_Theme_Context', false ) ) {
 			return array(
-				'status' => $status,
-				'type'   => $types,
+				'status'         => $status,
+				'type'           => $types,
+				'empty'          => $empty,
+				'elementor_type' => $elementor_type,
 			);
 		}
 		foreach ( RWGO_Theme_Context::referenced_post_ids( $cfg ) as $id ) {
@@ -1620,10 +1684,18 @@ class RWGO_Sitewide {
 			if ( function_exists( 'get_post_type' ) ) {
 				$types[ $id ] = (string) get_post_type( $id );
 			}
+			if ( function_exists( 'get_post_meta' ) ) {
+				$raw           = get_post_meta( $id, '_elementor_data', true );
+				$empty[ $id ]  = ! is_string( $raw ) || '' === trim( $raw ) || '[]' === trim( $raw );
+				$template_type = get_post_meta( $id, '_elementor_template_type', true );
+				$elementor_type[ $id ] = is_string( $template_type ) ? $template_type : '';
+			}
 		}
 		return array(
-			'status' => $status,
-			'type'   => $types,
+			'status'         => $status,
+			'type'           => $types,
+			'empty'          => $empty,
+			'elementor_type' => $elementor_type,
 		);
 	}
 
@@ -1644,16 +1716,20 @@ class RWGO_Sitewide {
 		}
 		$records = self::template_post_records( $cfg );
 		$theme   = isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array();
+		$map     = isset( $cfg['template_map'] ) && is_array( $cfg['template_map'] ) ? $cfg['template_map'] : array();
 		if ( ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
 			$theme = RWGO_Theme_Context::normalize( $theme );
 			$theme['variant']['header'] = 0;
 			$theme['variant']['footer'] = 0;
+			$map = array();
 		}
 		return RWGO_Theme_Context::experience_is_deliverable(
 			$pages,
 			$theme,
 			$records['status'],
-			$records['type']
+			$records['type'],
+			$map,
+			isset( $records['empty'] ) ? $records['empty'] : array()
 		);
 	}
 
@@ -1685,7 +1761,10 @@ class RWGO_Sitewide {
 			$pages,
 			isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array(),
 			$records['status'],
-			$records['type']
+			$records['type'],
+			isset( $cfg['template_map'] ) && is_array( $cfg['template_map'] ) ? $cfg['template_map'] : array(),
+			isset( $records['empty'] ) ? $records['empty'] : array(),
+			isset( $records['elementor_type'] ) ? $records['elementor_type'] : array()
 		);
 		if ( self::theme_ids_configured( $cfg ) && ! RWGO_Theme_Context::elementor_pro_locations_loaded() ) {
 			$warnings[] = array(
@@ -1742,7 +1821,21 @@ class RWGO_Sitewide {
 			return __( 'Set the control header and footer too. A variant template selected by Elementor display conditions is hidden from the control arm, so control visitors need their own template IDs.', 'reactwoo-geo-optimise' );
 		}
 		if ( 'elementor_pro_required' === $code ) {
-			return __( 'Elementor Pro theme locations are not active. Header and footer IDs are saved and are not printed until Elementor Pro is active. The variant page body is unchanged.', 'reactwoo-geo-optimise' );
+			return __( 'Elementor Pro theme locations are not active. Header, footer, and product template IDs are saved and are not printed until Elementor Pro is active. The variant page body is unchanged.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'template_variant_unavailable' === $code ) {
+			return sprintf(
+				/* translators: %d: Elementor template ID */
+				__( 'Template %d is not a published Elementor template with content. Visitors keep the source template. Saving does not publish it.', 'reactwoo-geo-optimise' ),
+				$post_id
+			);
+		}
+		if ( 'template_location_mismatch' === $code ) {
+			return sprintf(
+				/* translators: %d: Elementor template ID */
+				__( 'Template %d is not a single or product template. Product bodies only swap that location. The row is kept and this template is not printed as a product body.', 'reactwoo-geo-optimise' ),
+				$post_id
+			);
 		}
 		if ( 'redirect_loop' === $code ) {
 			return sprintf(
@@ -1788,7 +1881,7 @@ class RWGO_Sitewide {
 			echo '<a class="button" style="margin-right:8px" href="' . esc_url( $url ) . '">' . esc_html( $label ) . '</a>';
 		}
 		echo '</p>';
-		echo '<p class="description">' . esc_html__( 'Preview links work for your user only. They do not write the visitor assignment cookie and they are not counted as exposure or conversions. A link without the nonce does nothing. Publish variant pages before expecting visitors to see variant page bodies.', 'reactwoo-geo-optimise' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Preview links work for your user in this browser session. They do not write the visitor assignment cookie and they are not counted as exposure or conversions. A link created by the connector fails here with a session notice and does not show a draft. A token in the URL is not enough. WordPress preview and a signed draft link that already matched its stored hash still open. Publish variant pages and product templates before expecting visitors to see them.', 'reactwoo-geo-optimise' ) . '</p>';
 	}
 
 	/**
@@ -2016,10 +2109,80 @@ class RWGO_Sitewide {
 		$arm   = class_exists( 'RWGO_Theme_Context', false )
 			? RWGO_Theme_Context::preview_arm( $preview, $legacy, $can, (bool) $ok )
 			: ( $can && $ok ? self::qa_override_allowed( true, '' !== $preview ? $preview : $legacy ) : '' );
+		$requested = '' !== $preview || '' !== $legacy;
+		self::$preview_diagnostic = class_exists( 'RWGO_Theme_Context', false )
+			? RWGO_Theme_Context::preview_diagnostic_code( $requested, (bool) $ok, $can, $arm )
+			: '';
 		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
 			RWGO_Theme_Context::set_preview( '' !== $arm );
 		}
 		return $arm;
+	}
+
+	/**
+	 * A mosmcp_preview value grants nothing until it matches a stored hash.
+	 *
+	 * @param int $post_id Queried post.
+	 * @return bool
+	 */
+	private static function shareable_preview_matches( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || ! isset( $_GET['mosmcp_preview'] ) || ! function_exists( 'get_post_meta' ) || ! class_exists( 'RWGO_Theme_Context', false ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return false;
+		}
+		$token = (string) wp_unslash( $_GET['mosmcp_preview'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$links = get_post_meta( $post_id, '_mosmcp_preview_links', true );
+		return RWGO_Theme_Context::shareable_preview_granted( $token, is_array( $links ) ? $links : array(), time() );
+	}
+
+	/**
+	 * @return string
+	 */
+	public static function preview_diagnostic() {
+		return self::$preview_diagnostic;
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function send_preview_diagnostic_header() {
+		self::qa_arm_from_request();
+		if ( '' === self::$preview_diagnostic ) {
+			return;
+		}
+		if ( function_exists( 'headers_sent' ) && headers_sent() ) {
+			return;
+		}
+		header( 'X-RWGO-Preview-Diagnostic: ' . self::$preview_diagnostic );
+	}
+
+	/**
+	 * @param mixed $bar Admin bar.
+	 * @return void
+	 */
+	public static function render_preview_diagnostic_node( $bar ) {
+		if ( 'rwgo_preview_session_mismatch' !== self::$preview_diagnostic || ! is_object( $bar ) || ! method_exists( $bar, 'add_node' ) ) {
+			return;
+		}
+		$bar->add_node(
+			array(
+				'id'    => 'rwgo-preview-diagnostic',
+				'title' => __( 'Preview link is from another login session', 'reactwoo-geo-optimise' ),
+				'href'  => function_exists( 'admin_url' ) ? admin_url( 'admin.php?page=rwgo-sitewide' ) : '',
+			)
+		);
+	}
+
+	/**
+	 * @return void
+	 */
+	public static function render_preview_diagnostic_note() {
+		if ( 'rwgo_preview_session_mismatch' !== self::$preview_diagnostic ) {
+			return;
+		}
+		echo '<p class="rwgo-preview-diagnostic" role="status" style="position:relative;z-index:100000;margin:0;padding:12px 16px;background:#1d2327;color:#fff;">';
+		echo esc_html__( 'This preview link was signed in a different login session, so the page was not changed. Open Geo Optimise, then Site-wide test, in this browser and use Preview variant B. A token in the URL is not enough.', 'reactwoo-geo-optimise' );
+		echo '</p>';
 	}
 
 	/**
@@ -3802,6 +3965,11 @@ class RWGO_Sitewide {
 						),
 					)
 				)
+				: array(),
+			'template_map'          => class_exists( 'RWGO_Theme_Context', false )
+				? ( isset( $_POST['rwgo_sw_template_map'] )
+					? RWGO_Theme_Context::template_map_rows_from_text( (string) wp_unslash( $_POST['rwgo_sw_template_map'] ) )
+					: ( isset( $old['template_map'] ) && is_array( $old['template_map'] ) ? $old['template_map'] : array() ) )
 				: array(),
 			'variants'              => array(
 				array(

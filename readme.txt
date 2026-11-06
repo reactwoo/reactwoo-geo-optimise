@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.5
+Stable tag: 0.5.6
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,12 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.6 =
+* **Added:** A site-wide test can map Elementor single/product body templates from the template Elementor already matches to a variant template. The queried product stays in place, so price and add to cart are unchanged. Woo products are not copied. Cart, checkout, account, and wp-admin stay excluded. Unpublished variant templates fall back to the source and are not published by saving.
+* **Added:** Read, validate, and save report the template map, publication, template type, and coverage. The site-wide screen edits the same map.
+* **Fix:** The template that is actually printed enqueues its Elementor document CSS, including when the swap happens after the page head. The replaced template stylesheet is dequeued.
+* **Fix:** A paused test no longer redirects a variant URL when WordPress preview is active, the rwgo preview nonce matches this login session, or a `mosmcp_preview` token matches its stored hash. A token on its own does not reveal a draft. An rwgo nonce from another session, including the connector, shows a session notice and leaves the page unchanged.
 
 = 0.5.5 =
 * **Fix:** The WordPress.org Geo Core package does not check for Optimise updates, and it does not show an update-cache control. Optimise 0.5.5 checks the stable `reactwoo-geo-optimise` catalog itself in that case and sends the license token with the check. A ReactWoo-channel Geo Core still performs that check once. Sites already on 0.5.3 or 0.5.4 do not receive this through the update list. Install this zip from Plugins → Add New → Upload.

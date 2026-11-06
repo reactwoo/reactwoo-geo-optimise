@@ -1,6 +1,6 @@
 # Site-wide A/B
 
-Geo Optimise already assigns one arm per visitor and can render a published variant page at the original URL. This note is the setup for that existing test, including Elementor header and footer templates.
+Geo Optimise already assigns one arm per visitor and can render a published variant page at the original URL. This note is the setup for that existing test, including Elementor header and footer templates. Product bodies rendered by Elementor Theme Builder use a separate template map; see `docs/SITEWIDE-PRODUCT-TEMPLATES.md`.
 
 No page IDs are built into the plugin. The IDs below are the fields you fill in for a site.
 

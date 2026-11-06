@@ -38,7 +38,7 @@ class RWGO_Sitewide_Ability {
 			array(
 				'name'  => 'reactwoo-geo-optimise/sitewide-read',
 				'label' => __( 'Read site-wide test', 'reactwoo-geo-optimise' ),
-				'description' => __( 'Reads the site-wide experiment status, page map, header and footer template IDs, revision, warnings, and whether it can be activated. Does not change the test or publish anything.', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Reads the site-wide experiment status, page map, header and footer IDs, product template map, revision, coverage, warnings, and whether it can be activated. Does not change the test or publish anything.', 'reactwoo-geo-optimise' ),
 				'category' => self::CATEGORY,
 				'input_schema' => array(
 					'type'                 => 'object',
@@ -53,7 +53,7 @@ class RWGO_Sitewide_Ability {
 			array(
 				'name'  => 'reactwoo-geo-optimise/sitewide-validate',
 				'label' => __( 'Validate site-wide test', 'reactwoo-geo-optimise' ),
-				'description' => __( 'Checks a proposed page map, control weight, and header and footer IDs. Returns errors and warnings. Does not save, publish, or activate.', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Checks a proposed page map, control weight, header and footer IDs, and product template map. Returns errors, warnings, and coverage. Does not save, publish, or activate.', 'reactwoo-geo-optimise' ),
 				'category' => self::CATEGORY,
 				'input_schema' => $save_schema,
 				'output_schema' => $result,
@@ -64,7 +64,7 @@ class RWGO_Sitewide_Ability {
 			array(
 				'name'  => 'reactwoo-geo-optimise/sitewide-save',
 				'label' => __( 'Save site-wide test', 'reactwoo-geo-optimise' ),
-				'description' => __( 'Saves a typed site-wide page map and header and footer IDs. New tests stay paused. This does not change status, publish drafts, or copy Elementor templates. Send expected_revision from the last read.', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Saves a typed site-wide page map, header and footer IDs, and product template map. New tests stay paused. This does not change status, publish drafts, duplicate Woo products, or copy Elementor templates. Send expected_revision from the last read.', 'reactwoo-geo-optimise' ),
 				'category' => self::CATEGORY,
 				'input_schema' => $save_schema,
 				'output_schema' => $result,
@@ -75,7 +75,7 @@ class RWGO_Sitewide_Ability {
 			array(
 				'name'  => 'reactwoo-geo-optimise/sitewide-set-status',
 				'label' => __( 'Set site-wide test status', 'reactwoo-geo-optimise' ),
-				'description' => __( 'Sets the site-wide test to active, paused, or ended. confirm must be true. Active is refused until a variant page is published, or a non-empty variant header or footer is published and Elementor Pro theme locations are active. Does not publish drafts.', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Sets the site-wide test to active, paused, or ended. confirm must be true. Active is refused until a variant page is published, or a non-empty variant header, footer, or product template is published and Elementor Pro theme locations are active. Does not publish drafts.', 'reactwoo-geo-optimise' ),
 				'category' => self::CATEGORY,
 				'input_schema' => array(
 					'type'                 => 'object',
@@ -106,7 +106,7 @@ class RWGO_Sitewide_Ability {
 			array(
 				'name'  => 'reactwoo-geo-optimise/sitewide-preview-link',
 				'label' => __( 'Create site-wide preview link', 'reactwoo-geo-optimise' ),
-				'description' => __( 'Returns a signed preview URL for the current manager. It does not write the assignment cookie, record exposure, or change the test.', 'reactwoo-geo-optimise' ),
+				'description' => __( 'Returns a signed preview URL for the login session that created it. A connector session nonce does not preview in a browser. It does not write the assignment cookie, record exposure, or change the test. A query token by itself is not authorization.', 'reactwoo-geo-optimise' ),
 				'category' => self::CATEGORY,
 				'input_schema' => array(
 					'type'                 => 'object',
@@ -134,7 +134,9 @@ class RWGO_Sitewide_Ability {
 						'measures' => array( 'type' => 'boolean' ),
 						'assigns'  => array( 'type' => 'boolean' ),
 						'code'     => array( 'type' => 'string' ),
-						'message'  => array( 'type' => 'string' ),
+						'message'       => array( 'type' => 'string' ),
+						'session_bound' => array( 'type' => 'boolean' ),
+						'diagnostic'    => array( 'type' => 'string' ),
 					),
 				),
 				'execute_callback' => array( __CLASS__, 'execute_preview' ),
@@ -219,11 +221,13 @@ class RWGO_Sitewide_Ability {
 			'status'     => 'paused',
 			'revision'   => isset( self::stored()['revision'] ) ? (int) self::stored()['revision'] : 0,
 			'ready'      => RWGO_Sitewide_Proposal::activation_ready( $checked, self::locations_loaded() ),
-			'page_map'   => $checked['page_map'],
+			'page_map'      => $checked['page_map'],
 			'theme_context' => $checked['theme_context'],
-			'warnings'   => $checked['warnings'],
-			'errors'     => $checked['errors'],
-			'published'  => false,
+			'template_map'  => isset( $checked['template_map'] ) ? $checked['template_map'] : array(),
+			'coverage'      => RWGO_Sitewide_Proposal::coverage_report( $checked, self::locations_loaded() ),
+			'warnings'      => $checked['warnings'],
+			'errors'        => $checked['errors'],
+			'published'     => false,
 		);
 	}
 
@@ -295,13 +299,15 @@ class RWGO_Sitewide_Ability {
 		$nonce   = function_exists( 'wp_create_nonce' ) ? wp_create_nonce( class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::PREVIEW_ACTION : 'rwgo_preview' ) : 'test-nonce';
 		$base    = self::preview_base( $page_id, self::stored() );
 		return array(
-			'ok'       => true,
-			'arm'      => $arm,
-			'url'      => self::preview_url( $base, $arm, $nonce ),
-			'measures' => false,
-			'assigns'  => false,
-			'code'     => '',
-			'message'  => __( 'Preview only. Visitors are not assigned and the view is not counted.', 'reactwoo-geo-optimise' ),
+			'ok'            => true,
+			'arm'           => $arm,
+			'url'           => self::preview_url( $base, $arm, $nonce ),
+			'measures'      => false,
+			'assigns'       => false,
+			'session_bound' => true,
+			'diagnostic'    => 'rwgo_preview_requires_browser_session',
+			'code'          => '',
+			'message'       => __( 'Preview only. This nonce works in the login session that created it. Open Preview variant B on the Site-wide test screen in the browser where you are logged in. A connector session cannot preview in another browser, and a token parameter on its own does not show a draft. Visitors are not assigned and the view is not counted.', 'reactwoo-geo-optimise' ),
 		);
 	}
 
@@ -407,6 +413,23 @@ class RWGO_Sitewide_Ability {
 						'variant' => self::theme_arm_schema(),
 					),
 				),
+				'template_map'      => array(
+					'type'        => 'array',
+					'description' => __( 'Elementor single/product body templates. location is single. source_template_id is the template Elementor already matches. variant_template_id is the B template. Do not send Woo product IDs.', 'reactwoo-geo-optimise' ),
+					'items'       => array(
+						'type'                 => 'object',
+						'additionalProperties' => false,
+						'required'             => array( 'location', 'source_template_id', 'variant_template_id' ),
+						'properties'           => array(
+							'location'            => array(
+								'type' => 'string',
+								'enum' => array( 'single', 'product', 'single-product' ),
+							),
+							'source_template_id'  => $id,
+							'variant_template_id' => $id,
+						),
+					),
+				),
 				'goal_page_ids'     => array(
 					'type'  => 'array',
 					'items' => $id,
@@ -452,6 +475,8 @@ class RWGO_Sitewide_Ability {
 				'licensed'      => array( 'type' => 'boolean' ),
 				'page_map'      => array( 'type' => 'array' ),
 				'theme_context' => array( 'type' => 'object' ),
+				'template_map'  => array( 'type' => 'array' ),
+				'coverage'      => array( 'type' => 'object' ),
 				'warnings'      => array( 'type' => 'array' ),
 				'errors'        => array( 'type' => 'array' ),
 			),
@@ -527,6 +552,8 @@ class RWGO_Sitewide_Ability {
 			'cookie_days'     => isset( $cfg['cookie_days'] ) ? (int) $cfg['cookie_days'] : 90,
 			'page_map'        => isset( $checked['page_map'] ) ? $checked['page_map'] : array(),
 			'theme_context'   => isset( $checked['theme_context'] ) ? $checked['theme_context'] : array(),
+			'template_map'    => isset( $checked['template_map'] ) ? $checked['template_map'] : array(),
+			'coverage'        => class_exists( 'RWGO_Sitewide_Proposal', false ) ? RWGO_Sitewide_Proposal::coverage_report( $checked, self::locations_loaded() ) : array(),
 			'warnings'        => $list,
 			'errors'          => array(),
 			'ready'           => class_exists( 'RWGO_Sitewide_Proposal', false ) && RWGO_Sitewide_Proposal::activation_ready( $checked, self::locations_loaded() ),
@@ -619,10 +646,12 @@ class RWGO_Sitewide_Ability {
 		}
 		$raw   = function_exists( 'get_post_meta' ) ? get_post_meta( $id, '_elementor_data', true ) : '';
 		$empty = ! is_string( $raw ) || '' === trim( $raw ) || '[]' === trim( $raw );
+		$elementor_type = function_exists( 'get_post_meta' ) ? get_post_meta( $id, '_elementor_template_type', true ) : '';
 		return array(
-			'type'            => isset( $post->post_type ) ? (string) $post->post_type : '',
-			'status'          => isset( $post->post_status ) ? (string) $post->post_status : '',
-			'elementor_empty' => $empty,
+			'type'                    => isset( $post->post_type ) ? (string) $post->post_type : '',
+			'status'                  => isset( $post->post_status ) ? (string) $post->post_status : '',
+			'elementor_empty'         => $empty,
+			'elementor_template_type' => is_string( $elementor_type ) ? $elementor_type : '',
 		);
 	}
 
