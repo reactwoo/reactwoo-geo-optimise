@@ -3,6 +3,9 @@
 ## Status
 done
 
+## Follow-up
+0.5.4 adds WordPress abilities for the site-wide test on the same PR. Not tagged. PHPUnit 81 tests, 531 assertions. Local WordPress 7.1.4 listed all five abilities with REST and MCP public. An unlicensed execute was refused. A paused-path save left drafts unpublished, activation of an unpublished variant returned `rwgo_not_ready`, and the preview link did not change the revision.
+
 ## Task
 Site-wide A/B: bind Elementor header and footer to the existing arm, keep unpublished pages unpublished, and stop preview from contaminating assignment or reporting.
 

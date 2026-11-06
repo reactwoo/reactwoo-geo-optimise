@@ -103,4 +103,4 @@ Output: `ok`, `arm`, `url`, `measures: false`, `assigns: false`. The URL contain
 
 ## Errors
 
-Permission failures are `rwgo_forbidden` and `rwgo_unlicensed` (403). Validation failures are 400 and include an `errors` list of `{code, post_id, detail, message}`. `detail` is a number or a short label, never a key or cookie.
+The permission callback returns `rwgo_forbidden` or `rwgo_unlicensed`. WordPress `execute()` replaces that with `ability_invalid_permissions` so the check does not leak details. Validation failures returned by the ability itself stay `rwgo_*` and include an `errors` list of `{code, post_id, detail, message}`. `detail` is a number or a short label, never a key or cookie.
