@@ -5,6 +5,11 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.5] - 2026-11-06
+
+### Fixed
+- The WordPress.org Geo Core 1.9.26 package does not check for Optimise updates, and its settings screen does not include an update-cache control. Optimise 0.5.5 checks catalog slug `reactwoo-geo-optimise` on the stable channel in that case and sends the license token with the check. A ReactWoo-channel Geo Core still performs the check once. Installed 0.5.3 and 0.5.4 cannot discover this through the update list. Install the published zip from Plugins → Add New → Upload.
+
 ## [0.5.4] - 2026-11-06
 
 Staging upload only. Not tagged and not published to the ReactWoo update catalog.

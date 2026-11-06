@@ -6,7 +6,7 @@
 define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'RWGA_PATH', dirname( __DIR__ ) . '/merged-geo-ai/' );
 define( 'RWGA_VERSION', '0.4.68' );
-define( 'RWGO_VERSION', '0.5.4' );
+define( 'RWGO_VERSION', '0.5.5' );
 
 $GLOBALS['rwga_test_options'] = array();
 $GLOBALS['rwga_test_filters'] = array();

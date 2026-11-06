@@ -82,6 +82,14 @@ jobs:
           echo "latest_meta_key=${LATEST_META_KEY}" >> "$GITHUB_OUTPUT"
           echo "sha256=${SHA256}" >> "$GITHUB_OUTPUT"
 
+      - name: Upload release zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: reactwoo-geo-optimise-${{ steps.meta.outputs.version }}
+          path: reactwoo-geo-optimise.zip
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Configure AWS CLI for R2
         shell: bash
         run: |

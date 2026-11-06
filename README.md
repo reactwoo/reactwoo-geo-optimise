@@ -1,6 +1,6 @@
 # ReactWoo Geo Optimise
 
-**Version:** 0.5.4  
+**Version:** 0.5.5  
 **Plugin slug:** `reactwoo-geo-optimise`
 
 ## Overview
@@ -91,7 +91,7 @@ REST base: `/wp-json/rwgo/v1/` (goals, tracking-nonce, experiments as documented
 | Goal REST tracking | Geo Optimise license (nonce + referer checks) |
 | Geo events in Core | Geo Core active |
 | Builder goals | Elementor and/or Gutenberg |
-| Plugin updates | License JWT via reactwoo-api |
+| Plugin updates | License JWT via reactwoo-api. WordPress.org Geo Core does not run that check for Optimise. See `docs/UPDATES.md`. |
 
 ## Integrations
 
