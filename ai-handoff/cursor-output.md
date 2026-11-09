@@ -3,36 +3,31 @@
 ## Status
 done
 
-## Follow-up
-0.5.4 adds WordPress abilities for the site-wide test on the same PR. Not tagged. PHPUnit 81 tests, 531 assertions. Local WordPress 7.1.4 listed all five abilities with REST and MCP public. An unlicensed execute was refused. A paused-path save left drafts unpublished, activation of an unpublished variant returned `rwgo_not_ready`, and the preview link did not change the revision.
-
 ## Task
-Site-wide A/B: bind Elementor header and footer to the existing arm, keep unpublished pages unpublished, and stop preview from contaminating assignment or reporting.
+Site-wide variant arm printed the B page and enqueued header/footer CSS, but Elementor never printed header 4040 or footer 4041. Hello’s fallback header showed. Control and cart/checkout were already fine.
+
+## Root cause
+Elementor Pro’s condition walker calls `elementor/theme/get_location_templates/template_id`, then records that template’s include and exclude rules against the ID the filter returns. The variant arm rewrote the control template ID to the variant ID. The control header’s `exclude/singular/page/{B page}` therefore removed the variant ID after the variant template’s own include had added it. `do_location()` had nothing to print. CSS was queued separately from the delivery plan.
+
+## Fix
+On the variant arm the control template is skipped (filter returns 0) so its excludes are not copied onto the variant. The variant header and footer are queued with `add_doc_to_location` before the location is printed, including when their own display conditions do not match the current URL. Control still substitutes its own template. Locked pages (cart, checkout, account) do not queue variant chrome.
 
 ## Files changed
-- `includes/class-rwgo-theme-context.php` — delivery plan, Elementor location filter, signed preview, consent gate, redirect loop guard, cache bypass for a theme split.
-- `includes/class-rwgo-sitewide.php` — uses that plan on the existing site-wide runtime. Admin warnings and preview links. Does not publish drafts.
-- `includes/class-rwgo-plugin.php` — loads the theme context class.
-- `includes/class-rwgo-cache-compat.php` — purge includes header and footer template IDs.
-- `includes/class-rwgo-exposure.php`, `includes/class-rwgo-runtime.php`, `includes/class-rwgo-rest-tracking.php`, `assets/js/rwgo-tracking.js` — skip exposure and goals for preview and for refused statistics consent.
-- `tests/Sitewide/RWGOThemeContextTest.php`, `tests/integration/theme-ab-routing.php` — routing, cache, preview, consent.
-- `docs/SITEWIDE-AB.md`, `docs/MEASUREMENT-CONTRACT.md`, `CHANGELOG.md` — setup, preview, staging, rollback.
+- `includes/class-rwgo-theme-context.php` — skip control candidates, force-queue the arm templates, model Elementor’s condition walk and location markup, enqueue Elementor frontend and document runtime assets.
+- `includes/class-rwgo-sitewide.php` — prime locations on `elementor/theme/register_locations`, `get_header`, and `get_footer`.
+- `tests/Sitewide/RWGOThemeContextTest.php` — variant markup on the swapped B page and on a URL the variant conditions miss, control markup, excluded checkout, location-queue prime.
+- Version 0.5.7 in the plugin header, `RWGO_VERSION`, readme stable tag, changelog, README, test bootstrap, and the local WordPress integration version check.
 
 ## Not changed
-- No version bump, tag, package, or merge.
-- No customer page is published.
-- Per-page redirect tests are unchanged.
-- Geo Core and Commerce pricing are untouched. Cart, checkout, and account do not take variant chrome.
+- Canonical, noindex, sitemap exclusion, and variant-URL redirects.
+- Product/single template map and the 0.5.6 body swap.
+- No tag and no merge.
 
 ## Commands
-- `php -l` on the changed PHP files — no syntax errors.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (108 tests, 717 assertions).
 - `php tests/integration/theme-ab-routing.php` — all checks passed.
 - `php tests/sitewide-assert.php` — all checks passed.
-- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (72 tests, 444 assertions).
-- Local WordPress at `http://127.0.0.1:8093` only. Not staging.reactwoo.com. WordPress 7.1.4, Elementor 4.3.6, Geo Core 1.9.26, Optimise 0.5.3 activated. Draft variant stayed draft. Variant URL returned 302 once. With Elementor Pro absent, a variant assignment kept the original body and `X-RWGO-Arm: control`.
-
-## Not published
-- No tag, no update-catalog publish, no merge, no production deploy.
+- No WordPress, Elementor, or Elementor Pro install is present in this environment. `tests/integration/local-wp-theme-ab.php` and `tests/integration/elementor-free-template-css.php` need `wp-load.php` and were not run.
 
 ## Remaining errors
-None from the unit and routing checks. WordPress, Elementor, and a CDN were not booted in this run.
+None from the unit and routing checks.

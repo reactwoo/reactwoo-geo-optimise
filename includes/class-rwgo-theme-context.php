@@ -3,13 +3,18 @@
  * Assignment-driven Elementor locations for an existing experiment.
  *
  * Page variants stay on the site-wide page map. Header, footer, and single
- * (product body) templates are Elementor locations. Display conditions choose
- * which source template matches the current document. This class then prints
- * the mapped variant template for the variant arm, on the same queried post,
- * and keeps a variant template off the control arm. Woo products are not
- * copied. Elementor Pro 3.9 or newer passes the location into
- * `elementor/theme/get_location_templates/template_id`. Older Elementor keeps
- * its own display conditions.
+ * (product body) templates are Elementor locations. Elementor Pro walks every
+ * template in a location, passes its ID through
+ * `elementor/theme/get_location_templates/template_id`, then records that
+ * template's include and exclude rules against the ID the filter returned.
+ * Rewriting the control template's ID to the variant ID copies those excludes
+ * onto the variant and removes it, so the theme prints its fallback and only
+ * the variant CSS was queued. The variant arm skips the control template
+ * instead, and queues the variant template on the header and footer locations
+ * so it prints even when its own display conditions do not match the URL.
+ * Product bodies still swap the template Elementor already matched. Woo
+ * products are not copied. Elementor Pro older than 3.9 does not pass the
+ * location into the filter.
  *
  * Draft and private variant pages are not published and are not served.
  *
@@ -31,6 +36,13 @@ class RWGO_Theme_Context {
 	 * @var bool
 	 */
 	private static $preview = false;
+
+	/**
+	 * Stops document asset enqueue from re-entering the location filter.
+	 *
+	 * @var bool
+	 */
+	private static $enqueueing_runtime = false;
 
 	/**
 	 * Elementor Theme Builder location for a single product or post body.
@@ -702,25 +714,39 @@ class RWGO_Theme_Context {
 	/**
 	 * Elementor location ID for this response.
 	 *
-	 * A configured override wins. A variant template Elementor selected from
-	 * display conditions is removed for the control arm. With no control
-	 * template configured, that removal leaves the location empty rather than
-	 * printing variant chrome for every visitor.
+	 * Elementor applies the candidate template's display rules to whatever ID
+	 * this returns. On the variant arm the control template is skipped, so its
+	 * excludes are not recorded against the variant. Any other candidate still
+	 * names the variant template. That template is also queued on the location,
+	 * because a candidate whose rules do not match the URL never reaches this
+	 * filter. On the control arm a positive override replaces a variant
+	 * template Elementor selected. With no control template configured, that
+	 * removal leaves the location empty rather than printing variant chrome
+	 * for every visitor.
 	 *
-	 * @param string        $location     header|footer.
-	 * @param int           $elementor_id ID Elementor already chose.
-	 * @param int           $override_id  ID this arm should print, or 0.
-	 * @param array<int,int> $owned       Variant template IDs owned by the test.
-	 * @param bool          $allow_variant Variant arm may keep a variant template.
+	 * @param string         $location      header|footer.
+	 * @param int            $elementor_id  ID Elementor is visiting in the condition cache.
+	 * @param int            $override_id   ID this arm should print, or 0.
+	 * @param array<int,int> $owned         Variant template IDs owned by the test.
+	 * @param bool           $allow_variant Variant arm may keep a variant template.
+	 * @param array<int,int> $skip_ids      Candidates whose rules must not be copied onto the override.
 	 * @return int
 	 */
-	public static function location_template_id( $location, $elementor_id, $override_id, array $owned, $allow_variant ) {
+	public static function location_template_id( $location, $elementor_id, $override_id, array $owned, $allow_variant, array $skip_ids = array() ) {
 		$location = sanitize_key( (string) $location );
 		if ( ! in_array( $location, array( 'header', 'footer' ), true ) ) {
 			return (int) $elementor_id;
 		}
 		$override_id  = (int) $override_id;
 		$elementor_id = (int) $elementor_id;
+		if ( $override_id > 0 && $allow_variant ) {
+			foreach ( $skip_ids as $id ) {
+				if ( $elementor_id === (int) $id ) {
+					return 0;
+				}
+			}
+			return $override_id;
+		}
 		if ( $override_id > 0 ) {
 			return $override_id;
 		}
@@ -732,6 +758,177 @@ class RWGO_Theme_Context {
 			return 0;
 		}
 		return $elementor_id;
+	}
+
+	/**
+	 * Header and footer documents this response prints even when Elementor
+	 * display conditions do not select them.
+	 *
+	 * @param array<string, mixed>|null $plan Delivery plan.
+	 * @return array{header:int,footer:int}
+	 */
+	public static function forced_location_templates( $plan ) {
+		$out = array(
+			'header' => 0,
+			'footer' => 0,
+		);
+		if ( ! is_array( $plan ) ) {
+			return $out;
+		}
+		foreach ( array( 'header', 'footer' ) as $location ) {
+			$out[ $location ] = max( 0, (int) ( $plan[ $location ] ?? 0 ) );
+		}
+		return $out;
+	}
+
+	/**
+	 * Whether one Theme Builder rule matches the queried page.
+	 *
+	 * `include/general` matches every page. `singular/page/{id}` matches that
+	 * page only. The include or exclude prefix is not part of the match.
+	 *
+	 * @param string $rule    Condition string from `_elementor_conditions`.
+	 * @param int    $page_id Queried page.
+	 * @return bool
+	 */
+	public static function theme_rule_matches( $rule, $page_id ) {
+		$rule    = trim( (string) $rule );
+		$page_id = (int) $page_id;
+		if ( preg_match( '/^(include|exclude)\/general$/', $rule ) ) {
+			return true;
+		}
+		if ( preg_match( '/^(include|exclude)\/singular\/page\/(\d+)$/', $rule, $matches ) ) {
+			return $page_id > 0 && $page_id === (int) $matches[2];
+		}
+		return false;
+	}
+
+	/**
+	 * Template IDs Elementor Pro keeps after the location condition walk.
+	 *
+	 * This is the contract in Conditions_Manager::get_location_templates().
+	 * The template_id filter runs once per cached template. Include and exclude
+	 * are recorded against the filtered ID. Excludes are applied after every
+	 * template has been visited, so a control exclude can delete a variant ID
+	 * that the variant template's own include had added. A filtered ID that is
+	 * not published is ignored, which is how a skipped control template stays
+	 * out of the result.
+	 *
+	 * @param array<int, array<int, string>> $rules_by_template Template ID => rules.
+	 * @param string                         $location          header|footer.
+	 * @param int                            $page_id           Queried page.
+	 * @param array<int, int>                $published         Published template IDs.
+	 * @return array<int, int>
+	 */
+	public static function elementor_condition_matches( array $rules_by_template, $location, $page_id, array $published ) {
+		$selected  = array();
+		$excludes  = array();
+		$live      = array();
+		foreach ( $published as $id ) {
+			$id = (int) $id;
+			if ( $id > 0 ) {
+				$live[ $id ] = true;
+			}
+		}
+		foreach ( $rules_by_template as $template_id => $rules ) {
+			if ( ! is_array( $rules ) ) {
+				continue;
+			}
+			$filtered = (int) self::filter_location_template( (int) $template_id, $location );
+			if ( $filtered <= 0 || empty( $live[ $filtered ] ) ) {
+				continue;
+			}
+			foreach ( $rules as $rule ) {
+				if ( ! self::theme_rule_matches( $rule, $page_id ) ) {
+					continue;
+				}
+				if ( 0 === strpos( (string) $rule, 'exclude/' ) ) {
+					$excludes[] = $filtered;
+				} else {
+					$selected[ $filtered ] = true;
+				}
+			}
+		}
+		foreach ( $excludes as $id ) {
+			unset( $selected[ $id ] );
+		}
+		return array_map( 'intval', array_keys( $selected ) );
+	}
+
+	/**
+	 * IDs Locations_Manager::do_location() prints.
+	 *
+	 * Condition matches are printed. A published template queued with
+	 * add_doc_to_location is printed as well when the condition walk did not
+	 * select it. That is the manual-document path, and it is what makes a
+	 * variant header appear on a URL its display conditions do not name.
+	 *
+	 * @param array<int, array<int, string>> $rules_by_template Template ID => rules.
+	 * @param string                         $location          header|footer.
+	 * @param int                            $page_id           Queried page.
+	 * @param array<int, int>                $published         Published template IDs.
+	 * @param array<string, mixed>|null      $plan              Delivery plan.
+	 * @return array<int, int>
+	 */
+	public static function printed_location_template_ids( array $rules_by_template, $location, $page_id, array $published, $plan ) {
+		$printed = self::elementor_condition_matches( $rules_by_template, $location, $page_id, $published );
+		$forced  = self::forced_location_templates( $plan );
+		$location = sanitize_key( (string) $location );
+		$extra    = isset( $forced[ $location ] ) ? (int) $forced[ $location ] : 0;
+		$live     = array();
+		foreach ( $published as $id ) {
+			$live[ (int) $id ] = true;
+		}
+		if ( $extra > 0 && ! empty( $live[ $extra ] ) && ! in_array( $extra, $printed, true ) ) {
+			$printed[] = $extra;
+		}
+		return $printed;
+	}
+
+	/**
+	 * Markup Elementor prints for one theme location. Empty when the location
+	 * has no document, which is when a theme such as Hello prints its fallback.
+	 *
+	 * @param string          $location     header|footer.
+	 * @param array<int, int> $template_ids Documents do_location will print.
+	 * @return string
+	 */
+	public static function theme_location_markup( $location, array $template_ids ) {
+		$location = sanitize_key( (string) $location );
+		if ( ! in_array( $location, array( 'header', 'footer' ), true ) ) {
+			return '';
+		}
+		$html = '';
+		foreach ( $template_ids as $id ) {
+			$id = (int) $id;
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$html .= '<div data-elementor-type="' . $location . '" data-elementor-id="' . $id . '" class="elementor elementor-' . $id . ' elementor-location-' . $location . '"></div>';
+		}
+		return $html;
+	}
+
+	/**
+	 * Header and footer markup for one response.
+	 *
+	 * The request plan must already be the plan whose filter decisions this
+	 * render uses.
+	 *
+	 * @param array<string, array<int, array<int, string>>> $rules      Location => template ID => rules.
+	 * @param int                                           $page_id    Queried page.
+	 * @param array<int, int>                               $published  Published template IDs.
+	 * @param array<string, mixed>|null                     $plan       Delivery plan.
+	 * @return string
+	 */
+	public static function theme_chrome_markup( array $rules, $page_id, array $published, $plan ) {
+		$html = '';
+		foreach ( array( 'header', 'footer' ) as $location ) {
+			$bucket = isset( $rules[ $location ] ) && is_array( $rules[ $location ] ) ? $rules[ $location ] : array();
+			$ids    = self::printed_location_template_ids( $bucket, $location, $page_id, $published, $plan );
+			$html  .= self::theme_location_markup( $location, $ids );
+		}
+		return $html;
 	}
 
 	/**
@@ -760,12 +957,16 @@ class RWGO_Theme_Context {
 		$owned = isset( self::$plan['owned_variant_template_ids'] ) && is_array( self::$plan['owned_variant_template_ids'] )
 			? self::$plan['owned_variant_template_ids']
 			: array();
+		$skip = isset( self::$plan['suppress_template_ids'] ) && is_array( self::$plan['suppress_template_ids'] )
+			? self::$plan['suppress_template_ids']
+			: array();
 		$id = self::location_template_id(
 			$location,
 			(int) $template_id,
 			$override,
 			$owned,
-			! empty( self::$plan['allow_variant_templates'] )
+			! empty( self::$plan['allow_variant_templates'] ),
+			$skip
 		);
 		$id = self::translate_body_template(
 			$location,
@@ -931,6 +1132,9 @@ class RWGO_Theme_Context {
 		if ( ! is_array( self::$plan ) ) {
 			return;
 		}
+		if ( ! empty( self::$plan['header'] ) || ! empty( self::$plan['footer'] ) ) {
+			self::enqueue_elementor_frontend_stack();
+		}
 		$ids = array();
 		foreach ( array( 'swap_page_id', 'header', 'footer' ) as $key ) {
 			if ( ! empty( self::$plan[ $key ] ) ) {
@@ -1016,7 +1220,118 @@ class RWGO_Theme_Context {
 		if ( $print_now && function_exists( 'wp_print_styles' ) ) {
 			wp_print_styles( $handle );
 		}
+		self::enqueue_document_runtime( $post_id );
 		return true;
+	}
+
+	/**
+	 * Register Elementor's frontend styles and scripts for a header or footer
+	 * that is printed from a location rather than from the current post.
+	 *
+	 * @return void
+	 */
+	private static function enqueue_elementor_frontend_stack() {
+		if ( ! class_exists( '\Elementor\Plugin', false ) || ! isset( \Elementor\Plugin::$instance ) || ! is_object( \Elementor\Plugin::$instance ) ) {
+			return;
+		}
+		$frontend = isset( \Elementor\Plugin::$instance->frontend ) ? \Elementor\Plugin::$instance->frontend : null;
+		if ( ! is_object( $frontend ) ) {
+			return;
+		}
+		foreach ( array( 'register_styles', 'register_scripts', 'enqueue_styles', 'enqueue_scripts' ) as $method ) {
+			if ( method_exists( $frontend, $method ) ) {
+				$frontend->{$method}();
+			}
+		}
+	}
+
+	/**
+	 * Ask the document for widget and Atomic runtime assets. The post CSS file
+	 * does not register those scripts.
+	 *
+	 * @param int $post_id Template ID.
+	 * @return void
+	 */
+	private static function enqueue_document_runtime( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 || self::$enqueueing_runtime || ! class_exists( '\Elementor\Plugin', false ) || ! isset( \Elementor\Plugin::$instance ) || ! is_object( \Elementor\Plugin::$instance ) ) {
+			return;
+		}
+		self::$enqueueing_runtime = true;
+		try {
+			$documents = isset( \Elementor\Plugin::$instance->documents ) ? \Elementor\Plugin::$instance->documents : null;
+			if ( is_object( $documents ) && method_exists( $documents, 'get' ) ) {
+				$document = $documents->get( $post_id );
+				if ( is_object( $document ) ) {
+					foreach ( array( 'enqueue_scripts', 'enqueue_styles' ) as $method ) {
+						if ( method_exists( $document, $method ) ) {
+							$document->{$method}();
+						}
+					}
+				}
+			}
+		} finally {
+			self::$enqueueing_runtime = false;
+		}
+	}
+
+	/**
+	 * Put this arm's header and footer onto the Elementor location queue.
+	 *
+	 * do_location() prints a published document that was added with
+	 * add_doc_to_location even when display conditions did not select it.
+	 * The control template is removed so a matching "entire site" rule cannot
+	 * print it beside the variant.
+	 *
+	 * @return void
+	 */
+	public static function prime_theme_locations() {
+		if ( ! is_array( self::$plan ) ) {
+			return;
+		}
+		$manager = self::locations_manager();
+		if ( ! is_object( $manager ) ) {
+			return;
+		}
+		$forced = self::forced_location_templates( self::$plan );
+		$skip   = isset( self::$plan['suppress_template_ids'] ) && is_array( self::$plan['suppress_template_ids'] )
+			? self::$plan['suppress_template_ids']
+			: array();
+		foreach ( array( 'header', 'footer' ) as $location ) {
+			$keep = (int) $forced[ $location ];
+			if ( method_exists( $manager, 'remove_doc_from_location' ) ) {
+				foreach ( $skip as $id ) {
+					$id = (int) $id;
+					if ( $id > 0 && $id !== $keep ) {
+						$manager->remove_doc_from_location( $location, $id );
+					}
+				}
+			}
+			if ( $keep > 0 && method_exists( $manager, 'add_doc_to_location' ) ) {
+				$manager->add_doc_to_location( $location, $keep );
+			}
+		}
+	}
+
+	/**
+	 * @return object|null
+	 */
+	private static function locations_manager() {
+		if ( function_exists( 'apply_filters' ) ) {
+			$filtered = apply_filters( 'rwgo_elementor_locations_manager', null );
+			if ( is_object( $filtered ) ) {
+				return $filtered;
+			}
+		}
+		if ( ! class_exists( '\ElementorPro\Modules\ThemeBuilder\Module', false ) || ! method_exists( '\ElementorPro\Modules\ThemeBuilder\Module', 'instance' ) ) {
+			return null;
+		}
+		$module = \ElementorPro\Modules\ThemeBuilder\Module::instance();
+		if ( ! is_object( $module ) || ! method_exists( $module, 'get_locations_manager' ) ) {
+			return null;
+		}
+		$manager = $module->get_locations_manager();
+		return is_object( $manager ) ? $manager : null;
 	}
 
 	/**

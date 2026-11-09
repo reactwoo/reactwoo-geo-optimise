@@ -24,7 +24,7 @@ $check = static function ( $label, $ok ) use ( &$fail ) {
 };
 
 $check( 'Geo Core is loaded', defined( 'RWGC_VERSION' ) && class_exists( 'RWGC_Plugin', false ) );
-$check( 'Optimise is 0.5.6', defined( 'RWGO_VERSION' ) && '0.5.6' === RWGO_VERSION );
+$check( 'Optimise is 0.5.7', defined( 'RWGO_VERSION' ) && '0.5.7' === RWGO_VERSION );
 $check( 'Elementor is loaded', defined( 'ELEMENTOR_VERSION' ) );
 $check( 'theme context class is loaded', class_exists( 'RWGO_Theme_Context', false ) && class_exists( 'RWGO_Sitewide', false ) );
 
