@@ -6,7 +6,7 @@
 define( 'ABSPATH', dirname( __DIR__ ) . '/' );
 define( 'RWGA_PATH', dirname( __DIR__ ) . '/merged-geo-ai/' );
 define( 'RWGA_VERSION', '0.4.68' );
-define( 'RWGO_VERSION', '0.5.8' );
+define( 'RWGO_VERSION', '0.5.9' );
 
 $GLOBALS['rwga_test_options'] = array();
 $GLOBALS['rwga_test_filters'] = array();
@@ -102,6 +102,87 @@ if ( ! function_exists( '__' ) ) {
 	function __( $text, $domain = 'default' ) {
 		unset( $domain );
 		return (string) $text;
+	}
+}
+
+if ( ! isset( $GLOBALS['rwga_test_transients'] ) || ! is_array( $GLOBALS['rwga_test_transients'] ) ) {
+	$GLOBALS['rwga_test_transients'] = array();
+}
+
+if ( ! function_exists( 'get_transient' ) ) {
+	/**
+	 * @param string $key Key.
+	 * @return mixed
+	 */
+	function get_transient( $key ) {
+		return $GLOBALS['rwga_test_transients'][ $key ] ?? false;
+	}
+}
+
+if ( ! function_exists( 'set_transient' ) ) {
+	/**
+	 * @param string $key   Key.
+	 * @param mixed  $value Value.
+	 * @param int    $ttl   TTL.
+	 * @return bool
+	 */
+	function set_transient( $key, $value, $ttl = 0 ) {
+		unset( $ttl );
+		$GLOBALS['rwga_test_transients'][ $key ] = $value;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'delete_transient' ) ) {
+	/**
+	 * @param string $key Key.
+	 * @return bool
+	 */
+	function delete_transient( $key ) {
+		unset( $GLOBALS['rwga_test_transients'][ $key ] );
+		return true;
+	}
+}
+
+if ( ! function_exists( 'add_filter' ) ) {
+	/**
+	 * @param string   $hook     Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @param int      $args     Accepted args.
+	 * @return true
+	 */
+	function add_filter( $hook, $callback, $priority = 10, $args = 1 ) {
+		unset( $priority, $args );
+		if ( ! isset( $GLOBALS['rwga_test_filters'][ $hook ] ) || ! is_array( $GLOBALS['rwga_test_filters'][ $hook ] ) ) {
+			$GLOBALS['rwga_test_filters'][ $hook ] = array();
+		}
+		$GLOBALS['rwga_test_filters'][ $hook ][] = $callback;
+		return true;
+	}
+}
+
+if ( ! function_exists( 'remove_filter' ) ) {
+	/**
+	 * @param string   $hook     Hook.
+	 * @param callable $callback Callback.
+	 * @param int      $priority Priority.
+	 * @return bool
+	 */
+	function remove_filter( $hook, $callback, $priority = 10 ) {
+		unset( $priority );
+		if ( empty( $GLOBALS['rwga_test_filters'][ $hook ] ) || ! is_array( $GLOBALS['rwga_test_filters'][ $hook ] ) ) {
+			return false;
+		}
+		$GLOBALS['rwga_test_filters'][ $hook ] = array_values(
+			array_filter(
+				$GLOBALS['rwga_test_filters'][ $hook ],
+				static function ( $candidate ) use ( $callback ) {
+					return $candidate !== $callback;
+				}
+			)
+		);
+		return true;
 	}
 }
 

@@ -73,7 +73,7 @@ class RWGA_Generation_Router {
 		$workflow_key = sanitize_key( (string) $workflow_key );
 		self::$last_meta = array();
 
-		$mode  = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
+		$mode  = self::resolve_mode( $request );
 		$chain = self::resolve_chain( $mode );
 
 		$skipped = array();
@@ -144,7 +144,7 @@ class RWGA_Generation_Router {
 		return self::finish_error(
 			new WP_Error(
 				'rwga_transport_unavailable',
-				__( 'No AI generation transport is available for this workflow. Connect WordPress AI, ReactWoo managed AI, or enable Local deterministic mode.', 'reactwoo-geo-ai' )
+				__( 'No AI generation transport is available for this workflow. Connect a WordPress AI provider, or use local deterministic mode. ReactWoo hosted AI comes with Decision Cloud.', 'reactwoo-geo-ai' )
 			),
 			$mode,
 			$skipped
@@ -208,20 +208,44 @@ class RWGA_Generation_Router {
 				return array( 'wordpress_ai' );
 			case 'managed':
 			case 'remote':
-				return array( 'managed' );
+				$hosted = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
+				return $hosted ? array( 'managed' ) : array( 'wordpress_ai', 'local' );
 			case 'local':
 				return array( 'local' );
 			case 'remote_fallback':
-				// Legacy: managed then local only — never silently prefer WordPress AI.
-				return array( 'managed', 'local' );
 			case 'automatic':
+				// BYOK, then local. Hosted AI is never a fallback from these modes.
+				return array( 'wordpress_ai', 'local' );
 			default:
-				if ( 'automatic' === $mode ) {
-					return array( 'wordpress_ai', 'managed', 'local' );
-				}
-				// Unknown stored value: safest explicit local.
 				return array( 'local' );
 		}
+	}
+
+	/**
+	 * Effective engine mode, unless a caller explicitly names a transport mode.
+	 *
+	 * Intelligence workflows pass transport_mode managed. That still cannot select
+	 * hosted AI unless {@see RWGA_Engine::hosted_ai_allowed()} is true.
+	 *
+	 * @param array<string, mixed> $request Request.
+	 * @return string
+	 */
+	private static function resolve_mode( array $request ) {
+		$mode = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_effective_mode() : 'local';
+		if ( empty( $request['transport_mode'] ) ) {
+			return $mode;
+		}
+		$forced = sanitize_key( (string) $request['transport_mode'] );
+		if ( ! class_exists( 'RWGA_Engine', false ) || ! in_array( $forced, RWGA_Engine::allowed_modes(), true ) ) {
+			return $mode;
+		}
+		if ( 'remote' === $forced ) {
+			return 'managed';
+		}
+		if ( 'remote_fallback' === $forced ) {
+			return 'automatic';
+		}
+		return $forced;
 	}
 
 	/**
@@ -313,7 +337,7 @@ class RWGA_Generation_Router {
 	 * @return array<string, mixed>
 	 */
 	public static function status_snapshot( $workflow_key = 'ux_analysis', array $request = array() ) {
-		$mode = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
+		$mode = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_effective_mode() : 'local';
 		$wp   = self::get_transport( 'wordpress_ai' );
 		$mg   = self::get_transport( 'managed' );
 		$loc  = self::get_transport( 'local' );
@@ -361,6 +385,7 @@ class RWGA_Generation_Router {
 
 		return array(
 			'mode'                         => $mode,
+			'hosted_ai_allowed'            => class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed(),
 			'public_mode'                  => class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_public_mode() : $mode,
 			'wordpress_ai_api_available'   => $wp_api,
 			'wordpress_ai_provider_ready'  => $wp_ok,

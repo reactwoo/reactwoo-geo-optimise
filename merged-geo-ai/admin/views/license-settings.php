@@ -321,9 +321,19 @@ $force_updates_url = is_admin() ? admin_url( 'update-core.php?force-check=1' ) :
 				</p>
 			<?php endif; ?>
 
+			<?php
+			$rwgo_hosted_ai = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
+			if ( ! $rwgo_hosted_ai && class_exists( 'RWGO_Decision_Cloud', false ) ) {
+				RWGO_Decision_Cloud::render_admin_notice();
+			} elseif ( ! $rwgo_hosted_ai ) {
+				echo '<div class="notice notice-info"><p>' . esc_html__( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) . '</p></div>';
+			}
+			?>
 			<p class="rwgc-actions rwga-license-actions">
-				<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $refresh_url ); ?>"><?php esc_html_e( 'Refresh usage', 'reactwoo-geo-ai' ); ?></a>
-				<?php if ( $lic_ok && $intel_can_sync ) : ?>
+				<?php if ( $rwgo_hosted_ai ) : ?>
+					<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $refresh_url ); ?>"><?php esc_html_e( 'Refresh usage', 'reactwoo-geo-ai' ); ?></a>
+				<?php endif; ?>
+				<?php if ( $lic_ok && $intel_can_sync && $rwgo_hosted_ai ) : ?>
 					<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $snapshot_sync_url ); ?>"><?php esc_html_e( 'Sync site intelligence', 'reactwoo-geo-ai' ); ?></a>
 					<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $snapshot_force_url ); ?>"><?php esc_html_e( 'Force sync', 'reactwoo-geo-ai' ); ?></a>
 				<?php endif; ?>

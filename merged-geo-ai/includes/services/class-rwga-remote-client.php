@@ -39,6 +39,16 @@ class RWGA_Remote_Client {
 			return new WP_Error( 'rwga_bad_workflow', __( 'Invalid workflow key.', 'reactwoo-geo-ai' ), array( 'status' => 400 ) );
 		}
 
+		if ( class_exists( 'RWGA_Engine', false ) ) {
+			RWGA_Engine::hosted_ai_allowed();
+		}
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) && ! RWGO_Decision_Cloud::hosted_ai_allowed() ) {
+			return RWGO_Decision_Cloud::unavailable_error();
+		}
+		if ( ! class_exists( 'RWGO_Decision_Cloud', false ) ) {
+			return new WP_Error( 'rwgo_decision_cloud_required', __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) );
+		}
+
 		self::$last_dispatch_meta = null;
 		$route                  = class_exists( 'RWGA_Model_Router', false ) ? RWGA_Model_Router::resolve( $workflow_key ) : array();
 

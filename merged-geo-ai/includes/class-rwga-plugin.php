@@ -150,6 +150,14 @@ class RWGA_Plugin {
 	 * @return void
 	 */
 	public function load_workflow_engine() {
+		$gate = dirname( __DIR__, 2 ) . '/includes/class-rwgo-decision-cloud.php';
+		if ( ! class_exists( 'RWGO_Decision_Cloud', false ) && is_readable( $gate ) ) {
+			require_once $gate;
+		}
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) ) {
+			RWGO_Decision_Cloud::migrate_saved_engine();
+		}
+
 		require_once RWGA_PATH . 'includes/helpers/rwga-site.php';
 		require_once RWGA_PATH . 'includes/helpers/rwga-builder-text.php';
 		require_once RWGA_PATH . 'includes/builders/class-rwga-builder-loader.php';

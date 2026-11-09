@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.8
+Stable tag: 0.5.9
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -14,7 +14,7 @@ AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includ
 
 Standalone **ReactWoo Geo AI** is deprecated — deactivate it after verifying the Optimise hub (AI Review, Recommendations, Drafts, History tabs).
 
-Generation modes: Automatic (WordPress AI → ReactWoo managed → local), WordPress AI (BYOK via WordPress 7 providers), ReactWoo managed AI, or local deterministic. Product licensing still applies; BYOK does not consume the ReactWoo managed AI allowance. Elementor Atomic support includes goal stamps and blueprint page construction (Classic V3 or Atomic V4).
+Generation uses your WordPress AI provider (bring your own key), then local deterministic execution. ReactWoo hosted AI comes with Decision Cloud. Elementor Atomic support includes goal stamps and blueprint page construction (Classic V3 or Atomic V4).
 
 See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-AI-INTO-OPTIMISE.md` for merge notes, `docs/GENERATION-TRANSPORTS.md` for transport modes, and `docs/MEASUREMENT-CONTRACT.md` for semantic element keys.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.9 =
+* **Change:** AI generation uses your WordPress AI provider, then local execution. ReactWoo hosted AI is used only when the saved licence token is Decision Cloud Growth or Scale and that plan includes Geo Optimise. A saved hosted or legacy remote mode is kept, and behaves as automatic until that entitlement is present. Intelligence workflows and cloud snapshot sync show "Available with ReactWoo Decision Cloud" without calling the hosted AI API. Licence login and update checks are unchanged.
 
 = 0.5.8 =
 * **Fix:** License login sends `package_type` `reactwoo-geo-optimise`, which is the field the license server checks. A key for another product, including Geo Core Pro, is not saved as a valid Geo Optimise licence and is not used to check for updates. Decision Cloud Growth and Scale are accepted when the token's `product_slugs` includes Geo Optimise. The License screen explains a mismatched key.

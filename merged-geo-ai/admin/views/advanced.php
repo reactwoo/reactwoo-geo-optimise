@@ -86,10 +86,11 @@ if ( class_exists( 'RWGA_Platform_Client', false ) ) {
 		if ( class_exists( 'RWGC_Admin_UI', false ) ) {
 			RWGC_Admin_UI::render_section_header(
 				__( 'Generation mode', 'reactwoo-geo-ai' ),
-				__( 'Choose how UX analysis and recommendations generate: Automatic (WordPress AI → ReactWoo managed → local), WordPress AI (BYOK), ReactWoo managed AI, or local deterministic. Cloud site intelligence sync always uses the ReactWoo managed service.', 'reactwoo-geo-ai' )
+				__( 'AI uses your WordPress AI provider (bring your own key). ReactWoo hosted AI comes with Decision Cloud.', 'reactwoo-geo-ai' )
 			);
 		} else {
 			echo '<h2>' . esc_html__( 'Generation mode', 'reactwoo-geo-ai' ) . '</h2>';
+			echo '<p class="description">' . esc_html__( 'AI uses your WordPress AI provider (bring your own key). ReactWoo hosted AI comes with Decision Cloud.', 'reactwoo-geo-ai' ) . '</p>';
 		}
 		?>
 		<form method="post" action="options.php">
@@ -100,17 +101,20 @@ if ( class_exists( 'RWGA_Platform_Client', false ) ) {
 					<th scope="row"><label for="rwga_workflow_engine"><?php esc_html_e( 'Execution mode', 'reactwoo-geo-ai' ); ?></label></th>
 					<td>
 						<select id="rwga_workflow_engine" name="<?php echo esc_attr( RWGA_Settings::OPTION_KEY ); ?>[workflow_engine]">
-							<option value="automatic" <?php selected( $workflow_engine, 'automatic' ); ?>><?php esc_html_e( 'Automatic — recommended', 'reactwoo-geo-ai' ); ?></option>
-							<option value="wordpress_ai" <?php selected( $workflow_engine, 'wordpress_ai' ); ?>><?php esc_html_e( 'WordPress AI — uses the provider connected to WordPress', 'reactwoo-geo-ai' ); ?></option>
-							<option value="managed" <?php selected( in_array( $workflow_engine, array( 'managed', 'remote' ), true ) ); ?>><?php esc_html_e( 'ReactWoo managed AI', 'reactwoo-geo-ai' ); ?></option>
+							<option value="automatic" <?php selected( $workflow_engine, 'automatic' ); ?>><?php esc_html_e( 'Automatic — WordPress AI, then local', 'reactwoo-geo-ai' ); ?></option>
+							<option value="wordpress_ai" <?php selected( $workflow_engine, 'wordpress_ai' ); ?>><?php esc_html_e( 'WordPress AI (bring your own key)', 'reactwoo-geo-ai' ); ?></option>
+							<option value="managed" <?php selected( in_array( $workflow_engine, array( 'managed', 'remote' ), true ) ); ?>><?php esc_html_e( 'ReactWoo hosted AI (Decision Cloud)', 'reactwoo-geo-ai' ); ?></option>
 							<option value="local" <?php selected( $workflow_engine, 'local' ); ?>><?php esc_html_e( 'Local deterministic', 'reactwoo-geo-ai' ); ?></option>
 							<?php if ( 'remote_fallback' === $workflow_engine ) : ?>
-								<option value="remote_fallback" selected="selected"><?php esc_html_e( 'Legacy: managed with local fallback', 'reactwoo-geo-ai' ); ?></option>
+								<option value="remote_fallback" selected="selected"><?php esc_html_e( 'Legacy remote fallback — WordPress AI, then local', 'reactwoo-geo-ai' ); ?></option>
 							<?php endif; ?>
 						</select>
 						<p class="description">
-							<?php esc_html_e( 'Stored legacy values remote and remote_fallback remain supported. remote maps to managed AI; remote_fallback keeps managed-then-local behaviour and does not prefer WordPress AI after update.', 'reactwoo-geo-ai' ); ?>
+							<?php esc_html_e( 'Automatic uses your WordPress AI provider, then local. Hosted AI runs only on Decision Cloud Growth or Scale that includes Geo Optimise.', 'reactwoo-geo-ai' ); ?>
 						</p>
+						<?php if ( class_exists( 'RWGO_Decision_Cloud', false ) && ! RWGO_Decision_Cloud::hosted_ai_allowed() && in_array( $workflow_engine, array( 'managed', 'remote', 'remote_fallback' ), true ) ) : ?>
+							<?php RWGO_Decision_Cloud::render_admin_notice(); ?>
+						<?php endif; ?>
 					</td>
 				</tr>
 				<tr>
@@ -122,7 +126,7 @@ if ( class_exists( 'RWGA_Platform_Client', false ) ) {
 								echo esc_html(
 									! empty( $gen_status['wordpress_ai_api_available'] )
 										? __( 'WordPress AI API available: yes', 'reactwoo-geo-ai' )
-										: __( 'WordPress AI API available: no (Automatic can still use managed or local)', 'reactwoo-geo-ai' )
+										: __( 'WordPress AI API available: no (Automatic uses local)', 'reactwoo-geo-ai' )
 								);
 								?>
 							</li>
@@ -138,9 +142,9 @@ if ( class_exists( 'RWGA_Platform_Client', false ) ) {
 							<li>
 								<?php
 								echo esc_html(
-									! empty( $gen_status['managed_connected'] )
-										? __( 'ReactWoo managed service connected: yes', 'reactwoo-geo-ai' )
-										: __( 'ReactWoo managed service connected: no', 'reactwoo-geo-ai' )
+									! empty( $gen_status['hosted_ai_allowed'] )
+										? __( 'ReactWoo hosted AI (Decision Cloud): yes', 'reactwoo-geo-ai' )
+										: __( 'ReactWoo hosted AI (Decision Cloud): no', 'reactwoo-geo-ai' )
 								);
 								?>
 							</li>
@@ -164,7 +168,7 @@ if ( class_exists( 'RWGA_Platform_Client', false ) ) {
 							</li>
 						</ul>
 						<?php if ( empty( $gen_status['wordpress_ai_api_available'] ) ) : ?>
-							<p class="description"><?php esc_html_e( 'This site is on a WordPress version without the public AI Client API. Automatic still falls through to ReactWoo managed AI or local deterministic execution.', 'reactwoo-geo-ai' ); ?></p>
+							<p class="description"><?php esc_html_e( 'This site is on a WordPress version without the public AI Client API. Automatic uses local deterministic execution. ReactWoo hosted AI comes with Decision Cloud.', 'reactwoo-geo-ai' ); ?></p>
 						<?php endif; ?>
 					</td>
 				</tr>

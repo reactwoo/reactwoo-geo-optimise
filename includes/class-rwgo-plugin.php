@@ -50,6 +50,8 @@ class RWGO_Plugin {
 		}
 
 		require_once RWGO_PATH . 'includes/class-rwgo-platform-client.php';
+		require_once RWGO_PATH . 'includes/class-rwgo-decision-cloud.php';
+		RWGO_Decision_Cloud::migrate_saved_engine();
 		require_once RWGO_PATH . 'includes/class-rwgo-self-updater.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-settings.php';
 		require_once RWGO_PATH . 'includes/class-rwgo-staging-asset-fix.php';

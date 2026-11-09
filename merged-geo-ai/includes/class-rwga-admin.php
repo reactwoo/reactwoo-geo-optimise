@@ -2919,8 +2919,11 @@ class RWGA_Admin {
 		$rwga_graph         = null;
 		$rwga_run_detail    = null;
 		$rwga_selected_run  = isset( $_GET['run_id'] ) ? sanitize_text_field( wp_unslash( $_GET['run_id'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$rwga_hosted_ai     = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
 
-		if ( '' === $rwga_cloud_site_id ) {
+		if ( ! $rwga_hosted_ai ) {
+			$rwga_cloud_error = '';
+		} elseif ( '' === $rwga_cloud_site_id ) {
 			$rwga_cloud_error = __( 'Sync site intelligence under Settings to register this site with the cloud API.', 'reactwoo-geo-ai' );
 		} elseif ( class_exists( 'RWGA_Intelligence_Cloud_Client', false ) ) {
 			$list = RWGA_Intelligence_Cloud_Client::list_runs( $rwga_cloud_site_id, 25 );

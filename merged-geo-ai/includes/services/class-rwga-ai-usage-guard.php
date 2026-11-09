@@ -25,6 +25,11 @@ class RWGA_AI_Usage_Guard {
 	 * @return array{allowed:bool,reason:string}
 	 */
 	public static function can_sync_snapshot() {
+		$hosted = self::decision_cloud_block();
+		if ( null !== $hosted ) {
+			return $hosted;
+		}
+
 		$license = self::check_license();
 		if ( is_wp_error( $license ) ) {
 			return array(
@@ -89,6 +94,11 @@ class RWGA_AI_Usage_Guard {
 	 */
 	public static function can_run_managed_generation( $workflow_key = '' ) {
 		unset( $workflow_key );
+
+		$hosted = self::decision_cloud_block();
+		if ( null !== $hosted ) {
+			return $hosted;
+		}
 
 		$license = self::check_license();
 		if ( is_wp_error( $license ) ) {
@@ -264,5 +274,26 @@ class RWGA_AI_Usage_Guard {
 			);
 		}
 		return true;
+	}
+
+	/**
+	 * Stop hosted work before any licence or usage HTTP when Decision Cloud is absent.
+	 *
+	 * @return array{allowed:bool,reason:string}|null Null when hosted AI may continue.
+	 */
+	private static function decision_cloud_block() {
+		if ( class_exists( 'RWGA_Engine', false ) ) {
+			RWGA_Engine::hosted_ai_allowed();
+		}
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) && RWGO_Decision_Cloud::hosted_ai_allowed() ) {
+			return null;
+		}
+		$reason = class_exists( 'RWGO_Decision_Cloud', false )
+			? RWGO_Decision_Cloud::notice()
+			: __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' );
+		return array(
+			'allowed' => false,
+			'reason'  => $reason,
+		);
 	}
 }

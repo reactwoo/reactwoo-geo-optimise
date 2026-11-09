@@ -463,6 +463,15 @@ class RWGO_AI_Connector_Diagnostics {
 			);
 		}
 
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) && ! RWGO_Decision_Cloud::hosted_ai_allowed() ) {
+			return array(
+				'ok'      => false,
+				'title'   => __( 'ReactWoo hosted AI', 'reactwoo-geo-optimise' ),
+				'message' => RWGO_Decision_Cloud::notice(),
+				'meta'    => compact( 'api_base', 'slug', 'path', 'alias' ),
+			);
+		}
+
 		$token = RWGA_Platform_Client::get_access_token();
 		if ( is_wp_error( $token ) || ! is_string( $token ) || '' === $token ) {
 			$err = get_transient( RWGA_Platform_Client::BEARER_ERROR_TRANSIENT );

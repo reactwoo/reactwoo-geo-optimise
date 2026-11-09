@@ -37,6 +37,15 @@ $sync_url = wp_nonce_url(
 
 	<?php RWGA_Admin::render_inner_nav( $rwgc_nav_current ); ?>
 
+	<?php
+	$rwgo_hosted_ai = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
+	if ( ! $rwgo_hosted_ai && class_exists( 'RWGO_Decision_Cloud', false ) ) {
+		RWGO_Decision_Cloud::render_admin_notice();
+	} elseif ( ! $rwgo_hosted_ai ) {
+		echo '<div class="notice notice-info"><p>' . esc_html__( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) . '</p></div>';
+	}
+	?>
+
 	<div class="rwgc-card" style="max-width:720px;margin-bottom:1rem;">
 		<p class="description">
 			<?php esc_html_e( 'New to site intelligence?', 'reactwoo-geo-ai' ); ?>
@@ -85,8 +94,10 @@ $sync_url = wp_nonce_url(
 			<?php echo $rwga_cloud_site_id ? '<code>' . esc_html( $rwga_cloud_site_id ) . '</code>' : esc_html__( 'Not registered yet', 'reactwoo-geo-ai' ); ?>
 		</p>
 		<p class="rwgc-actions">
-			<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $sync_url ); ?>"><?php esc_html_e( 'Sync site intelligence', 'reactwoo-geo-ai' ); ?></a>
-			<?php if ( '' !== $rwga_cloud_site_id ) : ?>
+			<?php if ( ! empty( $rwgo_hosted_ai ) ) : ?>
+				<a class="rwgc-btn rwgc-btn--secondary" href="<?php echo esc_url( $sync_url ); ?>"><?php esc_html_e( 'Sync site intelligence', 'reactwoo-geo-ai' ); ?></a>
+			<?php endif; ?>
+			<?php if ( ! empty( $rwgo_hosted_ai ) && '' !== $rwga_cloud_site_id ) : ?>
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline;">
 					<input type="hidden" name="action" value="rwga_run_intelligence_workflow" />
 					<input type="hidden" name="workflow_key" value="site_audit" />

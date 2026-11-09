@@ -13,7 +13,9 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Resolves {@see RWGA_Settings} workflow_engine for workflows and the generation router.
  *
  * Public modes: automatic | wordpress_ai | managed | local
- * Legacy stored values: remote → managed, remote_fallback → managed-then-local (no WordPress AI).
+ * Legacy stored values stay in the option. Without a Decision Cloud entitlement,
+ * managed, remote, and remote_fallback behave as automatic (WordPress AI, then local).
+ * remote_fallback never selects hosted AI.
  */
 class RWGA_Engine {
 
@@ -64,6 +66,61 @@ class RWGA_Engine {
 	}
 
 	/**
+	 * Mode the generation router should run.
+	 *
+	 * Saved managed, remote, and remote_fallback values are kept. Without a Decision Cloud
+	 * entitlement they behave as automatic. remote_fallback never selects hosted AI.
+	 *
+	 * @return string
+	 */
+	public static function get_effective_mode() {
+		$stored = self::get_mode();
+		if ( in_array( $stored, array( 'managed', 'remote', 'remote_fallback' ), true ) && ! self::hosted_ai_allowed() ) {
+			return 'automatic';
+		}
+		if ( 'remote' === $stored && self::hosted_ai_allowed() ) {
+			return 'managed';
+		}
+		if ( 'remote_fallback' === $stored ) {
+			return 'automatic';
+		}
+		return $stored;
+	}
+
+	/**
+	 * Active Decision Cloud Growth or Scale entitlement that includes Geo Optimise.
+	 *
+	 * @return bool
+	 */
+	public static function hosted_ai_allowed() {
+		self::load_decision_cloud();
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) ) {
+			return RWGO_Decision_Cloud::hosted_ai_allowed();
+		}
+		return (bool) apply_filters( 'rwgo_decision_cloud_hosted_ai', false );
+	}
+
+	/**
+	 * @return void
+	 */
+	private static function load_decision_cloud() {
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) ) {
+			return;
+		}
+		$candidates = array();
+		if ( defined( 'RWGO_PATH' ) ) {
+			$candidates[] = RWGO_PATH . 'includes/class-rwgo-decision-cloud.php';
+		}
+		$candidates[] = dirname( __DIR__, 3 ) . '/includes/class-rwgo-decision-cloud.php';
+		foreach ( $candidates as $file ) {
+			if ( is_string( $file ) && is_readable( $file ) ) {
+				require_once $file;
+				return;
+			}
+		}
+	}
+
+	/**
 	 * Public-facing mode label (maps remote → managed).
 	 *
 	 * @return string
@@ -85,8 +142,11 @@ class RWGA_Engine {
 	 * @return bool
 	 */
 	public static function should_try_remote() {
-		$m = self::get_mode();
-		return in_array( $m, array( 'remote', 'remote_fallback', 'managed', 'automatic' ), true );
+		if ( ! self::hosted_ai_allowed() ) {
+			return false;
+		}
+		$m = self::get_effective_mode();
+		return in_array( $m, array( 'remote', 'managed' ), true );
 	}
 
 	/**
