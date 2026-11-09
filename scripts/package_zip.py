@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Release zip for ReactWoo Geo Optimise. Paths: package.json → reactwooBuild."""
+"""Release zip for ReactWoo Geo Optimise. Paths: package.json → reactwooBuild.
+
+The zip is reproducible. Entry time comes from SOURCE_DATE_EPOCH, or
+1980-01-01 when that is unset. Each member is mode 0644, written with a
+fixed ZipInfo, so a local build matches the publish workflow byte for byte.
+"""
 
 from __future__ import annotations
 
 import json
 import os
 import re
+import time
 import zipfile
 from pathlib import Path
 
@@ -200,12 +206,48 @@ def collect_ordered_members(base: Path) -> tuple[str, list[tuple[str, Path]]]:
     return root_folder, [(rel, found[rel]) for rel in ordered]
 
 
+# ZIP timestamps cannot be earlier than 1980-01-01. Seconds are stored in 2-second units.
+_ZIP_EPOCH = (1980, 1, 1, 0, 0, 0)
+# Regular file, mode 0644. Fixed so the host umask does not change the hash.
+_ZIP_FILE_ATTR = 0o100644 << 16
+
+
+def reproducible_zip_datetime() -> tuple[int, int, int, int, int, int]:
+    """SOURCE_DATE_EPOCH when set, otherwise 1980-01-01 00:00:00 UTC."""
+    raw = os.environ.get("SOURCE_DATE_EPOCH", "").strip()
+    if raw.isdigit():
+        stamp = int(raw)
+        if stamp >= 315532800:
+            moment = time.gmtime(stamp)
+            second = moment.tm_sec - (moment.tm_sec % 2)
+            return (moment.tm_year, moment.tm_mon, moment.tm_mday, moment.tm_hour, moment.tm_min, second)
+    return _ZIP_EPOCH
+
+
+def stable_zipinfo(arcname: str) -> zipfile.ZipInfo:
+    """Zip member with a fixed timestamp, Unix creator, and 0644 permissions."""
+    info = zipfile.ZipInfo(filename=arcname, date_time=reproducible_zip_datetime())
+    info.compress_type = zipfile.ZIP_DEFLATED
+    info.create_system = 3
+    info.create_version = 20
+    info.extract_version = 20
+    info.external_attr = _ZIP_FILE_ATTR
+    info.extra = b""
+    info.comment = b""
+    info.flag_bits = 0
+    return info
+
+
 def write_ordered_zip(out: Path, root_folder: str, members: list[tuple[str, Path]]) -> None:
     if out.exists():
         out.unlink()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+    with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
         for rel, payload in members:
-            zf.write(payload, arcname=f"{root_folder}/{rel}")
+            arcname = f"{root_folder}/{rel}"
+            data = payload.read_bytes()
+            info = stable_zipinfo(arcname)
+            info.file_size = len(data)
+            zf.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
 
 def zip_file_entries(zf: zipfile.ZipFile) -> list[tuple[str, int]]:
