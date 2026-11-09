@@ -916,11 +916,29 @@ class RWGO_Admin {
 			RWGO_Platform_Client::clear_token_cache();
 			$tok = RWGO_Platform_Client::get_access_token();
 			if ( is_wp_error( $tok ) ) {
-				update_option( 'rwgo_license_last_check', array( 'ok' => false, 'time' => gmdate( 'c' ), 'error' => $tok->get_error_message() ), false );
+				update_option(
+					'rwgo_license_last_check',
+					array(
+						'ok'    => false,
+						'time'  => gmdate( 'c' ),
+						'error' => $tok->get_error_message(),
+						'code'  => $tok->get_error_code(),
+					),
+					false
+				);
 				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=0' ) );
 				exit;
 			}
-			update_option( 'rwgo_license_last_check', array( 'ok' => true, 'time' => gmdate( 'c' ) ), false );
+			update_option(
+				'rwgo_license_last_check',
+				array(
+					'ok'    => true,
+					'time'  => gmdate( 'c' ),
+					'error' => '',
+					'code'  => '',
+				),
+				false
+			);
 			wp_safe_redirect( admin_url( 'admin.php?page=rwgo-license&rwgo_license_test=1' ) );
 			exit;
 		}

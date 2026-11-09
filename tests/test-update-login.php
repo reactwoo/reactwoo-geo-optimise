@@ -24,7 +24,11 @@ $GLOBALS['rw_failed']     = 0;
 $GLOBALS['rw_posts']      = array();
 $GLOBALS['rw_transients'] = array();
 $GLOBALS['rw_site']       = false;
-$GLOBALS['rw_login_mode'] = 'token';
+$GLOBALS['rw_login_mode']   = 'token';
+$GLOBALS['rw_token_claims'] = array(
+	'packageType'  => 'reactwoo-geo-optimise',
+	'product_slug' => 'reactwoo-geo-optimise',
+);
 $GLOBALS['rw_is_admin']   = true;
 $GLOBALS['rw_is_cli']     = false;
 $GLOBALS['rw_doing_cron'] = false;
@@ -104,7 +108,8 @@ if ( ! function_exists( 'apply_filters' ) ) {
 	 * @param mixed  $value Value.
 	 * @return mixed
 	 */
-	function apply_filters( $hook, $value ) { // phpcs:ignore
+	function apply_filters( $hook, $value, ...$args ) { // phpcs:ignore
+		unset( $args );
 		if ( 'rwga_platform_login_is_cli' === $hook || 'rwgo_platform_login_is_cli' === $hook ) {
 			return ! empty( $GLOBALS['rw_is_cli'] );
 		}
@@ -208,7 +213,8 @@ if ( ! function_exists( 'update_option' ) ) {
 	 * @param mixed  $value Value.
 	 * @return bool
 	 */
-	function update_option( $key, $value ) {
+	function update_option( $key, $value, $autoload = null ) {
+		unset( $autoload );
 		$GLOBALS['rw_options'][ $key ] = $value;
 		return true;
 	}
@@ -287,6 +293,29 @@ if ( ! function_exists( 'wp_remote_retrieve_body' ) ) {
 		return ( is_array( $response ) && isset( $response['body'] ) ) ? (string) $response['body'] : '';
 	}
 }
+/**
+ * Unsigned JWT for entitlement checks. The signature is not verified.
+ *
+ * @param array<string, mixed> $claims Claims.
+ * @return string
+ */
+function rwgo_login_jwt( $claims ) {
+	$segment = static function ( $data ) {
+		return rtrim( strtr( base64_encode( (string) wp_json_encode( $data ) ), '+/', '-_' ), '=' );
+	};
+	return $segment( array( 'alg' => 'none', 'typ' => 'JWT' ) ) . '.' . $segment( $claims ) . '.x';
+}
+
+/**
+ * @return string
+ */
+function rwgo_login_token() {
+	$claims = isset( $GLOBALS['rw_token_claims'] ) && is_array( $GLOBALS['rw_token_claims'] )
+		? $GLOBALS['rw_token_claims']
+		: array( 'packageType' => 'reactwoo-geo-optimise' );
+	return rwgo_login_jwt( $claims );
+}
+
 if ( ! function_exists( 'wp_remote_post' ) ) {
 	/**
 	 * @param string $url URL.
@@ -301,11 +330,21 @@ if ( ! function_exists( 'wp_remote_post' ) ) {
 		if ( false !== strpos( $url, '/auth/login' ) && 'fail' === $GLOBALS['rw_login_mode'] ) {
 			return new WP_Error( 'http_request_failed', 'login timed out' );
 		}
+		if ( false !== strpos( $url, '/auth/login' ) && 'http-error' === $GLOBALS['rw_login_mode'] ) {
+			return array(
+				'response' => array( 'code' => 403 ),
+				'body'     => (string) wp_json_encode(
+					array(
+						'message' => isset( $GLOBALS['rw_login_http_message'] ) ? (string) $GLOBALS['rw_login_http_message'] : 'package mismatch',
+					)
+				),
+			);
+		}
 		return array(
 			'response' => array( 'code' => 200 ),
 			'body'     => (string) wp_json_encode(
 				array(
-					'access_token' => 'jwt-from-login',
+					'access_token' => rwgo_login_token(),
 					'expires_in'   => 3600,
 				)
 			),
@@ -493,7 +532,7 @@ $token  = RWGA_Platform_Client::get_bearer_for_updates( 10 );
 $ok     = rwgo_login_last_post();
 rwgo_login_assert(
 	'a bearer callback receives the 10 second login timeout',
-	'jwt-from-login' === $token && rwgo_login_posts() === $before + 1 && is_array( $ok ) && 10 === (int) $ok['args']['timeout']
+	rwgo_login_token() === $token && rwgo_login_posts() === $before + 1 && is_array( $ok ) && 10 === (int) $ok['args']['timeout']
 );
 rwgo_login_assert(
 	'a successful update login clears the failure cache',
@@ -524,7 +563,19 @@ $direct = RWGO_Platform_Client::get_access_token();
 $direct_post = rwgo_login_last_post();
 rwgo_login_assert(
 	'Optimise API calls outside an admin action use the 10 second timeout',
-	'jwt-from-login' === $direct && rwgo_login_posts() === $before + 1 && is_array( $direct_post ) && 10 === (int) $direct_post['args']['timeout']
+	rwgo_login_token() === $direct && rwgo_login_posts() === $before + 1 && is_array( $direct_post ) && 10 === (int) $direct_post['args']['timeout']
+);
+$direct_body = array();
+if ( is_array( $direct_post ) && isset( $direct_post['args']['body'] ) ) {
+	$decoded = json_decode( (string) $direct_post['args']['body'], true );
+	$direct_body = is_array( $decoded ) ? $decoded : array();
+}
+rwgo_login_assert(
+	'Optimise login sends package_type with the product slug',
+	isset( $direct_body['package_type'], $direct_body['product_slug'], $direct_body['catalog_slug'] )
+	&& 'reactwoo-geo-optimise' === $direct_body['package_type']
+	&& 'reactwoo-geo-optimise' === $direct_body['product_slug']
+	&& 'reactwoo-geo-optimise' === $direct_body['catalog_slug']
 );
 
 $_SERVER['PHP_SELF'] = '/wp-admin/admin-post.php';
@@ -605,6 +656,66 @@ RWGA_Intelligence_Sync_Service::maybe_auto_sync();
 RWGA_Platform_Client::get_access_token();
 RWGO_Platform_Client::get_access_token();
 rwgo_login_assert( 'ordinary front-end requests do not log in', rwgo_login_posts() === $before && ! RWGO_Platform_Client::request_may_login() );
+
+$GLOBALS['rw_is_admin']     = true;
+$GLOBALS['rw_is_cli']       = false;
+$GLOBALS['rw_login_mode']   = 'token';
+$GLOBALS['rw_token_claims'] = array(
+	'packageType'  => 'reactwoo-geocore-pro',
+	'product_slug' => 'reactwoo-geo-optimise',
+);
+RWGO_Platform_Client::clear_token_cache();
+$before = rwgo_login_posts();
+$pro    = RWGO_Platform_Client::get_access_token();
+rwgo_login_assert(
+	'a Geo Core Pro token is not stored or treated as an Optimise licence',
+	is_wp_error( $pro )
+	&& 'rwgo_license_wrong_product' === $pro->get_error_code()
+	&& false === get_transient( RWGO_Platform_Client::TOKEN_TRANSIENT )
+	&& rwgo_login_posts() === $before + 1
+);
+rwgo_login_assert(
+	'the License screen records the mismatched-key message',
+	isset( $GLOBALS['rw_options']['rwgo_license_last_check']['code'] )
+	&& 'rwgo_license_wrong_product' === $GLOBALS['rw_options']['rwgo_license_last_check']['code']
+	&& false !== strpos( (string) $GLOBALS['rw_options']['rwgo_license_last_check']['error'], 'Geo Core Pro' )
+);
+$before = rwgo_login_posts();
+RWGO_Platform_Client::get_bearer_for_updates();
+rwgo_login_assert( 'the updater does not retry a rejected Pro key', rwgo_login_posts() === $before );
+
+$GLOBALS['rw_token_claims'] = array(
+	'packageType'   => 'reactwoo-decision-cloud',
+	'plan_code'     => 'growth',
+	'product_slugs' => array( 'reactwoo-geocore-pro', 'reactwoo-geo-commerce', 'reactwoo-geo-optimise' ),
+);
+RWGO_Platform_Client::clear_token_cache();
+$growth = RWGO_Platform_Client::get_access_token();
+rwgo_login_assert(
+	'Decision Cloud Growth is accepted when product_slugs includes Geo Optimise',
+	is_string( $growth ) && '' !== $growth && RWGO_Platform_Client::token_covers_optimise( $growth )
+);
+
+$GLOBALS['rw_token_claims'] = array(
+	'packageType'   => 'reactwoo-decision-cloud',
+	'plan_code'     => 'starter',
+	'product_slugs' => array( 'reactwoo-geocore-pro' ),
+);
+RWGO_Platform_Client::clear_token_cache();
+$starter = RWGO_Platform_Client::get_access_token();
+rwgo_login_assert(
+	'Decision Cloud Starter is rejected because it does not list Geo Optimise',
+	is_wp_error( $starter ) && 'rwgo_license_wrong_product' === $starter->get_error_code()
+);
+
+$GLOBALS['rw_login_mode']         = 'http-error';
+$GLOBALS['rw_login_http_message'] = 'package type does not match';
+RWGO_Platform_Client::clear_token_cache();
+$http = RWGO_Platform_Client::get_access_token();
+rwgo_login_assert(
+	'a server package mismatch uses the same admin message',
+	is_wp_error( $http ) && 'rwgo_license_wrong_product' === $http->get_error_code()
+);
 
 if ( 0 !== $GLOBALS['rw_failed'] ) {
 	fwrite( STDERR, $GLOBALS['rw_failed'] . " failed\n" );

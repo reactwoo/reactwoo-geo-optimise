@@ -49,7 +49,9 @@ class RWGO_Merge_Bridge {
 		$ai_ready     = class_exists( 'RWGO_AI_Module', false ) && RWGO_AI_Module::is_ready();
 		$standalone   = class_exists( 'RWGO_AI_Module', false ) && RWGO_AI_Module::is_standalone_geo_ai_active();
 		$ai_licensed  = $ai_ready && class_exists( 'RWGA_License', false ) && RWGA_License::can_run_workflows();
-		$opt_licensed = class_exists( 'RWGO_Platform_Client', false ) && RWGO_Platform_Client::is_configured();
+		$opt_licensed = class_exists( 'RWGO_Platform_Client', false )
+			&& RWGO_Platform_Client::is_configured()
+			&& ! RWGO_Platform_Client::license_rejected_for_product();
 
 		$license_state = 'inactive';
 		if ( $ai_licensed || $opt_licensed ) {

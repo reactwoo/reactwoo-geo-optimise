@@ -413,8 +413,12 @@ class RWGA_Platform_Client {
 	public static function get_access_token( $timeout = 30 ) {
 		$cached = get_transient( self::TOKEN_TRANSIENT );
 		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
-			self::forget_login_failure();
-			return (string) $cached['token'];
+			$cached_token = (string) $cached['token'];
+			if ( ! class_exists( 'RWGO_Platform_Client', false ) || RWGO_Platform_Client::token_covers_optimise( $cached_token ) ) {
+				self::forget_login_failure();
+				return $cached_token;
+			}
+			delete_transient( self::TOKEN_TRANSIENT );
 		}
 
 		if ( self::login_recently_failed() ) {
@@ -510,6 +514,12 @@ class RWGA_Platform_Client {
 			self::log_license_api_trace( 'login_no_access_token', array( 'http' => $code ) );
 			self::remember_login_failure();
 			return new WP_Error( 'rwga_login_no_token', __( 'License login response did not include a token.', 'reactwoo-geo-ai' ) );
+		}
+
+		if ( class_exists( 'RWGO_Platform_Client', false ) && ! RWGO_Platform_Client::token_covers_optimise( $token ) ) {
+			self::log_license_api_trace( 'login_wrong_product', array( 'http' => $code ) );
+			self::remember_login_failure();
+			return new WP_Error( 'rwga_license_wrong_product', RWGO_Platform_Client::wrong_product_message() );
 		}
 
 		$ttl = min( self::parse_expires_in( isset( $data['expires_in'] ) ? $data['expires_in'] : null ), 23 * HOUR_IN_SECONDS );
