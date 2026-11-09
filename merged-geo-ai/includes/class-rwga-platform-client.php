@@ -719,6 +719,11 @@ class RWGA_Platform_Client {
 			return new WP_Error( 'rwga_bad_path', __( 'Invalid API path.', 'reactwoo-geo-ai' ) );
 		}
 
+		$blocked = self::block_hosted_ai_request( $path );
+		if ( $blocked instanceof WP_Error ) {
+			return $blocked;
+		}
+
 		$headers = self::base_headers();
 		if ( $auth ) {
 			$token = self::get_access_token();
@@ -760,6 +765,11 @@ class RWGA_Platform_Client {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function ai_health() {
+		$blocked = self::block_hosted_ai_request( '/ai/health' );
+		if ( $blocked instanceof WP_Error ) {
+			return $blocked;
+		}
+
 		$response = wp_remote_post(
 			self::get_api_base() . '/ai/health',
 			array(
@@ -787,6 +797,11 @@ class RWGA_Platform_Client {
 	 * @return array<string, mixed>|\WP_Error
 	 */
 	public static function get_usage() {
+		$blocked = self::block_hosted_ai_request( '/api/v5/ai/assistant/usage' );
+		if ( $blocked instanceof WP_Error ) {
+			return $blocked;
+		}
+
 		$result = self::request( 'GET', '/api/v5/ai/assistant/usage', null, true );
 		if ( is_wp_error( $result ) ) {
 			return $result;
@@ -856,5 +871,34 @@ class RWGA_Platform_Client {
 			'Content-Type'     => 'application/json',
 			'X-Requested-With' => 'XMLHttpRequest',
 		);
+	}
+
+	/**
+	 * Refuse hosted AI routes before login or wp_remote_* when Decision Cloud is absent.
+	 *
+	 * Licence login and update checks do not use this.
+	 *
+	 * @param string $path Absolute API path.
+	 * @return \WP_Error|null
+	 */
+	private static function block_hosted_ai_request( $path ) {
+		if ( class_exists( 'RWGA_Engine', false ) ) {
+			RWGA_Engine::hosted_ai_allowed();
+		} else {
+			$file = dirname( __DIR__, 2 ) . '/includes/class-rwgo-decision-cloud.php';
+			if ( ! class_exists( 'RWGO_Decision_Cloud', false ) && is_readable( $file ) ) {
+				require_once $file;
+			}
+		}
+		if ( class_exists( 'RWGO_Decision_Cloud', false ) ) {
+			return RWGO_Decision_Cloud::block_ai_request( $path );
+		}
+		$lower = strtolower( (string) $path );
+		foreach ( array( '/ai/', '/geo-ai/', '/geo-optimise/' ) as $needle ) {
+			if ( false !== strpos( $lower, $needle ) ) {
+				return new WP_Error( 'rwgo_decision_cloud_required', __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) );
+			}
+		}
+		return null;
 	}
 }

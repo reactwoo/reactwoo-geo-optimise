@@ -4,31 +4,27 @@
 done
 
 ## Task
-A non-Optimise key could obtain a Geo Optimise access token and update check because login sent only `product_slug` / `catalog_slug`. The license server compares the key's package when `package_type` is sent.
+Geo Optimise AI is bring-your-own-key unless the site has an active Decision Cloud entitlement that covers Optimise. Hosted ReactWoo AI must not run on the default chain, and it must not call api.reactwoo.com AI routes without that entitlement.
 
 ## Root cause
-`RWGO_Settings::filter_auth_login_body` and `RWGO_Platform_Client::get_access_token` named the catalog but did not send `package_type`. A returned token was cached even when its package was another product, and the self-updater sent that bearer to `/api/v5/updates/check`.
+`RWGA_Settings::get_defaults` and `RWGA_Generation_Router::resolve_chain` put `managed` after WordPress AI for `automatic`, and `remote_fallback` was managed then local. `RWGA_Managed_AI_Transport` and `RWGA_Platform_Client::get_usage` called the hosted API for any connected licence.
 
 ## Fix
-Login JSON now includes `package_type` `reactwoo-geo-optimise` from the Optimise client and from the login-body filter (including the embedded Geo AI filter). A token is kept only when its package is `reactwoo-geo-optimise` or the legacy `reactwoo-geo-ai` alias, or when `product_slugs` / `productSlugs` lists Geo Optimise (Decision Cloud Growth and Scale). `product_slug` alone does not count. The self-updater and the Geo Core bearer callback use that check. Saving or testing a mismatched key records `rwgo_license_wrong_product` and the License screen shows that message. Version is 0.5.8 because 0.5.7 is already tagged.
+The default chain is WordPress AI, then local. `managed` and legacy `remote` use hosted AI only when a cached licence JWT is Decision Cloud Growth or Scale and `product_slugs` includes Geo Optimise. Saved `managed`, `remote`, and `remote_fallback` values are not deleted. Without that entitlement they behave as automatic. `remote_fallback` never selects hosted AI. Intelligence workflows and cloud snapshot sync show "Available with ReactWoo Decision Cloud" and return that message instead of calling the API. Licence login and the update check are unchanged. Version is 0.5.9.
 
 ## Files changed
-- `includes/class-rwgo-platform-client.php` — send `package_type`, reject non-covering tokens, record the license check.
-- `includes/class-rwgo-settings.php` — same field on the shared login filter; validate when the saved key changes.
-- `includes/class-rwgo-self-updater.php` — request a catalog check only with a covering bearer.
-- `includes/class-rwgo-admin.php`, `admin/views/license-settings.php` — store the error code and show the mismatched-key notice.
-- `includes/class-rwgo-merge-bridge.php`, `includes/class-rwgo-sitewide-ability.php` — a rejected key is not an Optimise entitlement.
-- `merged-geo-ai/includes/class-rwga-settings.php`, `merged-geo-ai/includes/class-rwga-platform-client.php` — embedded login sends `package_type` and does not keep a non-covering token.
-- Tests, plugin header, `RWGO_VERSION`, readme stable tag, changelog, README.
+- `includes/class-rwgo-decision-cloud.php` — cached-token entitlement, migration stamp, AI path gate, admin notice.
+- Generation router, engine, managed transport, remote client, usage guard, platform client, intelligence workflow, snapshot wizard.
+- Advanced, UX reviewer, intelligence, and licence screens.
+- `docs/GENERATION-TRANSPORTS.md`, version files, PHPUnit coverage.
 
 ## Not changed
-- react-license and reactwoo-api. Those repos are not readable with this run's GitHub credential. The server follow-up is in the pull request.
+- `POST /api/v5/auth/login` and `/api/v5/updates/check`.
 - No tag and no merge.
 
 ## Commands
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (122 tests, 803 assertions).
 - `php tests/test-update-login.php` — update login checks passed.
-- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (115 tests, 737 assertions).
-- No WordPress install is present. The License screen was not clicked in a browser.
 
 ## Remaining errors
-None from the unit and login checks.
+None from the unit and login checks. No WordPress admin browser was available, so the notice screens were not clicked.

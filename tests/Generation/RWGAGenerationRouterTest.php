@@ -85,7 +85,9 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 	protected function tearDown(): void {
 		RWGA_Generation_Router::set_transport_overrides( null );
 		RWGA_WordPress_AI_Transport::$test_prompt_executor = null;
-		$GLOBALS['rwga_test_options'] = array();
+		$GLOBALS['rwga_test_options']    = array();
+		$GLOBALS['rwga_test_transients'] = array();
+		$GLOBALS['rwga_test_filters']    = array();
 		parent::tearDown();
 	}
 
@@ -93,9 +95,10 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 	 * @return void
 	 */
 	public function test_legacy_remote_maps_to_managed_chain() {
-		$this->assertSame( array( 'managed' ), RWGA_Generation_Router::resolve_chain( 'remote' ) );
-		$this->assertSame( array( 'managed', 'local' ), RWGA_Generation_Router::resolve_chain( 'remote_fallback' ) );
-		$this->assertSame( array( 'wordpress_ai', 'managed', 'local' ), RWGA_Generation_Router::resolve_chain( 'automatic' ) );
+		$this->assertSame( array( 'wordpress_ai', 'local' ), RWGA_Generation_Router::resolve_chain( 'remote' ) );
+		$this->assertSame( array( 'wordpress_ai', 'local' ), RWGA_Generation_Router::resolve_chain( 'remote_fallback' ) );
+		$this->assertNotContains( 'managed', RWGA_Generation_Router::resolve_chain( 'automatic' ) );
+		$this->assertSame( array( 'wordpress_ai', 'local' ), RWGA_Generation_Router::resolve_chain( 'automatic' ) );
 	}
 
 	/**
@@ -154,7 +157,7 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 	/**
 	 * @return void
 	 */
-	public function test_automatic_falls_to_managed_when_wordpress_unavailable() {
+	public function test_automatic_falls_to_local_when_wordpress_unavailable() {
 		update_option( 'rwga_settings', array( 'workflow_engine' => 'automatic' ) );
 		$wp = new RWGA_Fake_Generation_Transport(
 			'wordpress_ai',
@@ -193,9 +196,9 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 		);
 
 		$this->assertIsArray( $out );
-		$this->assertSame( 'managed', $out['transport'] );
+		$this->assertSame( 'local', $out['transport'] );
 		$this->assertSame( 0, $wp->dispatch_calls );
-		$this->assertSame( 1, $mg->dispatch_calls );
+		$this->assertSame( 0, $mg->dispatch_calls );
 		$meta = RWGA_Generation_Router::last_meta();
 		$this->assertNotEmpty( $meta['fallback_reason'] );
 	}
@@ -295,7 +298,7 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 
 		$this->assertIsArray( $out );
 		$this->assertSame( 'local', $out['transport'] );
-		$this->assertSame( 1, $mg->dispatch_calls );
+		$this->assertSame( 0, $mg->dispatch_calls );
 		$this->assertSame( 1, $local_calls );
 		$this->assertTrue( RWGA_Generation_Router::is_fallback_eligible_error( new WP_Error( 'x', 'This workflow requires pro tier or higher' ) ) );
 	}
@@ -405,13 +408,15 @@ class RWGAGenerationRouterTest extends PHPUnit\Framework\TestCase {
 		update_option( 'rwga_settings', array( 'workflow_engine' => 'remote' ) );
 		$this->assertSame( 'remote', RWGA_Engine::get_mode() );
 		$this->assertSame( 'managed', RWGA_Engine::get_public_mode() );
-		$this->assertTrue( RWGA_Engine::should_try_remote() );
+		$this->assertSame( 'automatic', RWGA_Engine::get_effective_mode() );
+		$this->assertFalse( RWGA_Engine::should_try_remote() );
 	}
 
 	/**
 	 * @return void
 	 */
-	public function test_remote_fallback_never_includes_wordpress_ai() {
-		$this->assertNotContains( 'wordpress_ai', RWGA_Generation_Router::resolve_chain( 'remote_fallback' ) );
+	public function test_remote_fallback_is_byok_then_local() {
+		$this->assertSame( array( 'wordpress_ai', 'local' ), RWGA_Generation_Router::resolve_chain( 'remote_fallback' ) );
+		$this->assertNotContains( 'managed', RWGA_Generation_Router::resolve_chain( 'remote_fallback' ) );
 	}
 }

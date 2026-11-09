@@ -1,13 +1,13 @@
 # ReactWoo Geo Optimise
 
-**Version:** 0.5.8  
+**Version:** 0.5.9  
 **Plugin slug:** `reactwoo-geo-optimise`
 
 ## Overview
 
 Geo Optimise is the **merged** conversion-optimisation satellite on **ReactWoo Geo Core**: AI review, recommendations, and drafts (embedded `merged-geo-ai/`) plus experiments (`rwgo_experiment` CPT), sticky assignment, goal tracking, and reports. Standalone Geo AI is deprecated.
 
-Licensing and updates use **react-license** and **reactwoo-api**. WordPress AI (BYOK) is the preferred on-site generation path when available; ReactWoo managed AI remains optional. Both require an Optimise licence; only managed calls consume the ReactWoo managed AI allowance.
+Licensing and updates use **react-license** and **reactwoo-api**. AI uses the site WordPress AI provider (bring your own key). ReactWoo hosted AI comes with Decision Cloud.
 
 ## Position in family
 
@@ -25,7 +25,7 @@ Geo Optimise consumes Core hooks (`rwgc_emit_geo_event`, REST `/capabilities`) a
 ### Available
 
 - **AI Review / Recommendations / Drafts** via embedded Geo AI (`merged-geo-ai/`)
-- **Generation modes:** Automatic, WordPress AI, ReactWoo managed, Local (`docs/GENERATION-TRANSPORTS.md`)
+- **Generation modes:** Automatic (WordPress AI, then local), WordPress AI, local, and ReactWoo hosted AI for Decision Cloud (`docs/GENERATION-TRANSPORTS.md`)
 - **Experiments CPT** with Create Test wizard, Tests list, Edit Test, Reports
 - Sticky **variant assignment** (`rwgo_get_variant`, cookie-based, weighted splits)
 - **REST goal tracking**: `POST /wp-json/rwgo/v1/goal`, tracking nonce endpoint

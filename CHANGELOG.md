@@ -5,6 +5,12 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] - 2026-11-09
+
+### Changed
+- AI generation uses the site WordPress AI provider, then local execution. ReactWoo hosted AI runs only for an active Decision Cloud Growth or Scale token whose `product_slugs` include Geo Optimise. Saved `managed`, `remote`, and `remote_fallback` values are kept and behave as automatic until that entitlement is present.
+- Intelligence workflows and cloud snapshot sync stay visible with the notice "Available with ReactWoo Decision Cloud" and do not call hosted AI endpoints, including the usage probe, without that entitlement. Licence login and update checks are unchanged.
+
 ## [0.5.8] - 2026-11-09
 
 ### Fixed

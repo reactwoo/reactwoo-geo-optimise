@@ -48,6 +48,12 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 <?php endif; ?>
 
 	<?php
+	$rwgo_hosted_ai = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
+	if ( ! $rwgo_hosted_ai && class_exists( 'RWGO_Decision_Cloud', false ) ) {
+		RWGO_Decision_Cloud::render_admin_notice();
+	} elseif ( ! $rwgo_hosted_ai ) {
+		echo '<div class="notice notice-info"><p>' . esc_html__( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) . '</p></div>';
+	}
 	$flash = isset( $_GET['rwga_act'] ) ? sanitize_key( wp_unslash( $_GET['rwga_act'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$intel_flash = isset( $_GET['rwga_intel'] ) ? sanitize_key( wp_unslash( $_GET['rwga_intel'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 	$wizard_flash = isset( $_GET['rwga_wizard'] ) ? sanitize_key( wp_unslash( $_GET['rwga_wizard'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended

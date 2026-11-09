@@ -45,6 +45,13 @@ class RWGA_Managed_AI_Transport implements RWGA_Generation_Transport {
 			);
 		}
 
+		if ( ! class_exists( 'RWGA_Engine', false ) || ! RWGA_Engine::hosted_ai_allowed() ) {
+			$reason = class_exists( 'RWGO_Decision_Cloud', false )
+				? RWGO_Decision_Cloud::notice()
+				: __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' );
+			return new WP_Error( 'rwgo_decision_cloud_required', $reason );
+		}
+
 		if ( class_exists( 'RWGA_AI_Usage_Guard', false ) ) {
 			$gate = RWGA_AI_Usage_Guard::can_run_managed_generation( $workflow_key );
 			if ( empty( $gate['allowed'] ) ) {

@@ -66,6 +66,15 @@ class RWGA_Workflow_Intelligence extends RWGA_Workflow_Base {
 	 * @return true|\WP_Error
 	 */
 	public function validate_input( array $input ) {
+		if ( class_exists( 'RWGA_Engine', false ) && ! RWGA_Engine::hosted_ai_allowed() ) {
+			$reason = class_exists( 'RWGO_Decision_Cloud', false )
+				? RWGO_Decision_Cloud::notice()
+				: __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' );
+			return new WP_Error( 'rwgo_decision_cloud_required', $reason );
+		}
+		if ( ! class_exists( 'RWGA_Engine', false ) ) {
+			return new WP_Error( 'rwgo_decision_cloud_required', __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ) );
+		}
 		$g = $this->gate_capabilities();
 		if ( is_wp_error( $g ) ) {
 			return $g;
@@ -168,25 +177,24 @@ class RWGA_Workflow_Intelligence extends RWGA_Workflow_Base {
 		}
 
 		$payload = $this->build_request_payload( $input );
-		$mode    = class_exists( 'RWGA_Engine', false ) ? RWGA_Engine::get_mode() : 'local';
 
-		// Cloud intelligence requires ReactWoo managed generation (snapshot + remote orchestration).
-		if ( in_array( $mode, array( 'local', 'wordpress_ai' ), true ) ) {
-			return new WP_Error(
-				'rwga_remote_required',
-				__( 'Intelligence workflows require Automatic or ReactWoo managed AI in Advanced settings (not Local or WordPress AI alone).', 'reactwoo-geo-ai' )
-			);
+		if ( ! class_exists( 'RWGA_Engine', false ) || ! RWGA_Engine::hosted_ai_allowed() ) {
+			$reason = class_exists( 'RWGO_Decision_Cloud', false )
+				? RWGO_Decision_Cloud::notice()
+				: __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' );
+			return new WP_Error( 'rwgo_decision_cloud_required', $reason );
 		}
 
 		if ( ! class_exists( 'RWGA_Generation_Router', false ) ) {
 			return new WP_Error( 'rwga_no_router', __( 'Generation router is not available.', 'reactwoo-geo-ai' ) );
 		}
 
-		// No local callback — managed-only (automatic / remote_fallback skip WP AI then require managed).
+		// Explicit hosted transport. The automatic BYOK chain never selects managed.
 		$envelope = RWGA_Generation_Router::generate(
 			$this->get_key(),
 			array(
-				'payload' => $payload,
+				'payload'        => $payload,
+				'transport_mode' => 'managed',
 			)
 		);
 		if ( is_wp_error( $envelope ) ) {

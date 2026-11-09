@@ -62,10 +62,7 @@ class RWGA_Site_Intelligence_Journey {
 	 * @return bool
 	 */
 	public static function is_remote_engine_ready() {
-		if ( ! class_exists( 'RWGA_Engine', false ) ) {
-			return false;
-		}
-		return RWGA_Engine::should_try_remote();
+		return class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
 	}
 
 	/**
@@ -164,7 +161,7 @@ class RWGA_Site_Intelligence_Journey {
 			&& ( empty( $intel['status']['last_sync_status'] ) || 'synced' === (string) $intel['status']['last_sync_status'] );
 		$state  = self::get_state();
 		$audited = ! empty( $state['last_audit_at_gmt'] );
-		if ( ! $audited && class_exists( 'RWGA_Intelligence_Cloud_Client', false ) ) {
+		if ( ! $audited && self::is_remote_engine_ready() && class_exists( 'RWGA_Intelligence_Cloud_Client', false ) ) {
 			$cloud_site = RWGA_Intelligence_Cloud_Client::get_cloud_site_id();
 			if ( '' !== $cloud_site ) {
 				$list = RWGA_Intelligence_Cloud_Client::list_runs( $cloud_site, 1 );
@@ -185,15 +182,15 @@ class RWGA_Site_Intelligence_Journey {
 			array(
 				'id'    => 'license',
 				'label' => __( 'Connect your Geo AI license', 'reactwoo-geo-ai' ),
-				'hint'  => __( 'Pro plan required for cloud site intelligence.', 'reactwoo-geo-ai' ),
+				'hint'  => __( 'A Geo Optimise or Decision Cloud key connects this site. Hosted AI needs Decision Cloud.', 'reactwoo-geo-ai' ),
 				'done'  => $lic_ok,
 				'url'   => $license_url,
 				'cta'   => __( 'Open license settings', 'reactwoo-geo-ai' ),
 			),
 			array(
 				'id'    => 'remote',
-				'label' => __( 'Turn on remote analysis', 'reactwoo-geo-ai' ),
-				'hint'  => __( 'Set execution mode to Remote or Remote with local fallback under Advanced.', 'reactwoo-geo-ai' ),
+				'label' => __( 'Decision Cloud', 'reactwoo-geo-ai' ),
+				'hint'  => __( 'Available with ReactWoo Decision Cloud.', 'reactwoo-geo-ai' ),
 				'done'  => $remote,
 				'url'   => $advanced_url,
 				'cta'   => __( 'Open Advanced settings', 'reactwoo-geo-ai' ),
@@ -292,10 +289,10 @@ class RWGA_Site_Intelligence_Journey {
 			return new WP_Error( 'rwga_wizard_no_license', __( 'Add a Geo AI license key first.', 'reactwoo-geo-ai' ) );
 		}
 		if ( ! self::is_remote_engine_ready() ) {
-			return new WP_Error(
-				'rwga_wizard_no_remote',
-				__( 'Site intelligence requires Remote or Remote with local fallback in Advanced → Workflow engine.', 'reactwoo-geo-ai' )
-			);
+			$reason = class_exists( 'RWGO_Decision_Cloud', false )
+				? RWGO_Decision_Cloud::notice()
+				: __( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' );
+			return new WP_Error( 'rwgo_decision_cloud_required', $reason );
 		}
 		if ( ! function_exists( 'rwgc_build_ai_snapshot' ) ) {
 			return new WP_Error(

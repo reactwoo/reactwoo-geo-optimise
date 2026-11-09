@@ -41,6 +41,7 @@ $rwga_toggle_auto_url = wp_nonce_url(
 	'rwga_intelligence_wizard_toggle_auto'
 );
 $can_run = current_user_can( RWGA_Capabilities::CAP_RUN_AI );
+$rwgo_hosted_ai = class_exists( 'RWGA_Engine', false ) && RWGA_Engine::hosted_ai_allowed();
 ?>
 <div class="wrap rwgc-wrap rwgc-suite rwga-wrap rwga-wrap--intelligence-wizard">
 	<?php if ( class_exists( 'RWGC_Admin_UI', false ) ) : ?>
@@ -55,6 +56,12 @@ $can_run = current_user_can( RWGA_Capabilities::CAP_RUN_AI );
 	<?php endif; ?>
 
 	<?php RWGA_Admin::render_inner_nav( $rwgc_nav_current ); ?>
+
+	<?php if ( ! $rwgo_hosted_ai && class_exists( 'RWGO_Decision_Cloud', false ) ) : ?>
+		<?php RWGO_Decision_Cloud::render_admin_notice(); ?>
+	<?php elseif ( ! $rwgo_hosted_ai ) : ?>
+		<div class="notice notice-info"><p><?php esc_html_e( 'Available with ReactWoo Decision Cloud', 'reactwoo-geo-ai' ); ?></p></div>
+	<?php endif; ?>
 
 	<?php if ( $rwga_pending_count > 0 ) : ?>
 		<div class="notice notice-warning" style="max-width:820px;">
@@ -197,7 +204,7 @@ $can_run = current_user_can( RWGA_Capabilities::CAP_RUN_AI );
 			</div>
 		<?php endif; ?>
 		<p class="rwgc-actions">
-			<?php if ( $can_run ) : ?>
+			<?php if ( $can_run && $rwgo_hosted_ai ) : ?>
 				<?php if ( ! $rwga_quota_blocked ) : ?>
 					<a class="rwgc-btn rwgc-btn--primary" href="<?php echo esc_url( $rwga_setup_url ); ?>"><?php esc_html_e( 'Run automated setup', 'reactwoo-geo-ai' ); ?></a>
 				<?php endif; ?>
@@ -233,7 +240,7 @@ $can_run = current_user_can( RWGA_Capabilities::CAP_RUN_AI );
 					<?php if ( ! empty( $audit_row['hint'] ) ) : ?>
 						<p class="description"><?php echo esc_html( (string) $audit_row['hint'] ); ?></p>
 					<?php endif; ?>
-					<?php if ( $can_run ) : ?>
+					<?php if ( $can_run && $rwgo_hosted_ai ) : ?>
 						<p><a class="button button-secondary" href="<?php echo esc_url( $audit_url ); ?>"><?php echo esc_html( sprintf( __( 'Run %s', 'reactwoo-geo-ai' ), (string) ( $audit_row['label'] ?? $audit_key ) ) ); ?></a></p>
 					<?php endif; ?>
 				</li>
@@ -265,7 +272,7 @@ $can_run = current_user_can( RWGA_Capabilities::CAP_RUN_AI );
 						<?php if ( ! empty( $step['hint'] ) ) : ?>
 							<p class="description"><?php echo esc_html( (string) $step['hint'] ); ?></p>
 						<?php endif; ?>
-						<?php if ( ! $done && ! empty( $step['url'] ) && ! empty( $step['cta'] ) ) : ?>
+						<?php if ( ! $done && ! empty( $step['url'] ) && ! empty( $step['cta'] ) && ( $rwgo_hosted_ai || ! in_array( (string) ( $step['id'] ?? '' ), array( 'sync', 'audit' ), true ) ) ) : ?>
 							<p><a class="button<?php echo $is_current ? ' button-primary' : ' button-secondary'; ?>" href="<?php echo esc_url( (string) $step['url'] ); ?>"><?php echo esc_html( (string) $step['cta'] ); ?></a></p>
 						<?php elseif ( $done && ! empty( $step['url'] ) && ! empty( $step['cta'] ) && ! empty( $step['optional'] ) ) : ?>
 							<p><a class="button button-secondary" href="<?php echo esc_url( (string) $step['url'] ); ?>"><?php echo esc_html( (string) $step['cta'] ); ?></a></p>
