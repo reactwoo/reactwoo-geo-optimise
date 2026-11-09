@@ -79,23 +79,51 @@ class RWGO_Sitewide_Proposal {
 				'variant' => array( 'header' => 0, 'footer' => 0 ),
 			);
 		self::check_theme_ids( $cfg, $errors );
+		$template_map = array();
+		if ( array_key_exists( 'template_map', $cfg ) ) {
+			$template_map = self::collect_template_map( $cfg['template_map'], is_array( $posts ) ? $posts : null, $errors, $warnings );
+		}
 
 		if ( is_array( $posts ) ) {
 			self::check_posts( $map, $theme, $posts, $errors, $warnings );
 		}
 
-		$parts = self::readiness_parts( $map, $theme, $posts );
+		$parts = self::readiness_parts( $map, $theme, $posts, $template_map );
 		return array(
-			'ok'             => array() === $errors,
-			'errors'         => $errors,
-			'warnings'       => $warnings,
-			'page_map'       => $map,
-			'theme_context'  => $theme,
-			'control_weight' => $weight / 100,
-			'cookie_days'    => $days,
-			'page_ready'     => $parts['page_ready'],
-			'chrome_ready'   => $parts['chrome_ready'],
-			'ready'          => $parts['page_ready'] || $parts['chrome_ready'],
+			'ok'                      => array() === $errors,
+			'errors'                  => $errors,
+			'warnings'                => $warnings,
+			'page_map'                => $map,
+			'theme_context'           => $theme,
+			'template_map'            => $template_map,
+			'control_weight'          => $weight / 100,
+			'cookie_days'             => $days,
+			'page_ready'              => $parts['page_ready'],
+			'chrome_ready'            => $parts['chrome_ready'],
+			'product_templates_ready' => $parts['product_templates_ready'],
+			'ready'                   => $parts['page_ready'] || $parts['chrome_ready'],
+		);
+	}
+
+	/**
+	 * What the test can serve. Product bodies use template_map, not page_map.
+	 *
+	 * @param array<string, mixed> $checked   inspect() result.
+	 * @param bool                 $locations Elementor Pro locations are loaded.
+	 * @return array<string, mixed>
+	 */
+	public static function coverage_report( array $checked, $locations ) {
+		$pairs = isset( $checked['template_map'] ) && is_array( $checked['template_map'] ) ? count( $checked['template_map'] ) : 0;
+		$ready = isset( $checked['product_templates_ready'] ) ? (int) $checked['product_templates_ready'] : 0;
+		return array(
+			'page_pairs'                => isset( $checked['page_map'] ) && is_array( $checked['page_map'] ) ? count( $checked['page_map'] ) : 0,
+			'product_template_pairs'    => $pairs,
+			'product_templates_ready'   => $ready,
+			'elementor_pro_locations'   => (bool) $locations,
+			'serves_product_bodies'     => (bool) $locations && $ready > 0,
+			'excluded'                  => array( 'cart', 'checkout', 'my-account', 'admin' ),
+			'page_map_post_types'       => array( 'page' ),
+			'product_body_location'     => 'single',
 		);
 	}
 
@@ -176,6 +204,9 @@ class RWGO_Sitewide_Proposal {
 		$config['control_weight'] = $checked['control_weight'];
 		$config['page_map']       = self::with_empty_paths( $checked['page_map'] );
 		$config['theme_context']  = $checked['theme_context'];
+		if ( array_key_exists( 'template_map', $input ) ) {
+			$config['template_map'] = $checked['template_map'];
+		}
 		$config['source_page_id'] = isset( $checked['page_map'][0]['source_page_id'] ) ? (int) $checked['page_map'][0]['source_page_id'] : 0;
 		$config['revision']       = ( isset( $existing['revision'] ) ? (int) $existing['revision'] : 0 ) + 1;
 		$config['variants']       = array(
@@ -357,7 +388,7 @@ class RWGO_Sitewide_Proposal {
 			return __( 'Set the control header and footer too, or Elementor can leave that location empty for the control arm.', 'reactwoo-geo-optimise' );
 		}
 		if ( 'rwgo_not_ready' === $code ) {
-			return __( 'The test cannot go active until a variant page is published, or a non-empty variant header or footer is published and Elementor Pro theme locations are active.', 'reactwoo-geo-optimise' );
+			return __( 'The test cannot go active until a variant page is published, or a non-empty variant header, footer, or product template is published and Elementor Pro theme locations are active.', 'reactwoo-geo-optimise' );
 		}
 		if ( 'rwgo_confirm_required' === $code ) {
 			return __( 'Changing status requires confirm set to true. Saving the map does not activate the test.', 'reactwoo-geo-optimise' );
@@ -376,6 +407,51 @@ class RWGO_Sitewide_Proposal {
 		}
 		if ( 'rwgo_unlicensed' === $code ) {
 			return __( 'Geo Optimise is not licensed on this site.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'rwgo_template_location' === $code ) {
+			return __( 'A product template row must use the single location. Header and footer stay in their own fields. Woo products are not template rows.', 'reactwoo-geo-optimise' );
+		}
+		if ( 'rwgo_template_loop' === $code ) {
+			return sprintf(
+				/* translators: %d: template ID */
+				__( 'Template %d cannot be both the source and the variant.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_duplicate_template' === $code ) {
+			return sprintf(
+				/* translators: %d: source template ID */
+				__( 'Template %d is already mapped for that location.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_product_not_template' === $code ) {
+			return sprintf(
+				/* translators: %d: Woo product ID */
+				__( 'Product %d is a WooCommerce product. Map the Elementor product template that renders it. This does not duplicate the product.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_variant_template_conditioned' === $code ) {
+			return sprintf(
+				/* translators: %d: variant template ID */
+				__( 'Template %d has Elementor display conditions. Remove them. A published variant template with conditions can be selected for every matching product when this plugin is paused or inactive. Leave it published and unassigned, and map it here.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_source_template_unassigned' === $code ) {
+			return sprintf(
+				/* translators: %d: source template ID */
+				__( 'Template %d has no Elementor display conditions, so Elementor will not select it for products. Keep the conditions on this source template. Do not copy them onto the variant.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
+		}
+		if ( 'rwgo_template_location_mismatch' === $code ) {
+			return sprintf(
+				/* translators: %d: template ID */
+				__( 'Template %d is not a single or product Elementor template. Product bodies use that location. It is saved and is not printed as a product body.', 'reactwoo-geo-optimise' ),
+				(int) $post_id
+			);
 		}
 		return $code;
 	}
@@ -513,13 +589,15 @@ class RWGO_Sitewide_Proposal {
 	 * @param array<int, array<string, mixed>|null>|null $posts Posts.
 	 * @return array{page_ready:bool,chrome_ready:bool}
 	 */
-	private static function readiness_parts( array $map, array $theme, $posts ) {
+	private static function readiness_parts( array $map, array $theme, $posts, array $template_map = array() ) {
 		$page   = false;
 		$chrome = false;
+		$product_ready = 0;
 		if ( ! is_array( $posts ) ) {
 			return array(
-				'page_ready'   => false,
-				'chrome_ready' => false,
+				'page_ready'              => false,
+				'chrome_ready'            => false,
+				'product_templates_ready' => 0,
 			);
 		}
 		foreach ( $map as $row ) {
@@ -538,10 +616,146 @@ class RWGO_Sitewide_Proposal {
 				$chrome = true;
 			}
 		}
+		foreach ( $template_map as $row ) {
+			$id = (int) ( $row['variant_template_id'] ?? 0 );
+			if ( ! self::template_record_ready( $posts, $id ) ) {
+				continue;
+			}
+			$elementor_type = isset( $posts[ $id ]['elementor_template_type'] ) ? (string) $posts[ $id ]['elementor_template_type'] : '';
+			$location       = isset( $row['location'] ) ? (string) $row['location'] : '';
+			if ( class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::template_type_conflicts( $elementor_type, $location ) ) {
+				continue;
+			}
+			if ( class_exists( 'RWGO_Theme_Context', false ) && array_key_exists( 'elementor_conditions', $posts[ $id ] ) && RWGO_Theme_Context::template_is_independently_matched( $posts[ $id ]['elementor_conditions'] ) ) {
+				continue;
+			}
+			$chrome = true;
+			++$product_ready;
+		}
 		return array(
-			'page_ready'   => $page,
-			'chrome_ready' => $chrome,
+			'page_ready'              => $page,
+			'chrome_ready'            => $chrome,
+			'product_templates_ready' => $product_ready,
 		);
+	}
+
+	/**
+	 * @param array<int, array<string, mixed>|null> $posts Posts.
+	 * @param int                                    $id    Template ID.
+	 * @return bool
+	 */
+	private static function template_record_ready( array $posts, $id ) {
+		if ( $id <= 0 || empty( $posts[ $id ] ) || ! is_array( $posts[ $id ] ) ) {
+			return false;
+		}
+		$record = $posts[ $id ];
+		return 'publish' === ( $record['status'] ?? '' )
+			&& 'elementor_library' === ( $record['type'] ?? '' )
+			&& empty( $record['elementor_empty'] );
+	}
+
+	/**
+	 * @param mixed                                      $raw      Proposed rows.
+	 * @param array<int, array<string, mixed>|null>|null $posts    Posts, or null to skip lookup.
+	 * @param array<int, array<string, mixed>>           $errors   Errors.
+	 * @param array<int, array<string, mixed>>           $warnings Warnings.
+	 * @return array<int, array{location:string,source_template_id:int,variant_template_id:int}>
+	 */
+	private static function collect_template_map( $raw, $posts, array &$errors, array &$warnings ) {
+		if ( ! is_array( $raw ) ) {
+			$errors[] = self::issue( 'rwgo_malformed_id', 0, 'template_map' );
+			return array();
+		}
+		$map      = array();
+		$sources  = array();
+		$variants = array();
+		foreach ( $raw as $index => $row ) {
+			if ( ! is_array( $row ) ) {
+				$errors[] = self::issue( 'rwgo_malformed_id', 0, (string) $index );
+				continue;
+			}
+			$location = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::canonical_body_location( $row['location'] ?? '' ) : '';
+			if ( '' === $location ) {
+				$detail   = isset( $row['location'] ) ? (string) $row['location'] : '';
+				$errors[] = self::issue( 'rwgo_template_location', 0, $detail );
+				continue;
+			}
+			$source  = self::positive_int( $row['source_template_id'] ?? null );
+			$variant = self::positive_int( $row['variant_template_id'] ?? null );
+			if ( null === $source || null === $variant ) {
+				$errors[] = self::issue( 'rwgo_malformed_id', 0, (string) $index );
+				continue;
+			}
+			if ( $source === $variant ) {
+				$errors[] = self::issue( 'rwgo_template_loop', $source, (string) $variant );
+				continue;
+			}
+			$source_key  = $location . ':' . $source;
+			$variant_key = $location . ':' . $variant;
+			if ( isset( $sources[ $source_key ] ) || isset( $variants[ $source_key ] ) || isset( $sources[ $variant_key ] ) ) {
+				$errors[] = self::issue( 'rwgo_duplicate_template', $source, (string) $variant );
+				continue;
+			}
+			$sources[ $source_key ]   = $variant;
+			$variants[ $variant_key ] = $source;
+			$map[]                    = array(
+				'location'            => $location,
+				'source_template_id'  => $source,
+				'variant_template_id' => $variant,
+			);
+			if ( ! is_array( $posts ) ) {
+				continue;
+			}
+			self::check_template_post( $source, $location, false, $posts, $errors, $warnings );
+			self::check_template_post( $variant, $location, true, $posts, $errors, $warnings );
+		}
+		return $map;
+	}
+
+	/**
+	 * @param int                                      $id       Template ID.
+	 * @param string                                   $location Canonical location.
+	 * @param array<int, array<string, mixed>|null>    $posts    Posts.
+	 * @param array<int, array<string, mixed>>         $errors   Errors.
+	 * @param array<int, array<string, mixed>>         $warnings Warnings.
+	 * @return void
+	 */
+	private static function check_template_post( $id, $location, $is_variant, array $posts, array &$errors, array &$warnings ) {
+		if ( ! array_key_exists( $id, $posts ) || null === $posts[ $id ] ) {
+			$errors[] = self::issue( 'rwgo_unknown_post', $id, '' );
+			return;
+		}
+		$record = $posts[ $id ];
+		$type   = isset( $record['type'] ) ? sanitize_key( (string) $record['type'] ) : '';
+		$status = isset( $record['status'] ) ? sanitize_key( (string) $record['status'] ) : '';
+		if ( 'product' === $type ) {
+			$errors[] = self::issue( 'rwgo_product_not_template', $id, 'product' );
+			return;
+		}
+		if ( 'elementor_library' !== $type ) {
+			$errors[] = self::issue( 'rwgo_wrong_post_type', $id, $type );
+			return;
+		}
+		if ( 'publish' !== $status ) {
+			$warnings[] = self::issue( 'rwgo_theme_template_unpublished', $id, $status );
+		}
+		if ( ! empty( $record['elementor_empty'] ) ) {
+			$warnings[] = self::issue( 'rwgo_theme_template_empty', $id, '' );
+		}
+		$elementor_type = isset( $record['elementor_template_type'] ) ? (string) $record['elementor_template_type'] : '';
+		if ( class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::template_type_conflicts( $elementor_type, $location ) ) {
+			$warnings[] = self::issue( 'rwgo_template_location_mismatch', $id, $elementor_type );
+		}
+		if ( ! class_exists( 'RWGO_Theme_Context', false ) || ! array_key_exists( 'elementor_conditions', $record ) ) {
+			return;
+		}
+		$matched = RWGO_Theme_Context::template_is_independently_matched( $record['elementor_conditions'] );
+		if ( $is_variant && $matched ) {
+			$errors[] = self::issue( 'rwgo_variant_template_conditioned', $id, '' );
+		}
+		if ( ! $is_variant && ! $matched ) {
+			$warnings[] = self::issue( 'rwgo_source_template_unassigned', $id, '' );
+		}
 	}
 
 	/**
