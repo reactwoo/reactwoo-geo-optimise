@@ -25,8 +25,8 @@ Entries are written with `writestr` and a stable `ZipInfo`: `SOURCE_DATE_EPOCH` 
 
 ## Commands
 - Before the fix, a timestamp-only `touch` changed the zip SHA-256 and left names, CRCs, and sizes identical.
-- After the fix, two local builds and two `CI=true` builds of the same tree shared one SHA-256, including a rebuild after `touch`. Entry names and file bytes matched the previous writer. `python3 tests/test-zip-js-order.py` passed.
-- `python3 tests/test-zip-reproducible.py` is the committed-tree check and is recorded once it has run on this branch.
+- `python3 tests/test-zip-reproducible.py` passed. `git archive HEAD` with and without `CI=true` hashed to `de7578a4abb2df3e0905df48f168e00518b2cc70c6e69cffa1422e4708a75107`.
+- Two consecutive `python3 scripts/package_zip.py` runs on this branch, then two with `CI=true`, all hashed to that same value. `python3 tests/test-zip-js-order.py` passed.
 
 ## Remaining errors
 None from the zip checks.
