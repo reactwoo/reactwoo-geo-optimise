@@ -5,6 +5,7 @@
  * @package ReactWoo_Geo_Optimise
  */
 
+require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-platform-client.php';
 require_once dirname( __DIR__, 2 ) . '/includes/class-rwgo-self-updater.php';
 
 /**
@@ -96,10 +97,16 @@ class RWGOSelfUpdaterTest extends PHPUnit\Framework\TestCase {
 	}
 
 	public function test_check_body_uses_the_optimise_slug_and_stable_channel_without_the_token(): void {
-		$seen = array();
+		$seen   = array();
+		$bearer = $this->jwt(
+			array(
+				'packageType' => 'reactwoo-geo-optimise',
+			)
+		);
 		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
-			static function () {
-				return 'sekret-token';
+			static function ( $value = null ) use ( $bearer ) {
+				unset( $value );
+				return $bearer;
 			},
 		);
 		$GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] = array(
@@ -121,17 +128,86 @@ class RWGOSelfUpdaterTest extends PHPUnit\Framework\TestCase {
 		$this->assertSame( '0.5.3', $seen['current_version'] );
 		$this->assertArrayNotHasKey( 'license_key', $seen );
 		$this->assertArrayNotHasKey( 'access_token', $seen );
-		$this->assertStringNotContainsString( 'sekret-token', wp_json_encode( $seen ) );
+		$this->assertStringNotContainsString( $bearer, (string) wp_json_encode( $seen ) );
+	}
+
+	public function test_pro_token_does_not_request_an_update(): void {
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
+			function ( $value = null ) {
+				unset( $value );
+				return $this->jwt(
+					array(
+						'packageType'  => 'reactwoo-geocore-pro',
+						'product_slug' => 'reactwoo-geo-optimise',
+					)
+				);
+			},
+		);
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] = array(
+			static function ( $value = null, $body = null ) {
+				unset( $value, $body );
+				throw new RuntimeException( 'catalog was called' );
+			},
+		);
+		try {
+			$this->assertNull( RWGO_Self_Updater::request_offer( '0.5.7' ) );
+		} finally {
+			unset( $GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'], $GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] );
+		}
+	}
+
+	public function test_decision_cloud_growth_token_may_request_an_update(): void {
+		$seen = array();
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
+			function ( $value = null ) {
+				unset( $value );
+				return $this->jwt(
+					array(
+						'packageType'   => 'reactwoo-decision-cloud',
+						'plan_code'     => 'growth',
+						'product_slugs' => array( 'reactwoo-geocore-pro', 'reactwoo-geo-commerce', 'reactwoo-geo-optimise' ),
+					)
+				);
+			},
+		);
+		$GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] = array(
+			static function ( $value, $body ) use ( &$seen ) {
+				$seen = $body;
+				return array(
+					'code' => 401,
+					'data' => array( 'update' => false ),
+				);
+			},
+		);
+		try {
+			$this->assertNull( RWGO_Self_Updater::request_offer( '0.5.7' ) );
+		} finally {
+			unset( $GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'], $GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] );
+		}
+		$this->assertSame( 'reactwoo-geo-optimise', $seen['slug'] );
+	}
+
+	/**
+	 * @param array<string, mixed> $claims Claims.
+	 * @return string
+	 */
+	private function jwt( array $claims ): string {
+		$segment = static function ( $data ): string {
+			return rtrim( strtr( base64_encode( (string) json_encode( $data ) ), '+/', '-_' ), '=' );
+		};
+		return $segment( array( 'alg' => 'none', 'typ' => 'JWT' ) ) . '.' . $segment( $claims ) . '.x';
 	}
 
 	public function test_request_without_a_bearer_does_not_call_the_catalog(): void {
 		$GLOBALS['rwga_test_filters']['rwgo_self_updater_bearer'] = array(
-			static function () {
+			static function ( $value = null ) {
+				unset( $value );
 				return '';
 			},
 		);
 		$GLOBALS['rwga_test_filters']['rwgo_self_updater_http'] = array(
-			static function () {
+			static function ( $value = null, $body = null ) {
+				unset( $value, $body );
 				throw new RuntimeException( 'catalog was called' );
 			},
 		);

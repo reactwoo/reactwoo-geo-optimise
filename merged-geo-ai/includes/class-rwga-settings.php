@@ -174,7 +174,7 @@ class RWGA_Settings {
 	}
 
 	/**
-	 * When this site uses Geo AI’s license key, tell the API which catalog product the token is for.
+	 * When this site uses Geo AI’s license key, tell the API which catalog product and package the token is for.
 	 *
 	 * @param array<string, string> $body    Login JSON body.
 	 * @param string                $license Effective license key.
@@ -195,7 +195,8 @@ class RWGA_Settings {
 			$slug = RWGO_Platform_Client::PRODUCT_SLUG;
 		}
 		$body['product_slug']  = $slug;
-		$body['catalog_slug'] = $slug;
+		$body['catalog_slug']  = $slug;
+		$body['package_type']  = $slug;
 		return $body;
 	}
 

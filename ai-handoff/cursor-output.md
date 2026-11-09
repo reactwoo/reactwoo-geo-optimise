@@ -4,30 +4,31 @@
 done
 
 ## Task
-Site-wide variant arm printed the B page and enqueued header/footer CSS, but Elementor never printed header 4040 or footer 4041. Hello’s fallback header showed. Control and cart/checkout were already fine.
+A non-Optimise key could obtain a Geo Optimise access token and update check because login sent only `product_slug` / `catalog_slug`. The license server compares the key's package when `package_type` is sent.
 
 ## Root cause
-Elementor Pro’s condition walker calls `elementor/theme/get_location_templates/template_id`, then records that template’s include and exclude rules against the ID the filter returns. The variant arm rewrote the control template ID to the variant ID. The control header’s `exclude/singular/page/{B page}` therefore removed the variant ID after the variant template’s own include had added it. `do_location()` had nothing to print. CSS was queued separately from the delivery plan.
+`RWGO_Settings::filter_auth_login_body` and `RWGO_Platform_Client::get_access_token` named the catalog but did not send `package_type`. A returned token was cached even when its package was another product, and the self-updater sent that bearer to `/api/v5/updates/check`.
 
 ## Fix
-On the variant arm the control template is skipped (filter returns 0) so its excludes are not copied onto the variant. The variant header and footer are queued with `add_doc_to_location` before the location is printed, including when their own display conditions do not match the current URL. Control still substitutes its own template. Locked pages (cart, checkout, account) do not queue variant chrome.
+Login JSON now includes `package_type` `reactwoo-geo-optimise` from the Optimise client and from the login-body filter (including the embedded Geo AI filter). A token is kept only when its package is `reactwoo-geo-optimise` or the legacy `reactwoo-geo-ai` alias, or when `product_slugs` / `productSlugs` lists Geo Optimise (Decision Cloud Growth and Scale). `product_slug` alone does not count. The self-updater and the Geo Core bearer callback use that check. Saving or testing a mismatched key records `rwgo_license_wrong_product` and the License screen shows that message. Version is 0.5.8 because 0.5.7 is already tagged.
 
 ## Files changed
-- `includes/class-rwgo-theme-context.php` — skip control candidates, force-queue the arm templates, model Elementor’s condition walk and location markup, enqueue Elementor frontend and document runtime assets.
-- `includes/class-rwgo-sitewide.php` — prime locations on `elementor/theme/register_locations`, `get_header`, and `get_footer`.
-- `tests/Sitewide/RWGOThemeContextTest.php` — variant markup on the swapped B page and on a URL the variant conditions miss, control markup, excluded checkout, location-queue prime.
-- Version 0.5.7 in the plugin header, `RWGO_VERSION`, readme stable tag, changelog, README, test bootstrap, and the local WordPress integration version check.
+- `includes/class-rwgo-platform-client.php` — send `package_type`, reject non-covering tokens, record the license check.
+- `includes/class-rwgo-settings.php` — same field on the shared login filter; validate when the saved key changes.
+- `includes/class-rwgo-self-updater.php` — request a catalog check only with a covering bearer.
+- `includes/class-rwgo-admin.php`, `admin/views/license-settings.php` — store the error code and show the mismatched-key notice.
+- `includes/class-rwgo-merge-bridge.php`, `includes/class-rwgo-sitewide-ability.php` — a rejected key is not an Optimise entitlement.
+- `merged-geo-ai/includes/class-rwga-settings.php`, `merged-geo-ai/includes/class-rwga-platform-client.php` — embedded login sends `package_type` and does not keep a non-covering token.
+- Tests, plugin header, `RWGO_VERSION`, readme stable tag, changelog, README.
 
 ## Not changed
-- Canonical, noindex, sitemap exclusion, and variant-URL redirects.
-- Product/single template map and the 0.5.6 body swap.
+- react-license and reactwoo-api. Those repos are not readable with this run's GitHub credential. The server follow-up is in the pull request.
 - No tag and no merge.
 
 ## Commands
-- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (108 tests, 717 assertions).
-- `php tests/integration/theme-ab-routing.php` — all checks passed.
-- `php tests/sitewide-assert.php` — all checks passed.
-- No WordPress, Elementor, or Elementor Pro install is present in this environment. `tests/integration/local-wp-theme-ab.php` and `tests/integration/elementor-free-template-css.php` need `wp-load.php` and were not run.
+- `php tests/test-update-login.php` — update login checks passed.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (115 tests, 737 assertions).
+- No WordPress install is present. The License screen was not clicked in a browser.
 
 ## Remaining errors
-None from the unit and routing checks.
+None from the unit and login checks.

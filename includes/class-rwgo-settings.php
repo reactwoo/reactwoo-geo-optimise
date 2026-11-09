@@ -22,13 +22,19 @@ class RWGO_Settings {
 	public static function init() {
 		add_action( 'admin_init', array( __CLASS__, 'register_settings' ) );
 		add_action( 'update_option_' . self::OPTION_KEY, array( __CLASS__, 'maybe_clear_jwt_on_change' ), 10, 2 );
-		add_filter( 'rwgc_auth_login_body', array( __CLASS__, 'filter_auth_login_body' ), 10, 3 );
+		add_action( 'update_option_' . self::OPTION_KEY, array( __CLASS__, 'validate_license_after_save' ), 20, 2 );
+		// Late priority so this plugin's package_type is still present if an earlier filter rewrites the body.
+		add_filter( 'rwgc_auth_login_body', array( __CLASS__, 'filter_auth_login_body' ), 100, 3 );
 		// options.php defaults to manage_options; allow same caps as RWGO_Admin::required_capability() (e.g. shop managers).
 		add_filter( 'option_page_capability_rwgo_license_group', array( __CLASS__, 'filter_option_page_capability' ) );
 	}
 
 	/**
-	 * When logging in with Geo Optimise’s saved key, ensure product_slug/catalog_slug match this catalog (same contract as Geo Core).
+	 * When logging in with Geo Optimise’s saved key, name this product on the token request.
+	 *
+	 * product_slug and catalog_slug alone do not make the license server compare the key's package.
+	 * package_type does: react-license checks the package only when that field is sent, and
+	 * reactwoo-api forwards it only when the client sends it. The value is this plugin's slug.
 	 *
 	 * @param array<string, string> $body    Login JSON body.
 	 * @param string                $license Effective license key for this request.
@@ -47,8 +53,34 @@ class RWGO_Settings {
 		}
 		$catalog = class_exists( 'RWGO_Platform_Client', false ) ? RWGO_Platform_Client::PRODUCT_SLUG : 'reactwoo-geo-optimise';
 		$body['product_slug']  = $catalog;
-		$body['catalog_slug'] = $catalog;
+		$body['catalog_slug']  = $catalog;
+		$body['package_type']  = $catalog;
 		return $body;
+	}
+
+	/**
+	 * Log in after a new key is saved so a different product's key is rejected on the License screen.
+	 *
+	 * @param mixed $old_value Previous option.
+	 * @param mixed $value     New option.
+	 * @return void
+	 */
+	public static function validate_license_after_save( $old_value, $value ) {
+		$old = is_array( $old_value ) ? $old_value : array();
+		$val = is_array( $value ) ? $value : array();
+		$o_k = isset( $old['reactwoo_license_key'] ) ? trim( (string) $old['reactwoo_license_key'] ) : '';
+		$n_k = isset( $val['reactwoo_license_key'] ) ? trim( (string) $val['reactwoo_license_key'] ) : '';
+		if ( $o_k === $n_k ) {
+			return;
+		}
+		if ( '' === $n_k ) {
+			delete_option( 'rwgo_license_last_check' );
+			return;
+		}
+		if ( ! class_exists( 'RWGO_Platform_Client', false ) || ! RWGO_Platform_Client::request_may_login() ) {
+			return;
+		}
+		RWGO_Platform_Client::get_access_token( 30 );
 	}
 
 	/**

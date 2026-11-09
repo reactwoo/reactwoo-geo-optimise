@@ -7,7 +7,8 @@
  * only in that case, so a ReactWoo-channel Geo Core does not check twice.
  *
  * The catalog returns 401 for reactwoo-geo-optimise unless a license token is
- * sent. This class does not publish a download URL of its own.
+ * sent. The token must cover Geo Optimise. A Geo Core Pro token is not used.
+ * This class does not publish a download URL of its own.
  *
  * @package ReactWooGeoOptimise
  */
@@ -242,13 +243,29 @@ class RWGO_Self_Updater {
 	private static function bearer() {
 		$forced = apply_filters( 'rwgo_self_updater_bearer', null );
 		if ( is_string( $forced ) ) {
-			return $forced;
+			return self::entitled_bearer( $forced );
 		}
 		if ( ! class_exists( 'RWGO_Platform_Client', false ) ) {
 			return '';
 		}
 		$token = RWGO_Platform_Client::get_bearer_for_updates();
-		return is_string( $token ) ? $token : '';
+		return self::entitled_bearer( is_string( $token ) ? $token : '' );
+	}
+
+	/**
+	 * Update checks run only with a token whose package or product_slugs covers Geo Optimise.
+	 *
+	 * @param string $token Bearer.
+	 * @return string
+	 */
+	private static function entitled_bearer( $token ) {
+		if ( ! is_string( $token ) || '' === $token || ! class_exists( 'RWGO_Platform_Client', false ) ) {
+			return '';
+		}
+		if ( ! RWGO_Platform_Client::token_covers_optimise( $token ) ) {
+			return '';
+		}
+		return $token;
 	}
 
 	/**

@@ -90,6 +90,134 @@ class RWGO_Platform_Client {
 	}
 
 	/**
+	 * Admin copy when the saved key belongs to another product.
+	 *
+	 * @return string
+	 */
+	public static function wrong_product_message() {
+		return __( 'This key is not a ReactWoo Geo Optimise licence. Enter a Geo Optimise key, or a Decision Cloud Growth or Scale key that includes Geo Optimise. A Geo Core Pro key cannot be used here.', 'reactwoo-geo-optimise' );
+	}
+
+	/**
+	 * True when the last login proved the key does not cover Geo Optimise, or a cached token does not.
+	 *
+	 * @return bool
+	 */
+	public static function license_rejected_for_product() {
+		if ( self::cached_token_rejects_product() ) {
+			return true;
+		}
+		if ( ! function_exists( 'get_option' ) ) {
+			return false;
+		}
+		$last = get_option( 'rwgo_license_last_check', array() );
+		return is_array( $last ) && isset( $last['code'] ) && 'rwgo_license_wrong_product' === (string) $last['code'];
+	}
+
+	/**
+	 * A cached bearer that decoded and does not cover Geo Optimise.
+	 *
+	 * @return bool
+	 */
+	public static function cached_token_rejects_product() {
+		$cached = get_transient( self::TOKEN_TRANSIENT );
+		if ( ! is_array( $cached ) || empty( $cached['token'] ) ) {
+			return false;
+		}
+		return ! self::token_covers_optimise( (string) $cached['token'] );
+	}
+
+	/**
+	 * Login JSON for POST /api/v5/auth/login.
+	 *
+	 * package_type is the field reactwoo-api forwards and react-license enforces.
+	 *
+	 * @param string $license License key.
+	 * @param string $domain  Site host.
+	 * @return array<string, string>
+	 */
+	public static function auth_login_body( $license, $domain ) {
+		$body     = array(
+			'license_key'  => $license,
+			'domain'       => $domain,
+			'product_slug' => self::PRODUCT_SLUG,
+			'catalog_slug' => self::PRODUCT_SLUG,
+			'package_type' => self::PRODUCT_SLUG,
+		);
+		$filtered = apply_filters( 'rwgc_auth_login_body', $body, $license, $domain );
+		return is_array( $filtered ) ? $filtered : $body;
+	}
+
+	/**
+	 * Whether a bearer covers Geo Optimise.
+	 *
+	 * The package claim must be this product (or the legacy Geo AI alias). Decision Cloud
+	 * Growth and Scale keep their own package and list the covered plugins in product_slugs.
+	 * product_slug on its own is not enough: a login can echo the slug this plugin requested
+	 * while the key's package is Geo Core Pro.
+	 *
+	 * @param string $token JWT access token.
+	 * @return bool
+	 */
+	public static function token_covers_optimise( $token ) {
+		return self::claims_cover_optimise( self::decode_jwt_payload( $token ) );
+	}
+
+	/**
+	 * @param array<string, mixed>|null $claims JWT payload.
+	 * @return bool
+	 */
+	public static function claims_cover_optimise( $claims ) {
+		if ( ! is_array( $claims ) ) {
+			return false;
+		}
+		$wanted = self::optimise_package_slugs();
+		foreach ( array( 'packageType', 'package_type', 'package_slug', 'packageSlug', 'package' ) as $key ) {
+			if ( ! isset( $claims[ $key ] ) || is_array( $claims[ $key ] ) ) {
+				continue;
+			}
+			if ( in_array( self::normalize_slug( $claims[ $key ] ), $wanted, true ) ) {
+				return true;
+			}
+		}
+		foreach ( array( 'product_slugs', 'productSlugs' ) as $key ) {
+			if ( ! isset( $claims[ $key ] ) ) {
+				continue;
+			}
+			foreach ( self::claim_slug_list( $claims[ $key ] ) as $slug ) {
+				if ( in_array( $slug, $wanted, true ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Decode a JWT payload without verifying the signature. Used to read package claims.
+	 *
+	 * @param string $jwt Full JWT.
+	 * @return array<string, mixed>|null
+	 */
+	public static function decode_jwt_payload( $jwt ) {
+		if ( ! is_string( $jwt ) || '' === $jwt ) {
+			return null;
+		}
+		$parts = explode( '.', $jwt );
+		if ( count( $parts ) < 2 ) {
+			return null;
+		}
+		$payload  = $parts[1];
+		$payload .= str_repeat( '=', ( 4 - strlen( $payload ) % 4 ) % 4 );
+		$decoded  = base64_decode( strtr( $payload, '-_', '+/' ), true ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode
+		if ( false === $decoded ) {
+			return null;
+		}
+		$data = json_decode( $decoded, true );
+		return is_array( $data ) ? $data : null;
+	}
+
+	/**
 	 * @return void
 	 */
 	public static function clear_token_cache() {
@@ -136,8 +264,11 @@ class RWGO_Platform_Client {
 	public static function get_access_token( $timeout = 30 ) {
 		$cached = get_transient( self::TOKEN_TRANSIENT );
 		if ( is_array( $cached ) && ! empty( $cached['token'] ) && isset( $cached['expires'] ) && (int) $cached['expires'] > time() + 120 ) {
-			self::forget_login_failure();
-			return (string) $cached['token'];
+			if ( self::token_covers_optimise( (string) $cached['token'] ) ) {
+				self::forget_login_failure();
+				return (string) $cached['token'];
+			}
+			delete_transient( self::TOKEN_TRANSIENT );
 		}
 
 		if ( self::login_recently_failed() ) {
@@ -166,14 +297,7 @@ class RWGO_Platform_Client {
 
 		$timeout = self::resolve_login_timeout( $timeout );
 
-		$body = array(
-			'license_key'  => $license,
-			'domain'       => $domain,
-			'product_slug' => self::PRODUCT_SLUG,
-			'catalog_slug' => self::PRODUCT_SLUG,
-		);
-		$filtered = apply_filters( 'rwgc_auth_login_body', $body, $license, $domain );
-		$body     = is_array( $filtered ) ? $filtered : $body;
+		$body = self::auth_login_body( $license, $domain );
 
 		$response = wp_remote_post(
 			self::get_api_base() . self::LOGIN_PATH,
@@ -185,6 +309,7 @@ class RWGO_Platform_Client {
 		);
 		if ( is_wp_error( $response ) ) {
 			self::remember_login_failure();
+			self::record_license_check( false, $response->get_error_message(), $response->get_error_code() );
 			return $response;
 		}
 
@@ -194,13 +319,28 @@ class RWGO_Platform_Client {
 		if ( $code < 200 || $code >= 300 || ! is_array( $data ) ) {
 			$msg = isset( $data['message'] ) ? (string) $data['message'] : __( 'License login failed.', 'reactwoo-geo-optimise' );
 			self::remember_login_failure();
+			if ( self::message_means_wrong_product( $msg ) ) {
+				$msg = self::wrong_product_message();
+				self::record_license_check( false, $msg, 'rwgo_license_wrong_product' );
+				return new WP_Error( 'rwgo_license_wrong_product', $msg, array( 'status' => $code ) );
+			}
+			self::record_license_check( false, $msg, 'rwgo_login_failed' );
 			return new WP_Error( 'rwgo_login_failed', $msg, array( 'status' => $code ) );
 		}
 
 		$token = isset( $data['access_token'] ) ? (string) $data['access_token'] : '';
 		if ( '' === $token ) {
 			self::remember_login_failure();
-			return new WP_Error( 'rwgo_login_no_token', __( 'License login response did not include a token.', 'reactwoo-geo-optimise' ) );
+			$msg = __( 'License login response did not include a token.', 'reactwoo-geo-optimise' );
+			self::record_license_check( false, $msg, 'rwgo_login_no_token' );
+			return new WP_Error( 'rwgo_login_no_token', $msg );
+		}
+
+		if ( ! self::token_covers_optimise( $token ) ) {
+			self::remember_login_failure();
+			$msg = self::wrong_product_message();
+			self::record_license_check( false, $msg, 'rwgo_license_wrong_product' );
+			return new WP_Error( 'rwgo_license_wrong_product', $msg );
 		}
 
 		$ttl = min( self::parse_expires_in( isset( $data['expires_in'] ) ? $data['expires_in'] : null ), 23 * HOUR_IN_SECONDS );
@@ -213,6 +353,7 @@ class RWGO_Platform_Client {
 			$ttl
 		);
 		self::forget_login_failure();
+		self::record_license_check( true, '', '' );
 		return $token;
 	}
 
@@ -367,6 +508,99 @@ class RWGO_Platform_Client {
 			return max( 300, (int) $m[1] * HOUR_IN_SECONDS );
 		}
 		return DAY_IN_SECONDS;
+	}
+
+	/**
+	 * Package slugs that are Geo Optimise. reactwoo-geo-ai is the pre-merge alias.
+	 *
+	 * @return string[]
+	 */
+	private static function optimise_package_slugs() {
+		return array( 'reactwoo-geo-optimise', 'reactwoo-geo-ai' );
+	}
+
+	/**
+	 * @param mixed $value Raw claim.
+	 * @return string
+	 */
+	private static function normalize_slug( $value ) {
+		$slug = strtolower( trim( (string) $value ) );
+		$slug = preg_replace( '/[^a-z0-9_\-]/', '', $slug );
+		return is_string( $slug ) ? $slug : '';
+	}
+
+	/**
+	 * @param mixed $value product_slugs claim.
+	 * @return string[]
+	 */
+	private static function claim_slug_list( $value ) {
+		if ( is_string( $value ) ) {
+			$value = preg_split( '/[\s,]+/', $value );
+		}
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $value as $item ) {
+			if ( is_string( $item ) || is_numeric( $item ) ) {
+				$slug = self::normalize_slug( $item );
+				if ( '' !== $slug ) {
+					$out[] = $slug;
+				}
+				continue;
+			}
+			if ( ! is_array( $item ) ) {
+				continue;
+			}
+			foreach ( array( 'slug', 'product_slug', 'package_slug', 'packageType', 'package_type' ) as $key ) {
+				if ( ! isset( $item[ $key ] ) || is_array( $item[ $key ] ) ) {
+					continue;
+				}
+				$slug = self::normalize_slug( $item[ $key ] );
+				if ( '' !== $slug ) {
+					$out[] = $slug;
+				}
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Server text that means the key's package is not Geo Optimise.
+	 *
+	 * @param string $message API message.
+	 * @return bool
+	 */
+	private static function message_means_wrong_product( $message ) {
+		$haystack = strtolower( (string) $message );
+		foreach ( array( 'package', 'entitlement', 'product_slug', 'package_type', 'does not match', 'not included', 'wrong product' ) as $needle ) {
+			if ( false !== strpos( $haystack, $needle ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @param bool   $ok    Validation succeeded.
+	 * @param string $error Admin-facing error. Empty on success.
+	 * @param string $code  Error code. rwgo_license_wrong_product is the mismatched-key case.
+	 * @return void
+	 */
+	private static function record_license_check( $ok, $error, $code ) {
+		if ( ! function_exists( 'update_option' ) ) {
+			return;
+		}
+		update_option(
+			'rwgo_license_last_check',
+			array(
+				'ok'    => (bool) $ok,
+				'time'  => gmdate( 'c' ),
+				'error' => (string) $error,
+				'code'  => (string) $code,
+			),
+			false
+		);
 	}
 
 	/**

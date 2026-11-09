@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.7
+Stable tag: 0.5.8
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.8 =
+* **Fix:** License login sends `package_type` `reactwoo-geo-optimise`, which is the field the license server checks. A key for another product, including Geo Core Pro, is not saved as a valid Geo Optimise licence and is not used to check for updates. Decision Cloud Growth and Scale are accepted when the token's `product_slugs` includes Geo Optimise. The License screen explains a mismatched key.
 
 = 0.5.7 =
 * **Fix:** The variant arm of a site-wide test prints the variant Elementor header and footer. Elementor records a template's display rules against the ID returned by the location filter, so replacing the control template's ID copied its page excludes onto the variant and removed it. The theme then showed its own header while only the variant CSS was queued. The control template is skipped, and the variant template is added to the header and footer locations even when its own display conditions do not match the current URL. Control visitors are unchanged. Cart, checkout, and account keep their own templates.

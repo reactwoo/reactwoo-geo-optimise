@@ -5,6 +5,11 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.8] - 2026-11-09
+
+### Fixed
+- License login sends `package_type` `reactwoo-geo-optimise`. The license server compares the key's package only when that field is present. A Geo Core Pro key, or any other key whose token does not cover Geo Optimise, is not treated as licensed and is not used for update checks. Decision Cloud Growth and Scale are accepted when `product_slugs` includes `reactwoo-geo-optimise`. The License screen shows a clear message when the key is for a different product.
+
 ## [0.5.7] - 2026-11-09
 
 ### Fixed

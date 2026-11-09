@@ -699,8 +699,9 @@ class RWGO_Sitewide_Ability {
 	private static function licensed() {
 		$licensed = true;
 		if ( self::license_known() ) {
-			$licensed = RWGO_Platform_Client::is_configured();
-			if ( ! $licensed && class_exists( 'RWGA_License', false ) && is_callable( array( 'RWGA_License', 'can_run_workflows' ) ) ) {
+			$rejected = RWGO_Platform_Client::license_rejected_for_product();
+			$licensed = RWGO_Platform_Client::is_configured() && ! $rejected;
+			if ( ! $licensed && ! $rejected && class_exists( 'RWGA_License', false ) && is_callable( array( 'RWGA_License', 'can_run_workflows' ) ) ) {
 				$licensed = (bool) RWGA_License::can_run_workflows();
 			}
 		}

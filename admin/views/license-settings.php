@@ -17,6 +17,23 @@ $last_check       = get_option( 'rwgo_license_last_check', array() );
 $last_ok          = is_array( $last_check ) && ! empty( $last_check['ok'] );
 $last_time        = is_array( $last_check ) && ! empty( $last_check['time'] ) ? (string) $last_check['time'] : '';
 $last_err         = is_array( $last_check ) && isset( $last_check['error'] ) ? (string) $last_check['error'] : '';
+$last_code        = is_array( $last_check ) && isset( $last_check['code'] ) ? (string) $last_check['code'] : '';
+$wrong_product    = ( 'rwgo_license_wrong_product' === $last_code );
+if ( ! $wrong_product && class_exists( 'RWGO_Platform_Client', false ) && RWGO_Platform_Client::cached_token_rejects_product() ) {
+	$wrong_product = true;
+}
+if ( $wrong_product && '' === $last_err && class_exists( 'RWGO_Platform_Client', false ) ) {
+	$last_err = RWGO_Platform_Client::wrong_product_message();
+}
+if ( ! $lic_ok ) {
+	$status_label = __( 'No active license saved', 'reactwoo-geo-optimise' );
+} elseif ( $wrong_product ) {
+	$status_label = __( 'Not licensed for Geo Optimise', 'reactwoo-geo-optimise' );
+} elseif ( $last_ok ) {
+	$status_label = __( 'Connected — licensed for Geo Optimise', 'reactwoo-geo-optimise' );
+} else {
+	$status_label = __( 'Key saved on this site — not validated yet', 'reactwoo-geo-optimise' );
+}
 $import_sources   = class_exists( 'RWGO_Settings', false ) ? RWGO_Settings::get_manual_import_sources() : array();
 $rwgo_hub_embed   = ! empty( $rwgo_optimise_hub_embed );
 
@@ -47,13 +64,16 @@ $rwgo_hub_embed   = ! empty( $rwgo_optimise_hub_embed );
 	<?php if ( isset( $_GET['rwgo_license_test'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<?php if ( '1' === (string) $_GET['rwgo_license_test'] ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 			<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'Connection OK — license validated with the ReactWoo API.', 'reactwoo-geo-optimise' ); ?></p></div>
-		<?php elseif ( '0' === (string) $_GET['rwgo_license_test'] ) : ?>
+		<?php elseif ( '0' === (string) $_GET['rwgo_license_test'] && ! $wrong_product ) : ?>
 			<div class="notice notice-error is-dismissible rwgo-alert rwgo-alert--danger"><p class="rwgo-alert__text"><?php esc_html_e( 'Could not validate the license. Check the key, API base, and network, then try again.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php elseif ( 'na' === (string) $_GET['rwgo_license_test'] ) : ?>
 			<div class="notice notice-warning is-dismissible rwgo-alert rwgo-alert--warning"><p class="rwgo-alert__text"><?php esc_html_e( 'Geo Optimise platform client is not available — validation could not run.', 'reactwoo-geo-optimise' ); ?></p></div>
 		<?php endif; ?>
 	<?php endif; ?>
 	</div>
+	<?php endif; ?>
+	<?php if ( $wrong_product ) : ?>
+		<div class="notice notice-error is-dismissible rwgo-alert rwgo-alert--danger"><p class="rwgo-alert__text"><?php echo esc_html( $last_err ); ?></p></div>
 	<?php endif; ?>
 	<?php if ( ! empty( $_GET['rwgo_imported'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
 		<div class="notice notice-success is-dismissible rwgo-alert rwgo-alert--success"><p class="rwgo-alert__text"><?php esc_html_e( 'License key imported into Geo Optimise.', 'reactwoo-geo-optimise' ); ?></p></div>
@@ -65,10 +85,10 @@ $rwgo_hub_embed   = ! empty( $rwgo_optimise_hub_embed );
 	<div class="rwgo-stack rwgo-license-layout">
 		<div class="rwgo-panel rwgo-panel--compact">
 			<h2 class="rwgo-section__title"><?php esc_html_e( 'License status', 'reactwoo-geo-optimise' ); ?></h2>
-			<div class="rwgo-license-status <?php echo $lic_ok ? 'is-ok' : ''; ?>">
+			<div class="rwgo-license-status <?php echo ( $last_ok && ! $wrong_product ) ? 'is-ok' : ''; ?>">
 				<dl>
 					<dt><?php esc_html_e( 'Status', 'reactwoo-geo-optimise' ); ?></dt>
-					<dd><?php echo $lic_ok ? esc_html__( 'Connected — key saved on this site', 'reactwoo-geo-optimise' ) : esc_html__( 'No active license saved', 'reactwoo-geo-optimise' ); ?></dd>
+					<dd><?php echo esc_html( $status_label ); ?></dd>
 					<?php if ( $last_time ) : ?>
 						<dt><?php esc_html_e( 'Last validation', 'reactwoo-geo-optimise' ); ?></dt>
 						<dd>
@@ -90,7 +110,7 @@ $rwgo_hub_embed   = ! empty( $rwgo_optimise_hub_embed );
 			<input type="hidden" name="<?php echo esc_attr( $option_key ); ?>[rwgo_form_scope]" value="license" />
 
 			<h2 class="rwgo-section__title"><?php esc_html_e( 'License key', 'reactwoo-geo-optimise' ); ?></h2>
-			<p class="rwgo-section__lead"><?php esc_html_e( 'Your license is connected and stored on this site when a key is saved. Leave the field blank to keep the current key.', 'reactwoo-geo-optimise' ); ?></p>
+			<p class="rwgo-section__lead"><?php esc_html_e( 'Save a Geo Optimise key, or a Decision Cloud Growth or Scale key that includes Geo Optimise. A Geo Core Pro key is rejected. Leave the field blank to keep the current key.', 'reactwoo-geo-optimise' ); ?></p>
 
 			<div class="rwgo-setting-rows">
 				<div class="rwgo-setting-row">
