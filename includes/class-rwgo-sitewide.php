@@ -227,6 +227,9 @@ class RWGO_Sitewide {
 		add_action( 'litespeed_init', array( __CLASS__, 'litespeed_cache' ) );
 		if ( class_exists( 'RWGO_Theme_Context', false ) ) {
 			add_filter( 'elementor/theme/get_location_templates/template_id', array( 'RWGO_Theme_Context', 'filter_location_template' ), 20, 2 );
+			add_action( 'elementor/theme/register_locations', array( 'RWGO_Theme_Context', 'prime_theme_locations' ), 20 );
+			add_action( 'get_header', array( 'RWGO_Theme_Context', 'prime_theme_locations' ), 0 );
+			add_action( 'get_footer', array( 'RWGO_Theme_Context', 'prime_theme_locations' ), 0 );
 			add_action( 'wp_enqueue_scripts', array( 'RWGO_Theme_Context', 'enqueue_plan_documents' ), 20 );
 			add_action( 'wp_enqueue_scripts', array( 'RWGO_Theme_Context', 'suppress_replaced_documents' ), PHP_INT_MAX );
 			add_action( 'wp_head', array( 'RWGO_Theme_Context', 'suppress_replaced_documents' ), 7 );

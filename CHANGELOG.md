@@ -5,6 +5,11 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2026-11-09
+
+### Fixed
+- The variant arm of a site-wide test prints the variant Elementor header and footer. Elementor records a template's display rules against the ID returned by the location filter, so replacing the control template's ID copied its page excludes onto the variant and removed it. The theme then showed its own header while only the variant CSS was queued. The control template is skipped, and the variant template is added to the header and footer locations even when its own display conditions do not match the current URL. Control visitors are unchanged. Cart, checkout, and account keep their own templates.
+
 ## [0.5.5] - 2026-11-06
 
 ### Fixed

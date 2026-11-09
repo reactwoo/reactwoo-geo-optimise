@@ -320,9 +320,269 @@ class RWGOThemeContextTest extends PHPUnit\Framework\TestCase {
 			$this->library_types()
 		);
 		RWGO_Theme_Context::set_request_plan( $plan );
-		$this->assertSame( 21, RWGO_Theme_Context::filter_location_template( 11, 'header' ) );
+		$this->assertContains( 11, $plan['suppress_template_ids'] );
+		$this->assertSame( 0, RWGO_Theme_Context::filter_location_template( 11, 'header' ) );
+		$this->assertSame( 21, RWGO_Theme_Context::filter_location_template( 21, 'header' ) );
+		$this->assertSame( 21, RWGO_Theme_Context::forced_location_templates( $plan )['header'] );
+		$this->assertSame( 22, RWGO_Theme_Context::forced_location_templates( $plan )['footer'] );
 		$this->assertSame( 11, RWGO_Theme_Context::filter_location_template( 11, '' ) );
 		RWGO_Theme_Context::set_request_plan( null );
 		$this->assertSame( 11, RWGO_Theme_Context::filter_location_template( 11, 'header' ) );
+	}
+
+	/**
+	 * Rules shaped like the live site: control chrome is the whole site except
+	 * the B pages, variant chrome matches the B pages only, and cart has its
+	 * own header.
+	 *
+	 * @return array<string, array<int, array<int, string>>>
+	 */
+	private function live_location_rules() {
+		return array(
+			'header' => array(
+				40   => array(
+					'include/general',
+					'exclude/singular/page/3943',
+					'exclude/singular/page/1037',
+				),
+				4040 => array(
+					'include/singular/page/3943',
+				),
+				2831 => array(
+					'include/singular/page/1037',
+				),
+			),
+			'footer' => array(
+				59   => array(
+					'include/general',
+					'exclude/singular/page/3943',
+				),
+				4041 => array(
+					'include/singular/page/3943',
+				),
+			),
+		);
+	}
+
+	/**
+	 * @return array<string, array<string, int>>
+	 */
+	private function live_theme() {
+		return array(
+			'control' => array(
+				'header' => 40,
+				'footer' => 59,
+			),
+			'variant' => array(
+				'header' => 4040,
+				'footer' => 4041,
+			),
+		);
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private function live_template_status() {
+		return array(
+			40   => 'publish',
+			59   => 'publish',
+			4040 => 'publish',
+			4041 => 'publish',
+			2831 => 'publish',
+		);
+	}
+
+	/**
+	 * @return array<int, string>
+	 */
+	private function live_template_types() {
+		return array(
+			40   => 'elementor_library',
+			59   => 'elementor_library',
+			4040 => 'elementor_library',
+			4041 => 'elementor_library',
+			2831 => 'elementor_library',
+		);
+	}
+
+	/**
+	 * @return array<int, int>
+	 */
+	private function live_published_ids() {
+		return array( 40, 59, 4040, 4041, 2831 );
+	}
+
+	/**
+	 * @param string $arm          control|variant.
+	 * @param bool   $theme_locked Cart, checkout, or account.
+	 * @return array<string, mixed>
+	 */
+	private function live_plan( $arm, $theme_locked ) {
+		return RWGO_Theme_Context::delivery_plan(
+			$arm,
+			3943,
+			'publish',
+			$theme_locked,
+			$this->live_theme(),
+			$this->live_template_status(),
+			$this->live_template_types()
+		);
+	}
+
+	public function test_variant_arm_renders_header_and_footer_markup_on_the_swapped_page(): void {
+		$plan = $this->live_plan( 'variant', false );
+		RWGO_Theme_Context::set_request_plan( $plan );
+		$rules     = $this->live_location_rules();
+		$published = $this->live_published_ids();
+		$header    = RWGO_Theme_Context::elementor_condition_matches( $rules['header'], 'header', 3943, $published );
+		$footer    = RWGO_Theme_Context::elementor_condition_matches( $rules['footer'], 'footer', 3943, $published );
+		$this->assertContains( 4040, $header );
+		$this->assertContains( 4041, $footer );
+		$this->assertNotContains( 40, $header );
+		$this->assertNotContains( 59, $footer );
+
+		$markup = RWGO_Theme_Context::theme_chrome_markup( $rules, 3943, $published, $plan );
+		$this->assertStringContainsString( 'data-elementor-type="header"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="4040"', $markup );
+		$this->assertStringContainsString( 'elementor-location-header', $markup );
+		$this->assertStringContainsString( 'data-elementor-type="footer"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="4041"', $markup );
+		$this->assertStringContainsString( 'elementor-location-footer', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="40"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="59"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="2831"', $markup );
+		RWGO_Theme_Context::set_request_plan( null );
+	}
+
+	public function test_variant_arm_renders_header_and_footer_when_conditions_do_not_match_the_url(): void {
+		$plan = $this->live_plan( 'variant', false );
+		RWGO_Theme_Context::set_request_plan( $plan );
+		$rules     = $this->live_location_rules();
+		$published = $this->live_published_ids();
+		$header    = RWGO_Theme_Context::elementor_condition_matches( $rules['header'], 'header', 32, $published );
+		$footer    = RWGO_Theme_Context::elementor_condition_matches( $rules['footer'], 'footer', 32, $published );
+		$this->assertNotContains( 4040, $header );
+		$this->assertNotContains( 4041, $footer );
+		$this->assertNotContains( 40, $header );
+		$this->assertNotContains( 59, $footer );
+
+		$markup = RWGO_Theme_Context::theme_chrome_markup( $rules, 32, $published, $plan );
+		$this->assertStringContainsString( 'data-elementor-type="header"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="4040"', $markup );
+		$this->assertStringContainsString( 'elementor-location-header', $markup );
+		$this->assertStringContainsString( 'data-elementor-type="footer"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="4041"', $markup );
+		$this->assertStringContainsString( 'elementor-location-footer', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="40"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="59"', $markup );
+		RWGO_Theme_Context::set_request_plan( null );
+	}
+
+	public function test_control_arm_renders_control_header_and_footer(): void {
+		$plan = $this->live_plan( 'control', false );
+		RWGO_Theme_Context::set_request_plan( $plan );
+		$rules     = $this->live_location_rules();
+		$published = $this->live_published_ids();
+		$markup    = RWGO_Theme_Context::theme_chrome_markup( $rules, 32, $published, $plan );
+		$this->assertStringContainsString( 'data-elementor-id="40"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="59"', $markup );
+		$this->assertStringContainsString( 'elementor-location-header', $markup );
+		$this->assertStringContainsString( 'elementor-location-footer', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="4040"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="4041"', $markup );
+
+		$leak = $rules;
+		$leak['header'][4040] = array( 'include/general' );
+		$leak['footer'][4041] = array( 'include/general' );
+		$leaked = RWGO_Theme_Context::theme_chrome_markup( $leak, 32, $published, $plan );
+		$this->assertStringContainsString( 'data-elementor-id="40"', $leaked );
+		$this->assertStringContainsString( 'data-elementor-id="59"', $leaked );
+		$this->assertStringNotContainsString( 'data-elementor-id="4040"', $leaked );
+		$this->assertStringNotContainsString( 'data-elementor-id="4041"', $leaked );
+		RWGO_Theme_Context::set_request_plan( null );
+	}
+
+	public function test_excluded_checkout_keeps_its_own_header_and_footer(): void {
+		$plan = $this->live_plan( 'variant', true );
+		$this->assertSame( 0, $plan['header'] );
+		$this->assertSame( 0, $plan['footer'] );
+		$this->assertFalse( $plan['allow_variant_templates'] );
+		RWGO_Theme_Context::set_request_plan( $plan );
+		$markup = RWGO_Theme_Context::theme_chrome_markup( $this->live_location_rules(), 1037, $this->live_published_ids(), $plan );
+		$this->assertStringContainsString( 'data-elementor-type="header"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="2831"', $markup );
+		$this->assertStringContainsString( 'data-elementor-type="footer"', $markup );
+		$this->assertStringContainsString( 'data-elementor-id="59"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="40"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="4040"', $markup );
+		$this->assertStringNotContainsString( 'data-elementor-id="4041"', $markup );
+		RWGO_Theme_Context::set_request_plan( null );
+	}
+
+	public function test_prime_queues_the_variant_templates_and_drops_the_control_templates(): void {
+		$plan = $this->live_plan( 'variant', false );
+		RWGO_Theme_Context::set_request_plan( $plan );
+		$manager = new RWGO_Recording_Locations_Manager();
+		$GLOBALS['rwga_test_filters']['rwgo_elementor_locations_manager'] = array(
+			static function () use ( $manager ) {
+				return $manager;
+			},
+		);
+		RWGO_Theme_Context::prime_theme_locations();
+		$this->assertContains( 4040, $manager->added['header'] );
+		$this->assertContains( 4041, $manager->added['footer'] );
+		$this->assertContains( 40, $manager->removed['header'] );
+		$this->assertContains( 59, $manager->removed['footer'] );
+		$this->assertNotContains( 4040, $manager->removed['header'] );
+		$this->assertNotContains( 4041, $manager->removed['footer'] );
+
+		$locked = $this->live_plan( 'variant', true );
+		RWGO_Theme_Context::set_request_plan( $locked );
+		$cart = new RWGO_Recording_Locations_Manager();
+		$GLOBALS['rwga_test_filters']['rwgo_elementor_locations_manager'] = array(
+			static function () use ( $cart ) {
+				return $cart;
+			},
+		);
+		RWGO_Theme_Context::prime_theme_locations();
+		$this->assertSame( array(), $cart->added );
+
+		unset( $GLOBALS['rwga_test_filters']['rwgo_elementor_locations_manager'] );
+		RWGO_Theme_Context::set_request_plan( null );
+	}
+}
+
+/**
+ * Records Elementor location queue changes.
+ */
+class RWGO_Recording_Locations_Manager {
+
+	/**
+	 * @var array<string, array<int, int>>
+	 */
+	public $added = array();
+
+	/**
+	 * @var array<string, array<int, int>>
+	 */
+	public $removed = array();
+
+	/**
+	 * @param string $location    header|footer.
+	 * @param int    $document_id Template ID.
+	 * @return void
+	 */
+	public function add_doc_to_location( $location, $document_id ) {
+		$this->added[ (string) $location ][] = (int) $document_id;
+	}
+
+	/**
+	 * @param string $location    header|footer.
+	 * @param int    $document_id Template ID.
+	 * @return void
+	 */
+	public function remove_doc_from_location( $location, $document_id ) {
+		$this->removed[ (string) $location ][] = (int) $document_id;
 	}
 }
