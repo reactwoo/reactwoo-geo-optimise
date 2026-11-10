@@ -689,8 +689,16 @@ class RWGO_Experiment_Repository {
 	public static function binding_health_warnings( array $cfg ) {
 		$cfg = self::normalize_page_bindings( $cfg, 0, false );
 		$out = array();
-		$src = (int) ( $cfg['source_page_id'] ?? 0 );
+		$src      = (int) ( $cfg['source_page_id'] ?? 0 );
+		$type     = isset( $cfg['test_type'] ) ? sanitize_key( (string) $cfg['test_type'] ) : '';
+		$scope    = isset( $cfg['scope'] ) ? sanitize_key( (string) $cfg['scope'] ) : '';
+		$sitewide = class_exists( 'RWGO_Sitewide', false )
+			? RWGO_Sitewide::is_sitewide_config( $cfg )
+			: ( 'sitewide' === $type || 'site' === $scope );
 		if ( $src <= 0 ) {
+			if ( $sitewide ) {
+				return $out;
+			}
 			$out[] = array(
 				'code'    => 'missing_source',
 				'message' => __( 'This test has no valid source page ID.', 'reactwoo-geo-optimise' ),

@@ -28,6 +28,7 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 = 0.5.10 =
 * **Change:** The site-wide test screen is grouped into six sections. Pages, headers, footers, and product templates are chosen with search, not typed IDs. The saved experiment is the same option and format as before.
 * **Change:** Experiments has a New test menu for a single page test or a site-wide test, including when the list is empty.
+* **Fix:** A site-wide test is no longer marked Incomplete / Missing variant in the experiments list, Edit Test, and Reports when it has page map pairs, a variant header or footer, or product template pairs. Those screens name a mapped variant page or template only when that item is unpublished or missing. Single-page tests still need a publicly viewable Variant B page. Stored config and visitor delivery are unchanged.
 
 = 0.5.9 =
 * **Change:** AI generation uses your WordPress AI provider, then local execution. ReactWoo hosted AI is used only when the saved licence token is Decision Cloud Growth or Scale and that plan includes Geo Optimise. A saved hosted or legacy remote mode is kept, and behaves as automatic until that entitlement is present. Intelligence workflows and cloud snapshot sync show "Available with ReactWoo Decision Cloud" without calling the hosted AI API. Licence login and update checks are unchanged.

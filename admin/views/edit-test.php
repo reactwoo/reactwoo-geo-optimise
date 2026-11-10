@@ -190,12 +190,35 @@ $rwgo_form_mode = 'edit';
 		$rwgo_vb_status = ( $var_b_id > 0 && function_exists( 'get_post_status' ) ) ? (string) get_post_status( $var_b_id ) : '';
 		$rwgo_vb_blocks = class_exists( 'RWGO_Experiment_Service', false ) && RWGO_Experiment_Service::variant_status_blocks_traffic( $rwgo_vb_status );
 		$rwgo_test_is_active = isset( $rwgo_cfg['status'] ) && 'active' === sanitize_key( (string) $rwgo_cfg['status'] );
+		$rwgo_health = class_exists( 'RWGO_Experiment_Service', false )
+			? RWGO_Experiment_Service::admin_variant_health( $rwgo_cfg )
+			: array(
+				'sitewide'        => false,
+				'missing_variant' => ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) ),
+				'warnings'        => array(),
+				'summary'         => '',
+				'slots'           => $var_b_id > 0 ? 1 : 0,
+			);
+		$rwgo_health_status = isset( $rwgo_cfg['status'] ) ? sanitize_key( (string) $rwgo_cfg['status'] ) : '';
 		?>
-		<?php if ( $rwgo_test_is_active && $rwgo_vb_blocks ) : ?>
+		<?php if ( empty( $rwgo_health['sitewide'] ) && $rwgo_test_is_active && $rwgo_vb_blocks ) : ?>
 			<div class="notice notice-warning rwgo-notice">
 				<p><strong><?php esc_html_e( 'Variant B is not published, so it receives no traffic.', 'reactwoo-geo-optimise' ); ?></strong>
 				<?php esc_html_e( 'Every visitor stays on Control until you publish Variant B. Geo Optimise leaves the duplicate as a draft so you can review it before it goes live.', 'reactwoo-geo-optimise' ); ?></p>
 			</div>
+		<?php endif; ?>
+
+		<?php if ( 'completed' !== $rwgo_health_status && ! empty( $rwgo_health['sitewide'] ) ) : ?>
+			<?php if ( ! empty( $rwgo_health['missing_variant'] ) ) : ?>
+				<div class="notice notice-warning rwgo-notice"><p><?php esc_html_e( 'This site-wide test has no page pairs, variant header or footer, or product template pairs, so Variant B is missing.', 'reactwoo-geo-optimise' ); ?></p></div>
+			<?php endif; ?>
+			<?php if ( ! empty( $rwgo_health['warnings'] ) && is_array( $rwgo_health['warnings'] ) ) : ?>
+				<?php foreach ( $rwgo_health['warnings'] as $rwgo_vw ) : ?>
+					<?php if ( is_array( $rwgo_vw ) && ! empty( $rwgo_vw['message'] ) ) : ?>
+						<div class="notice notice-warning rwgo-notice"><p><?php echo esc_html( (string) $rwgo_vw['message'] ); ?></p></div>
+					<?php endif; ?>
+				<?php endforeach; ?>
+			<?php endif; ?>
 		<?php endif; ?>
 
 		<?php
@@ -405,7 +428,7 @@ $rwgo_form_mode = 'edit';
 			);
 			$rwgo_builder_lab = isset( $bmap[ $bt ] ) ? $bmap[ $bt ] : ( $bt ? $bt : '—' );
 		}
-		$rwgo_variant_incomplete = ( 'completed' !== $rwgo_mgmt_status ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+		$rwgo_variant_incomplete = ( 'completed' !== $rwgo_mgmt_status ) && ! empty( $rwgo_health['missing_variant'] );
 		?>
 		<div class="rwgo-card rwgo-edit-summary">
 			<div class="rwgo-edit-summary__head">
@@ -415,7 +438,10 @@ $rwgo_form_mode = 'edit';
 			<div class="rwgo-meta-strip" role="list">
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Builder', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $rwgo_builder_lab ); ?></span>
 				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Success focus', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $assign_only ? __( 'Traffic split only', 'reactwoo-geo-optimise' ) : $primary_goal_lab ); ?></span>
-				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variants', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
+				<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Variants', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( ! empty( $rwgo_health['sitewide'] ) ? (string) (int) ( $rwgo_health['slots'] ?? 0 ) : ( $var_b_id > 0 ? '1' : '0' ) ); ?></span>
+				<?php if ( ! empty( $rwgo_health['sitewide'] ) && '' !== (string) ( $rwgo_health['summary'] ?? '' ) ) : ?>
+					<span class="rwgo-meta-pill" role="listitem"><span class="rwgo-meta-pill__k"><?php esc_html_e( 'Site-wide', 'reactwoo-geo-optimise' ); ?></span> <?php echo esc_html( (string) $rwgo_health['summary'] ); ?></span>
+				<?php endif; ?>
 				<span class="rwgo-meta-pill rwgo-meta-pill--health <?php echo ( $rwgo_variant_incomplete || $rwgo_goal_mapping_broken ) ? 'rwgo-meta-pill--bad' : 'rwgo-meta-pill--ok'; ?>" role="listitem">
 					<span class="rwgo-meta-pill__k"><?php esc_html_e( 'Health', 'reactwoo-geo-optimise' ); ?></span>
 					<?php
