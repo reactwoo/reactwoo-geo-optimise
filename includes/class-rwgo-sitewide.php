@@ -280,6 +280,11 @@ class RWGO_Sitewide {
 		add_action( 'admin_bar_menu', array( __CLASS__, 'admin_bar' ), 90 );
 		add_action( 'admin_post_rwgo_save_sitewide', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_rwgo_sitewide_bulk_continue', array( __CLASS__, 'handle_bulk_continue' ) );
+		if ( class_exists( 'RWGO_Sitewide_Screen', false ) ) {
+			add_action( 'admin_enqueue_scripts', array( 'RWGO_Sitewide_Screen', 'enqueue' ) );
+			add_action( 'wp_ajax_rwgo_sitewide_search', array( 'RWGO_Sitewide_Screen', 'ajax_search' ) );
+			add_action( 'wp_ajax_rwgo_sitewide_duplicate', array( 'RWGO_Sitewide_Screen', 'ajax_duplicate' ) );
+		}
 		add_action( 'transition_post_status', array( __CLASS__, 'maybe_cover_published_page' ), 10, 3 );
 		add_action( 'woocommerce_thankyou', array( __CLASS__, 'on_purchase' ), 30, 1 );
 	}
@@ -1233,162 +1238,16 @@ class RWGO_Sitewide {
 		if ( ! class_exists( 'RWGO_Admin', false ) || ! RWGO_Admin::can_manage() ) {
 			return;
 		}
-		$cfg = self::get_config();
-		if ( empty( $cfg['experiment_key'] ) ) {
-			$cfg['experiment_key'] = 'rwgo_sitewide';
+		if ( ! class_exists( 'RWGO_Sitewide_Screen', false ) ) {
+			return;
 		}
-		$status   = isset( $cfg['status'] ) ? sanitize_key( (string) $cfg['status'] ) : 'paused';
-		$days     = isset( $cfg['cookie_days'] ) ? (int) $cfg['cookie_days'] : self::DEFAULT_DAYS;
-		$weight   = isset( $cfg['control_weight'] ) ? (float) $cfg['control_weight'] : 0.5;
-		$coverage = self::coverage_from_config( $cfg );
-		$map      = self::page_map( $cfg );
-		$lines    = array();
-		foreach ( $map as $row ) {
-			$lines[] = (int) $row['source_page_id'] . ',' . (int) $row['variant_page_id'];
-		}
-		$map_count = count( $lines );
-		$merge_map = $map_count > self::MAP_EDITOR_LIMIT;
-		$goals     = isset( $cfg['goal_page_ids'] ) && is_array( $cfg['goal_page_ids'] ) ? implode( ',', array_map( 'intval', $cfg['goal_page_ids'] ) ) : '';
-		$buy       = ! empty( $cfg['track_purchase'] );
-		$exclude   = implode( ',', $coverage['exclude_page_ids'] );
-		$job       = get_option( self::BULK_OPTION, array() );
-		$job_on    = is_array( $job ) && ! empty( $job['active'] );
-		echo '<div class="wrap">';
-		echo '<h1>' . esc_html__( 'Site-wide design test', 'reactwoo-geo-optimise' ) . '</h1>';
-		echo '<p>' . esc_html__( 'One arm per visitor. Mapped pages keep their original URL. Unmapped pages keep that arm when a header or footer is set. Visitors stay on the original page body until each variant page is published. This screen does not publish pages or templates.', 'reactwoo-geo-optimise' ) . '</p>';
-		self::render_audit( $cfg );
-		self::render_preview_links( $map );
-		if ( ! empty( $_GET['rwgo_saved'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Site-wide test saved.', 'reactwoo-geo-optimise' ) . '</p></div>';
-		}
-		if ( ! empty( $_GET['rwgo_bulk_done'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$result  = get_option( self::BULK_RESULT, array() );
-			$created = isset( $_GET['rwgo_bulk_created'] ) ? (int) $_GET['rwgo_bulk_created'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			$failed  = isset( $_GET['rwgo_bulk_failed'] ) ? (int) $_GET['rwgo_bulk_failed'] : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			if ( is_array( $result ) ) {
-				if ( isset( $result['created'] ) ) {
-					$created = (int) $result['created'];
-				}
-				if ( isset( $result['failed'] ) ) {
-					$failed = (int) $result['failed'];
-				}
-			}
-			$notice_class = $failed > 0 ? 'notice-warning' : 'notice-success';
-			echo '<div class="notice ' . esc_attr( $notice_class ) . ' is-dismissible"><p>' . esc_html( sprintf( /* translators: 1: pages added to the map, 2: failed count */ __( 'Variant pages added to the map: %1$d. Failed: %2$d. Existing variants were reused instead of copied again.', 'reactwoo-geo-optimise' ), $created, $failed ) ) . '</p>';
-			if ( is_array( $result ) && ! empty( $result['failures'] ) && is_array( $result['failures'] ) ) {
-				echo '<ul>';
-				foreach ( $result['failures'] as $failure ) {
-					if ( ! is_array( $failure ) ) {
-						continue;
-					}
-					$source_id = isset( $failure['source_id'] ) ? (int) $failure['source_id'] : 0;
-					$code      = isset( $failure['code'] ) ? (string) $failure['code'] : '';
-					$message   = isset( $failure['message'] ) ? (string) $failure['message'] : '';
-					echo '<li>' . esc_html( sprintf( /* translators: 1: page ID, 2: error code, 3: error message */ __( 'Page %1$d failed (%2$s). %3$s', 'reactwoo-geo-optimise' ), $source_id, $code, $message ) ) . '</li>';
-				}
-				echo '</ul>';
-			}
-			echo '</div>';
-		}
-		if ( ! empty( $_GET['rwgo_bulk_error'] ) && 'ids' === sanitize_key( (string) $_GET['rwgo_bulk_error'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			echo '<div class="notice notice-error"><p>' . esc_html__( 'Enter at least one page ID to duplicate, or choose every published page.', 'reactwoo-geo-optimise' ) . '</p></div>';
-		}
-		if ( $job_on ) {
-			$created  = isset( $job['created'] ) ? (int) $job['created'] : 0;
-			$continue = wp_nonce_url( admin_url( 'admin-post.php?action=rwgo_sitewide_bulk_continue' ), 'rwgo_sitewide_bulk' );
-			echo '<div class="notice notice-info"><p>' . esc_html( sprintf( /* translators: %d: number of variant pages created so far */ __( 'Creating variant pages in batches so a large site is not processed in one request. Created so far: %d.', 'reactwoo-geo-optimise' ), $created ) ) . ' <a href="' . esc_url( $continue ) . '">' . esc_html__( 'Continue now', 'reactwoo-geo-optimise' ) . '</a></p></div>';
-			echo '<meta http-equiv="refresh" content="1;url=' . esc_url( $continue ) . '" />';
-		}
+		ob_start();
+		self::render_audit( self::get_config() );
+		$audit = ob_get_clean();
+		ob_start();
 		self::render_rejected_save();
-		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">';
-		wp_nonce_field( 'rwgo_save_sitewide' );
-		echo '<input type="hidden" name="rwgo_sw_revision" value="' . esc_attr( (string) ( isset( $cfg['revision'] ) ? (int) $cfg['revision'] : 0 ) ) . '" />';
-		echo '<input type="hidden" name="action" value="rwgo_save_sitewide" />';
-		echo '<table class="form-table"><tbody>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_status">' . esc_html__( 'Status', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_status" name="rwgo_sw_status">';
-		foreach ( array( 'active' => __( 'Active', 'reactwoo-geo-optimise' ), 'paused' => __( 'Paused', 'reactwoo-geo-optimise' ), 'ended' => __( 'Ended', 'reactwoo-geo-optimise' ) ) as $value => $label ) {
-			echo '<option value="' . esc_attr( $value ) . '" ' . selected( $status, $value, false ) . '>' . esc_html( $label ) . '</option>';
-		}
-		echo '</select></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_key">' . esc_html__( 'Experiment key', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_key" class="regular-text" name="rwgo_sw_key" value="' . esc_attr( (string) $cfg['experiment_key'] ) . '" /></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_weight">' . esc_html__( 'Control weight (%)', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_weight" type="number" min="0" max="100" name="rwgo_sw_weight" value="' . esc_attr( (string) (int) round( $weight * 100 ) ) . '" /></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_days">' . esc_html__( 'Cookie lifetime (days)', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_days" type="number" min="1" name="rwgo_sw_days" value="' . esc_attr( (string) $days ) . '" /></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_mapping">' . esc_html__( 'Coverage', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_mapping" name="rwgo_sw_mapping">';
-		$modes = array(
-			self::MAPPING_EXPLICIT      => __( 'Only the page map', 'reactwoo-geo-optimise' ),
-			self::MAPPING_ALL_PUBLISHED => __( 'All published pages', 'reactwoo-geo-optimise' ),
-		);
-		foreach ( $modes as $value => $label ) {
-			echo '<option value="' . esc_attr( $value ) . '" ' . selected( $coverage['mapping_mode'], $value, false ) . '>' . esc_html( $label ) . '</option>';
-		}
-		echo '</select><p class="description">' . esc_html__( 'All published pages still serves one arm at the original URL. The shop, cart, checkout, my-account, other WooCommerce special pages, the posts page, and the IDs below stay out. The public request reads the stored page map and does not load every page.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
-		echo '<tr><th scope="row">' . esc_html__( 'System pages', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_exclude_system" value="1" ' . checked( ! empty( $coverage['exclude_system_pages'] ), true, false ) . ' /> ' . esc_html__( 'Exclude the shop, cart, checkout, my-account, WooCommerce terms pages, and the posts page', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_exclude_ids">' . esc_html__( 'Exclude page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_exclude_ids" class="regular-text" name="rwgo_sw_exclude_ids" value="' . esc_attr( $exclude ) . '" /><p class="description">' . esc_html__( 'Comma-separated. These pages are not duplicated and are not added for pages published later.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_future">' . esc_html__( 'Pages published later', 'reactwoo-geo-optimise' ) . '</label></th><td><select id="rwgo_sw_future" name="rwgo_sw_future">';
-		$futures = array(
-			self::FUTURE_SKIP    => __( 'Skip until I add them', 'reactwoo-geo-optimise' ),
-			self::FUTURE_INCLUDE => __( 'Include in this test', 'reactwoo-geo-optimise' ),
-		);
-		foreach ( $futures as $value => $label ) {
-			echo '<option value="' . esc_attr( $value ) . '" ' . selected( $coverage['future_pages'], $value, false ) . '>' . esc_html( $label ) . '</option>';
-		}
-		echo '</select><p class="description">' . esc_html__( 'Used with All published pages. Included pages are copied when they are published, in wp-admin, not while a visitor is loading the page. Skipped pages stay out of the map until you add them.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_map">' . esc_html__( 'Page map', 'reactwoo-geo-optimise' ) . '</label></th><td>';
-		if ( $merge_map ) {
-			echo '<input type="hidden" name="rwgo_sw_map_merge" value="1" />';
-			echo '<p><strong>' . esc_html( sprintf( /* translators: %d: stored pair count */ __( '%d pairs are stored.', 'reactwoo-geo-optimise' ), $map_count ) ) . '</strong></p>';
-			echo '<textarea id="rwgo_sw_map" name="rwgo_sw_map" rows="6" class="large-text code" placeholder="' . esc_attr__( "12,34\n56,78", 'reactwoo-geo-optimise' ) . '"></textarea>';
-			echo '<p class="description">' . esc_html__( 'Add pairs, one per line: original page ID, variant page ID. The stored map is kept. The full list is not loaded into this field.', 'reactwoo-geo-optimise' ) . '</p>';
-			echo '<p><label for="rwgo_sw_unmap">' . esc_html__( 'Remove original page IDs', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_unmap" class="regular-text" name="rwgo_sw_unmap" value="" /></p>';
-		} else {
-			echo '<textarea id="rwgo_sw_map" name="rwgo_sw_map" rows="8" class="large-text code">' . esc_textarea( implode( "\n", $lines ) ) . '</textarea>';
-			echo '<p class="description">' . esc_html__( 'One pair per line: original page ID, variant page ID.', 'reactwoo-geo-optimise' ) . '</p>';
-		}
-		echo '</td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_bulk_scope">' . esc_html__( 'Create variant pages', 'reactwoo-geo-optimise' ) . '</label></th><td>';
-		echo '<select id="rwgo_sw_bulk_scope" name="rwgo_sw_bulk_scope">';
-		echo '<option value="selected">' . esc_html__( 'Selected page IDs', 'reactwoo-geo-optimise' ) . '</option>';
-		echo '<option value="all">' . esc_html__( 'Every published page that is not excluded', 'reactwoo-geo-optimise' ) . '</option>';
-		echo '</select>';
-		echo '<p><label for="rwgo_sw_bulk_ids">' . esc_html__( 'Selected page IDs', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_bulk_ids" class="regular-text" name="rwgo_sw_bulk_ids" value="" /></p>';
-		echo '<p class="description">' . esc_html__( 'Copies each page with the page duplicator and fills the page map. Original URLs stay the same. Variant URLs redirect back. A large site is copied a few pages at a time.', 'reactwoo-geo-optimise' ) . '</p>';
-		echo '<p><button type="submit" class="button" name="rwgo_sw_do_bulk" value="1">' . esc_html__( 'Create variant pages and fill the map', 'reactwoo-geo-optimise' ) . '</button></p>';
-		echo '</td></tr>';
-		$theme = class_exists( 'RWGO_Theme_Context', false )
-			? RWGO_Theme_Context::normalize( isset( $cfg['theme_context'] ) ? $cfg['theme_context'] : array() )
-			: array(
-				'control' => array( 'header' => 0, 'footer' => 0 ),
-				'variant' => array( 'header' => 0, 'footer' => 0 ),
-			);
-		echo '<tr><th scope="row">' . esc_html__( 'Elementor header and footer', 'reactwoo-geo-optimise' ) . '</th><td>';
-		echo '<p class="description">' . esc_html__( 'Optional Elementor template IDs (elementor_library). The visitor arm selects them. Elementor display conditions do not. Leave a field at 0 to keep Elementor’s own choice, except a variant template listed here is not shown to the control arm. Cart, checkout, and account stay on the normal templates. Unpublished templates are skipped and are not published by saving.', 'reactwoo-geo-optimise' ) . '</p>';
-		echo '<p><label for="rwgo_sw_header_a">' . esc_html__( 'Control header ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_header_a" type="number" min="0" class="small-text" name="rwgo_sw_header_a" value="' . esc_attr( (string) (int) $theme['control']['header'] ) . '" /></p>';
-		echo '<p><label for="rwgo_sw_footer_a">' . esc_html__( 'Control footer ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_footer_a" type="number" min="0" class="small-text" name="rwgo_sw_footer_a" value="' . esc_attr( (string) (int) $theme['control']['footer'] ) . '" /></p>';
-		echo '<p><label for="rwgo_sw_header_b">' . esc_html__( 'Variant B header ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_header_b" type="number" min="0" class="small-text" name="rwgo_sw_header_b" value="' . esc_attr( (string) (int) $theme['variant']['header'] ) . '" /></p>';
-		echo '<p><label for="rwgo_sw_footer_b">' . esc_html__( 'Variant B footer ID', 'reactwoo-geo-optimise' ) . '</label><br /><input id="rwgo_sw_footer_b" type="number" min="0" class="small-text" name="rwgo_sw_footer_b" value="' . esc_attr( (string) (int) $theme['variant']['footer'] ) . '" /></p>';
-		echo '</td></tr>';
-		$template_rows = class_exists( 'RWGO_Theme_Context', false )
-			? RWGO_Theme_Context::normalize_template_map( isset( $cfg['template_map'] ) ? $cfg['template_map'] : array() )
-			: array();
-		$template_text = class_exists( 'RWGO_Theme_Context', false ) ? RWGO_Theme_Context::template_map_text( $template_rows ) : '';
-		$locations_on  = class_exists( 'RWGO_Theme_Context', false ) && RWGO_Theme_Context::elementor_pro_locations_loaded();
-		echo '<tr><th scope="row"><label for="rwgo_sw_template_map">' . esc_html__( 'Product template map', 'reactwoo-geo-optimise' ) . '</label></th><td>';
-		echo '<textarea id="rwgo_sw_template_map" name="rwgo_sw_template_map" rows="8" class="large-text code" placeholder="' . esc_attr__( "single,SOURCE_TEMPLATE_ID,VARIANT_TEMPLATE_ID", 'reactwoo-geo-optimise' ) . '">' . esc_textarea( $template_text ) . '</textarea>';
-		echo '<p class="description">' . esc_html__( 'One Elementor product body per line: single, source template ID, variant template ID. Leave the source template’s display conditions as they are. The variant template must be published and must have no display conditions, so Elementor never selects it on its own. Saving rejects a variant template that has conditions. The product stays the queried post. Do not put Woo product IDs here and do not duplicate products. Header and footer stay in the fields above. Cart, checkout, account, and wp-admin keep the source templates. An unpublished or empty variant falls back to the source and is not published by saving.', 'reactwoo-geo-optimise' ) . '</p>';
-		echo '<p class="description">' . esc_html(
-			sprintf(
-				/* translators: 1: pair count, 2: whether Elementor Pro locations are active */
-				__( 'Coverage: %1$d product template pair(s). Elementor Pro theme locations: %2$s. Ready pairs are counted on save from published, non-empty templates.', 'reactwoo-geo-optimise' ),
-				count( $template_rows ),
-				$locations_on ? __( 'active', 'reactwoo-geo-optimise' ) : __( 'not active', 'reactwoo-geo-optimise' )
-			)
-		) . '</p>';
-		echo '</td></tr>';
-		echo '<tr><th scope="row"><label for="rwgo_sw_goals">' . esc_html__( 'Goal page IDs', 'reactwoo-geo-optimise' ) . '</label></th><td><input id="rwgo_sw_goals" class="regular-text" name="rwgo_sw_goals" value="' . esc_attr( $goals ) . '" /><p class="description">' . esc_html__( 'Comma-separated. A view of these pages (for example the contact thank-you page) counts for the site-wide arm.', 'reactwoo-geo-optimise' ) . '</p></td></tr>';
-		echo '<tr><th scope="row">' . esc_html__( 'WooCommerce purchase', 'reactwoo-geo-optimise' ) . '</th><td><label><input type="checkbox" name="rwgo_sw_purchase" value="1" ' . checked( $buy, true, false ) . ' /> ' . esc_html__( 'Attribute purchases to the site-wide arm', 'reactwoo-geo-optimise' ) . '</label></td></tr>';
-		echo '</tbody></table>';
-		submit_button( __( 'Save site-wide test', 'reactwoo-geo-optimise' ) );
-		echo '</form></div>';
+		$rejected = ob_get_clean();
+		RWGO_Sitewide_Screen::render( is_string( $audit ) ? $audit : '', is_string( $rejected ) ? $rejected : '' );
 	}
 
 	/**
@@ -1399,7 +1258,14 @@ class RWGO_Sitewide {
 			wp_die( esc_html__( 'You cannot edit this test.', 'reactwoo-geo-optimise' ), '', array( 'response' => 403 ) );
 		}
 		check_admin_referer( 'rwgo_save_sitewide' );
-		$old = self::get_config();
+		$old  = self::get_config();
+		$post = function_exists( 'wp_unslash' ) ? wp_unslash( $_POST ) : $_POST;
+		if ( is_array( $post ) && ! empty( $post['rwgo_sw_ui'] ) && class_exists( 'RWGO_Sitewide_Screen', false ) ) {
+			$issues = RWGO_Sitewide_Screen::incomplete_row_issues( RWGO_Sitewide_Screen::payload_from_post( $post ) );
+			if ( ! empty( $issues ) ) {
+				self::reject_save( $issues );
+			}
+		}
 		$cfg = self::config_from_post( $old );
 		if ( isset( $_POST['rwgo_sw_revision'] ) && class_exists( 'RWGO_Sitewide_Proposal', false ) ) {
 			$revision_code = RWGO_Sitewide_Proposal::revision_error( $old, wp_unslash( $_POST['rwgo_sw_revision'] ), true );
@@ -1417,7 +1283,7 @@ class RWGO_Sitewide {
 		$bulk = ! empty( $_POST['rwgo_sw_do_bulk'] );
 		if ( $bulk ) {
 			$scope    = isset( $_POST['rwgo_sw_bulk_scope'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_bulk_scope'] ) ) : 'selected';
-			$selected = self::parse_id_list( isset( $_POST['rwgo_sw_bulk_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_bulk_ids'] ) : '' );
+			$selected = self::posted_bulk_ids();
 			if ( 'selected' === $scope && empty( $selected ) ) {
 				self::persist_config( $cfg, $old );
 				wp_safe_redirect( admin_url( 'admin.php?page=rwgo-sitewide&rwgo_bulk_error=ids' ) );
@@ -3977,6 +3843,16 @@ class RWGO_Sitewide {
 	 * @return array<string, mixed>
 	 */
 	private static function config_from_post( array $old ) {
+		$post = function_exists( 'wp_unslash' ) ? wp_unslash( $_POST ) : $_POST;
+		if ( is_array( $post ) && ! empty( $post['rwgo_sw_ui'] ) && class_exists( 'RWGO_Sitewide_Screen', false ) ) {
+			return RWGO_Sitewide_Screen::stored_config_from_payload(
+				RWGO_Sitewide_Screen::payload_from_post( $post ),
+				$old,
+				static function ( $post_id ) {
+					return self::path_for_post( $post_id );
+				}
+			);
+		}
 		$status = isset( $_POST['rwgo_sw_status'] ) ? sanitize_key( wp_unslash( (string) $_POST['rwgo_sw_status'] ) ) : 'paused';
 		if ( ! in_array( $status, array( 'active', 'paused', 'ended' ), true ) ) {
 			$status = 'paused';
@@ -4211,7 +4087,7 @@ class RWGO_Sitewide {
 		$job = array(
 			'active'       => true,
 			'scope'        => $scope,
-			'selected_ids' => self::parse_id_list( isset( $_POST['rwgo_sw_bulk_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_bulk_ids'] ) : '' ),
+			'selected_ids' => self::posted_bulk_ids(),
 			'after_id'     => 0,
 			'created'      => 0,
 			'failed'       => 0,
@@ -4364,6 +4240,38 @@ class RWGO_Sitewide {
 			'failures' => $failures,
 			'touched'  => $touched,
 		);
+	}
+
+	/**
+	 * Selected page ids from the bulk field or the row checkboxes.
+	 *
+	 * @return array<int, int>
+	 */
+	private static function posted_bulk_ids() {
+		$text = isset( $_POST['rwgo_sw_bulk_ids'] ) ? wp_unslash( (string) $_POST['rwgo_sw_bulk_ids'] ) : '';
+		$ids  = self::parse_id_list( $text );
+		if ( ! empty( $_POST['rwgo_sw_bulk_pick'] ) && is_array( $_POST['rwgo_sw_bulk_pick'] ) ) {
+			foreach ( wp_unslash( $_POST['rwgo_sw_bulk_pick'] ) as $id ) {
+				$id = (int) $id;
+				if ( $id > 0 ) {
+					$ids[] = $id;
+				}
+			}
+		}
+		return array_values( array_unique( array_map( 'intval', $ids ) ) );
+	}
+
+	/**
+	 * Copy one original page with the page duplicator, reusing an existing variant.
+	 *
+	 * @param int $source_id Source page.
+	 * @return int|\WP_Error
+	 */
+	public static function create_variant_for_admin( $source_id ) {
+		self::$duplicating = true;
+		$new_id            = self::duplicate_source_to_variant( (int) $source_id );
+		self::$duplicating = false;
+		return $new_id;
 	}
 
 	/**

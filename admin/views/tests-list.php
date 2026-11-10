@@ -305,13 +305,12 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 		</div>
 	<?php endif; ?>
 
+	<?php include RWGO_PATH . 'admin/views/partials/new-test-menu.php'; ?>
+
 	<?php if ( empty( $rwgo_experiments ) ) : ?>
 		<div class="rwgo-panel rwgo-panel--hero">
 			<h2 class="rwgo-section__title"><?php esc_html_e( 'No tests yet', 'reactwoo-geo-optimise' ); ?></h2>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Create your first test to compare two versions of a page or product and track which one performs better.', 'reactwoo-geo-optimise' ); ?></p>
-			<p class="rwgo-actions">
-				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
-			</p>
 		</div>
 	<?php else : ?>
 		<?php
@@ -384,7 +383,22 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 			$src_title = $src > 0 ? get_the_title( $src ) : '';
 			$vb_title  = $var_b_id > 0 ? get_the_title( $var_b_id ) : '';
 			$st_key    = sanitize_key( (string) $st );
-			$variant_incomplete = ( 'completed' !== $st_key ) && ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) );
+			$rwgo_health = class_exists( 'RWGO_Experiment_Service', false )
+				? RWGO_Experiment_Service::admin_variant_health( $cfg )
+				: array(
+					'sitewide'        => false,
+					'missing_variant' => ( $var_b_id <= 0 || ! is_post_publicly_viewable( $var_b_id ) ),
+					'warnings'        => array(),
+					'summary'         => '',
+					'slots'           => $var_b_id > 0 ? 1 : 0,
+				);
+			$variant_incomplete = ( 'completed' !== $st_key ) && ! empty( $rwgo_health['missing_variant'] );
+			$rwgo_variant_warnings = ( 'completed' !== $st_key && ! empty( $rwgo_health['sitewide'] ) && ! empty( $rwgo_health['warnings'] ) && is_array( $rwgo_health['warnings'] ) )
+				? $rwgo_health['warnings']
+				: array();
+			$rwgo_variant_count = ! empty( $rwgo_health['sitewide'] )
+				? (int) ( $rwgo_health['slots'] ?? 0 )
+				: ( $var_b_id > 0 ? 1 : 0 );
 			$goal_pending       = ! empty( $cfg['defined_goal_pending'] ) && empty( $cfg['assignment_only'] ) && ( isset( $cfg['winner_mode'] ) ? 'traffic_only' !== $cfg['winner_mode'] : true );
 			$goal_mapping_broken = false;
 			if ( ! $assign_only && isset( $cfg['goal_selection_mode'] ) && 'defined' === sanitize_key( (string) $cfg['goal_selection_mode'] ) ) {
@@ -462,7 +476,7 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 					<span class="rwgo-status-strip__item"><?php esc_html_e( 'Top touchpoint:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $top_touchpoint_summary ); ?></span>
 				<?php endif; ?>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
-				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Variants:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $var_b_id > 0 ? '1' : '0' ); ?></span>
+				<span class="rwgo-status-strip__item"><?php esc_html_e( 'Variants:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( (string) $rwgo_variant_count ); ?></span>
 				<span class="rwgo-status-strip__sep" aria-hidden="true">·</span>
 				<span class="rwgo-status-strip__item rwgo-status-strip__health <?php echo $variant_incomplete || $goal_pending || $goal_mapping_broken ? 'rwgo-status-strip__health--bad' : 'rwgo-status-strip__health--ok'; ?>"><?php esc_html_e( 'Health:', 'reactwoo-geo-optimise' ); ?> <?php
 				if ( $variant_incomplete ) {
@@ -480,6 +494,15 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 					<span class="rwgo-status-strip__item rwgo-status-strip__fidelity rwgo-status-strip__fidelity--<?php echo esc_attr( str_replace( '_', '-', $fidelity_status ) ); ?>"><?php esc_html_e( 'Fidelity:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $fidelity_label ); ?></span>
 				<?php endif; ?>
 			</div>
+			<?php if ( ! empty( $rwgo_variant_warnings ) ) : ?>
+				<ul class="rwgo-test-card__variant-warnings">
+					<?php foreach ( $rwgo_variant_warnings as $rwgo_vw ) : ?>
+						<?php if ( is_array( $rwgo_vw ) && ! empty( $rwgo_vw['message'] ) ) : ?>
+							<li><?php echo esc_html( (string) $rwgo_vw['message'] ); ?></li>
+						<?php endif; ?>
+					<?php endforeach; ?>
+				</ul>
+			<?php endif; ?>
 
 			<div class="rwgo-meta-strip rwgo-meta-strip--tests" role="list">
 				<span class="rwgo-meta-pill" role="listitem"><?php echo esc_html( $type ? $type_lab : '—' ); ?></span>
@@ -565,9 +588,16 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 							<?php endif; ?>
 						</div>
 					</div>
-					<div class="rwgo-variant-card<?php echo $var_b_id <= 0 ? ' rwgo-variant-card--empty' : ''; ?>">
+					<div class="rwgo-variant-card<?php echo ( empty( $rwgo_health['sitewide'] ) && $var_b_id <= 0 ) ? ' rwgo-variant-card--empty' : ''; ?>">
 						<p class="rwgo-variant-card__label"><?php esc_html_e( 'Variant B', 'reactwoo-geo-optimise' ); ?></p>
-						<?php if ( $var_b_id > 0 ) : ?>
+						<?php if ( ! empty( $rwgo_health['sitewide'] ) ) : ?>
+							<p class="rwgo-variant-card__title"><?php echo esc_html( '' !== (string) ( $rwgo_health['summary'] ?? '' ) ? (string) $rwgo_health['summary'] : __( 'Nothing mapped', 'reactwoo-geo-optimise' ) ); ?></p>
+							<p class="rwgo-variant-card__status <?php echo $variant_incomplete ? 'rwgo-variant-card__status--bad' : 'rwgo-variant-card__status--ok'; ?>"><?php echo $variant_incomplete ? esc_html__( 'Missing variant', 'reactwoo-geo-optimise' ) : '✓ ' . esc_html__( 'Ready', 'reactwoo-geo-optimise' ); ?></p>
+							<?php if ( $variant_incomplete ) : ?>
+								<p class="rwgo-variant-card__empty-body"><?php esc_html_e( 'Add a page pair, a variant header or footer, or a product template pair on the site-wide test screen.', 'reactwoo-geo-optimise' ); ?></p>
+								<p><a class="button rwgo-btn rwgo-btn--secondary rwgo-btn--compact" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-sitewide' ) ); ?>"><?php esc_html_e( 'Open site-wide test', 'reactwoo-geo-optimise' ); ?></a></p>
+							<?php endif; ?>
+						<?php elseif ( $var_b_id > 0 ) : ?>
 							<p class="rwgo-variant-card__title"><?php echo esc_html( $vb_title ); ?></p>
 							<p class="rwgo-variant-card__meta"><?php esc_html_e( 'Builder:', 'reactwoo-geo-optimise' ); ?> <?php echo esc_html( $builder_lab ); ?></p>
 							<p class="rwgo-variant-card__status <?php echo $variant_b_ok ? 'rwgo-variant-card__status--ok' : 'rwgo-variant-card__status--bad'; ?>"><?php echo $variant_b_ok ? '✓ ' . esc_html__( 'Ready', 'reactwoo-geo-optimise' ) : esc_html__( 'Unavailable', 'reactwoo-geo-optimise' ); ?></p>

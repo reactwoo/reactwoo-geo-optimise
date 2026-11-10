@@ -256,4 +256,309 @@ class RWGO_Experiment_Service {
 		}
 		return '';
 	}
+
+	/**
+	 * Admin completeness for the experiments list, Edit Test, and Reports.
+	 *
+	 * Site-wide delivery reads page_map, theme_context, and template_map. The
+	 * stored control and var_b page IDs stay 0. This does not assign visitors
+	 * or change what is saved.
+	 *
+	 * Pass $posts in tests as post ID => array{status?:string,title?:string,public?:bool,exists?:bool}.
+	 * Null uses the current WordPress posts.
+	 *
+	 * @param array<string, mixed>                                              $config Experiment config.
+	 * @param array<int, array<string, mixed>|null>|null                       $posts  Optional post catalog.
+	 * @return array{
+	 *   sitewide: bool,
+	 *   complete: bool,
+	 *   missing_variant: bool,
+	 *   warnings: list<array{code:string,kind:string,post_id:int,label:string,message:string}>,
+	 *   summary: string,
+	 *   slots: int,
+	 *   page_pairs: int,
+	 *   variant_header: int,
+	 *   variant_footer: int,
+	 *   product_pairs: int
+	 * }
+	 */
+	public static function admin_variant_health( array $config, $posts = null ) {
+		if ( self::config_is_sitewide( $config ) ) {
+			return self::sitewide_admin_variant_health( $config, $posts );
+		}
+		$id       = self::page_id_for_variant( $config, 'var_b', 0 );
+		$state    = self::admin_post_state( $id, $posts );
+		$complete = $id > 0 && $state['exists'] && $state['public'];
+		return array(
+			'sitewide'        => false,
+			'complete'        => $complete,
+			'missing_variant' => ! $complete,
+			'warnings'        => array(),
+			'summary'         => '',
+			'slots'           => $id > 0 ? 1 : 0,
+			'page_pairs'      => 0,
+			'variant_header'  => 0,
+			'variant_footer'  => 0,
+			'product_pairs'   => 0,
+		);
+	}
+
+	/**
+	 * @param array<string, mixed> $config Experiment config.
+	 * @return bool
+	 */
+	private static function config_is_sitewide( array $config ) {
+		if ( class_exists( 'RWGO_Sitewide', false ) ) {
+			return RWGO_Sitewide::is_sitewide_config( $config );
+		}
+		$type  = isset( $config['test_type'] ) ? sanitize_key( (string) $config['test_type'] ) : '';
+		$scope = isset( $config['scope'] ) ? sanitize_key( (string) $config['scope'] ) : '';
+		return 'sitewide' === $type || 'site' === $scope;
+	}
+
+	/**
+	 * @param array<string, mixed>                        $config Experiment config.
+	 * @param array<int, array<string, mixed>|null>|null $posts  Post catalog or null.
+	 * @return array<string, mixed>
+	 */
+	private static function sitewide_admin_variant_health( array $config, $posts ) {
+		$warnings      = array();
+		$seen          = array();
+		$page_pairs    = 0;
+		$rows          = isset( $config['page_map'] ) && is_array( $config['page_map'] ) ? $config['page_map'] : array();
+		foreach ( $rows as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$source  = (int) ( $row['source_page_id'] ?? 0 );
+			$variant = (int) ( $row['variant_page_id'] ?? 0 );
+			if ( $source <= 0 || $variant <= 0 ) {
+				continue;
+			}
+			++$page_pairs;
+			$key = 'page:' . $variant;
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$warning      = self::mapped_target_warning( 'page', $variant, $posts );
+			if ( null !== $warning ) {
+				$warnings[] = $warning;
+			}
+		}
+
+		$theme  = isset( $config['theme_context']['variant'] ) && is_array( $config['theme_context']['variant'] )
+			? $config['theme_context']['variant']
+			: array();
+		$header = (int) ( $theme['header'] ?? 0 );
+		$footer = (int) ( $theme['footer'] ?? 0 );
+		if ( $header > 0 ) {
+			$warning = self::mapped_target_warning( 'header', $header, $posts );
+			if ( null !== $warning ) {
+				$warnings[] = $warning;
+			}
+		}
+		if ( $footer > 0 ) {
+			$warning = self::mapped_target_warning( 'footer', $footer, $posts );
+			if ( null !== $warning ) {
+				$warnings[] = $warning;
+			}
+		}
+
+		$product_pairs = 0;
+		$templates     = isset( $config['template_map'] ) && is_array( $config['template_map'] ) ? $config['template_map'] : array();
+		foreach ( $templates as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$source  = (int) ( $row['source_template_id'] ?? 0 );
+			$variant = (int) ( $row['variant_template_id'] ?? 0 );
+			if ( $source <= 0 || $variant <= 0 ) {
+				continue;
+			}
+			++$product_pairs;
+			$key = 'product_template:' . $variant;
+			if ( isset( $seen[ $key ] ) ) {
+				continue;
+			}
+			$seen[ $key ] = true;
+			$warning      = self::mapped_target_warning( 'product_template', $variant, $posts );
+			if ( null !== $warning ) {
+				$warnings[] = $warning;
+			}
+		}
+
+		$complete = ( $page_pairs > 0 || $header > 0 || $footer > 0 || $product_pairs > 0 );
+		$slots    = $page_pairs + ( $header > 0 ? 1 : 0 ) + ( $footer > 0 ? 1 : 0 ) + $product_pairs;
+		return array(
+			'sitewide'        => true,
+			'complete'        => $complete,
+			'missing_variant' => ! $complete,
+			'warnings'        => $warnings,
+			'summary'         => self::sitewide_health_summary( $page_pairs, $header, $footer, $product_pairs ),
+			'slots'           => $slots,
+			'page_pairs'      => $page_pairs,
+			'variant_header'  => $header,
+			'variant_footer'  => $footer,
+			'product_pairs'   => $product_pairs,
+		);
+	}
+
+	/**
+	 * @param int                                             $post_id Post ID.
+	 * @param array<int, array<string, mixed>|null>|null     $posts   Catalog or null for WordPress.
+	 * @return array{exists:bool,public:bool,title:string}
+	 */
+	private static function admin_post_state( $post_id, $posts ) {
+		$post_id = (int) $post_id;
+		$empty   = array(
+			'exists' => false,
+			'public' => false,
+			'title'  => '',
+		);
+		if ( $post_id <= 0 ) {
+			return $empty;
+		}
+		if ( is_array( $posts ) ) {
+			if ( ! isset( $posts[ $post_id ] ) || ! is_array( $posts[ $post_id ] ) ) {
+				return $empty;
+			}
+			$row = $posts[ $post_id ];
+			if ( array_key_exists( 'exists', $row ) && empty( $row['exists'] ) ) {
+				return $empty;
+			}
+			$status = isset( $row['status'] ) ? sanitize_key( (string) $row['status'] ) : '';
+			$public = array_key_exists( 'public', $row ) ? (bool) $row['public'] : ( 'publish' === $status );
+			return array(
+				'exists' => true,
+				'public' => $public,
+				'title'  => isset( $row['title'] ) ? trim( (string) $row['title'] ) : '',
+			);
+		}
+		if ( ! function_exists( 'get_post' ) ) {
+			return $empty;
+		}
+		$post = get_post( $post_id );
+		if ( ! $post ) {
+			return $empty;
+		}
+		$title = '';
+		if ( function_exists( 'get_the_title' ) ) {
+			$title = trim( (string) get_the_title( $post ) );
+		} elseif ( isset( $post->post_title ) ) {
+			$title = trim( (string) $post->post_title );
+		}
+		$public = function_exists( 'is_post_publicly_viewable' )
+			? (bool) is_post_publicly_viewable( $post )
+			: ( isset( $post->post_status ) && 'publish' === (string) $post->post_status );
+		return array(
+			'exists' => true,
+			'public' => $public,
+			'title'  => $title,
+		);
+	}
+
+	/**
+	 * @param string                                          $kind    page|header|footer|product_template.
+	 * @param int                                             $post_id Mapped B id.
+	 * @param array<int, array<string, mixed>|null>|null     $posts   Catalog or null.
+	 * @return array{code:string,kind:string,post_id:int,label:string,message:string}|null
+	 */
+	private static function mapped_target_warning( $kind, $post_id, $posts ) {
+		$state = self::admin_post_state( $post_id, $posts );
+		if ( $state['exists'] && $state['public'] ) {
+			return null;
+		}
+		$missing = ! $state['exists'];
+		$label   = '' !== $state['title'] ? $state['title'] : (string) (int) $post_id;
+		return array(
+			'code'    => $missing ? 'missing' : 'unpublished',
+			'kind'    => (string) $kind,
+			'post_id' => (int) $post_id,
+			'label'   => $label,
+			'message' => self::mapped_target_message( (string) $kind, $label, $missing, '' !== $state['title'] ),
+		);
+	}
+
+	/**
+	 * @param string $kind    page|header|footer|product_template.
+	 * @param string $label   Title or numeric id.
+	 * @param bool   $missing Post is not on the site.
+	 * @param bool   $named   Label is a title.
+	 * @return string
+	 */
+	private static function mapped_target_message( $kind, $label, $missing, $named ) {
+		if ( 'header' === $kind ) {
+			if ( $missing ) {
+				return $named
+					? sprintf( /* translators: %s: template title */ __( 'Variant header “%s” is missing.', 'reactwoo-geo-optimise' ), $label )
+					: sprintf( /* translators: %s: template ID */ __( 'Variant header %s is missing.', 'reactwoo-geo-optimise' ), $label );
+			}
+			return $named
+				? sprintf( /* translators: %s: template title */ __( 'Variant header “%s” is not published.', 'reactwoo-geo-optimise' ), $label )
+				: sprintf( /* translators: %s: template ID */ __( 'Variant header %s is not published.', 'reactwoo-geo-optimise' ), $label );
+		}
+		if ( 'footer' === $kind ) {
+			if ( $missing ) {
+				return $named
+					? sprintf( /* translators: %s: template title */ __( 'Variant footer “%s” is missing.', 'reactwoo-geo-optimise' ), $label )
+					: sprintf( /* translators: %s: template ID */ __( 'Variant footer %s is missing.', 'reactwoo-geo-optimise' ), $label );
+			}
+			return $named
+				? sprintf( /* translators: %s: template title */ __( 'Variant footer “%s” is not published.', 'reactwoo-geo-optimise' ), $label )
+				: sprintf( /* translators: %s: template ID */ __( 'Variant footer %s is not published.', 'reactwoo-geo-optimise' ), $label );
+		}
+		if ( 'product_template' === $kind ) {
+			if ( $missing ) {
+				return $named
+					? sprintf( /* translators: %s: template title */ __( 'Variant product template “%s” is missing.', 'reactwoo-geo-optimise' ), $label )
+					: sprintf( /* translators: %s: template ID */ __( 'Variant product template %s is missing.', 'reactwoo-geo-optimise' ), $label );
+			}
+			return $named
+				? sprintf( /* translators: %s: template title */ __( 'Variant product template “%s” is not published.', 'reactwoo-geo-optimise' ), $label )
+				: sprintf( /* translators: %s: template ID */ __( 'Variant product template %s is not published.', 'reactwoo-geo-optimise' ), $label );
+		}
+		if ( $missing ) {
+			return $named
+				? sprintf( /* translators: %s: page title */ __( 'Variant page “%s” is missing. Visitors keep the original page.', 'reactwoo-geo-optimise' ), $label )
+				: sprintf( /* translators: %s: page ID */ __( 'Variant page %s is missing. Visitors keep the original page.', 'reactwoo-geo-optimise' ), $label );
+		}
+		return $named
+			? sprintf( /* translators: %s: page title */ __( 'Variant page “%s” is not published. Visitors keep the original page until you publish it.', 'reactwoo-geo-optimise' ), $label )
+			: sprintf( /* translators: %s: page ID */ __( 'Variant page %s is not published. Visitors keep the original page until you publish it.', 'reactwoo-geo-optimise' ), $label );
+	}
+
+	/**
+	 * @param int $page_pairs    Mapped page pairs.
+	 * @param int $header_id     Variant header ID.
+	 * @param int $footer_id     Variant footer ID.
+	 * @param int $product_pairs Product template pairs.
+	 * @return string
+	 */
+	private static function sitewide_health_summary( $page_pairs, $header_id, $footer_id, $product_pairs ) {
+		$parts = array();
+		if ( $page_pairs > 0 ) {
+			$parts[] = sprintf(
+				1 === $page_pairs
+					? __( '%d page pair', 'reactwoo-geo-optimise' )
+					: __( '%d page pairs', 'reactwoo-geo-optimise' ),
+				$page_pairs
+			);
+		}
+		if ( $header_id > 0 ) {
+			$parts[] = __( 'variant header', 'reactwoo-geo-optimise' );
+		}
+		if ( $footer_id > 0 ) {
+			$parts[] = __( 'variant footer', 'reactwoo-geo-optimise' );
+		}
+		if ( $product_pairs > 0 ) {
+			$parts[] = sprintf(
+				1 === $product_pairs
+					? __( '%d product template pair', 'reactwoo-geo-optimise' )
+					: __( '%d product template pairs', 'reactwoo-geo-optimise' ),
+				$product_pairs
+			);
+		}
+		return implode( ', ', $parts );
+	}
 }

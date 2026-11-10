@@ -22,6 +22,9 @@ $rwgo_cfg             = isset( $rwgo_cfg ) && is_array( $rwgo_cfg ) ? $rwgo_cfg 
 if ( $rwgo_exp_id <= 0 || ! class_exists( 'RWGO_Variant_Lifecycle', false ) || $rwgo_mgmt_completed ) {
 	return;
 }
+if ( class_exists( 'RWGO_Experiment_Service', false ) && ! empty( RWGO_Experiment_Service::admin_variant_health( $rwgo_cfg )['sitewide'] ) ) {
+	return;
+}
 ?>
 <section class="rwgo-card rwgo-section rwgo-section--variant-mgmt" id="rwgo-variant-management" aria-labelledby="rwgo-variant-mgmt-title">
 	<h2 class="rwgo-section__title" id="rwgo-variant-mgmt-title"><?php esc_html_e( 'Variant management', 'reactwoo-geo-optimise' ); ?></h2>

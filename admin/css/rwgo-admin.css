@@ -2652,6 +2652,87 @@ a.rwgo-history-timeline__title:hover {
   }
 }
 
+/* New test menu on the experiments list. Matches the site-wide screen popover. */
+.rwgo-new-test-bar {
+	display: flex;
+	justify-content: flex-end;
+	position: relative;
+	z-index: 30;
+	overflow: visible;
+}
+
+.rwgo-new-test {
+	position: relative;
+}
+
+.rwgo-new-test__button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 36px;
+	padding: 0 14px;
+	border: 1px solid #2271b1;
+	border-radius: 10px;
+	background: #2271b1;
+	color: #fff;
+	font-size: 13px;
+	font-weight: 650;
+	line-height: 1;
+	list-style: none;
+	cursor: pointer;
+}
+
+.rwgo-new-test__button::-webkit-details-marker {
+	display: none;
+}
+
+.rwgo-new-test__button:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+}
+
+.rwgo-new-test__menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	z-index: 40;
+	width: min(280px, calc(100vw - 48px));
+	margin: 0;
+	padding: 6px;
+	background: #fff;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 12px;
+	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18), 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.rwgo-new-test__menu a {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	color: #0f172a;
+	text-decoration: none;
+}
+
+.rwgo-new-test__menu a:hover,
+.rwgo-new-test__menu a:focus {
+	background: #f8fafc;
+	color: #0f172a;
+}
+
+.rwgo-new-test__menu strong {
+	font-size: 13px;
+	font-weight: 650;
+}
+
+.rwgo-new-test__menu span {
+	color: #646970;
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+}
+
 /* When Geo Core suite shell is present, prefer shared border/shadow tokens */
 .rwgo-wrap.rwgc-suite {
   --rwgo-border: 1px solid var(--rw-suite-border, #e5e7eb);

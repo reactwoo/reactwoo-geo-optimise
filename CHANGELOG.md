@@ -5,6 +5,15 @@ All notable changes to **reactwoo-geo-optimise** are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.10] - 2026-11-10
+
+### Changed
+- The site-wide test screen is grouped into six sections with searchable page and template selectors. Page matches, headers, footers, and product templates are rows. The stored experiment option and its format are unchanged.
+- Experiments shows a New test menu for a single page test or a site-wide test, including when no tests exist yet.
+
+### Fixed
+- A site-wide test is no longer marked Incomplete / Missing variant in the experiments list, Edit Test, and Reports when it has page map pairs, a variant header or footer, or product template pairs. Those screens name a mapped variant page or template only when that item is unpublished or missing. Single-page tests still need a publicly viewable Variant B page. Stored config and visitor delivery are unchanged.
+
 ## [0.5.9] - 2026-11-09
 
 ### Changed
