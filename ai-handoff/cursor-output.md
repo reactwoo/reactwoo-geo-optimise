@@ -4,29 +4,27 @@
 done
 
 ## Task
-Make `python scripts/package_zip.py` of a given tree byte-identical to the zip `.github/workflows/publish-update.yml` uploads. Do not bump the plugin version, and do not tag or publish.
-
-## Root cause
-`write_ordered_zip` called `ZipFile.write()`, which stores each file's filesystem mtime (`ZipInfo.from_file` → `time.localtime(st.st_mtime)`). The publish workflow used `python-version: "3.x"`. A timestamp-only `touch` of the same tree changed the SHA-256 and left names, CRCs, sizes, and order identical. That matches the v0.5.9 published zip (`e5589cff…`) versus a local build (`9dcf31df…`).
-
-## Fix
-Entries are written with `writestr` and a stable `ZipInfo`: `SOURCE_DATE_EPOCH` when set and at least 1980-01-01, otherwise 1980-01-01 00:00:00 UTC, Unix creator, mode 0644, deflate level 9. Entry order and the `reactwoo-geo-optimise/` root are unchanged. The publish workflow pins CPython 3.12, does not install Composer dependencies, and fails if a second `package_zip.py` run hashes differently. `tests/test-zip-reproducible.py` packages `git archive HEAD` twice, with and without `CI=true`.
+Redesign the Site-wide test admin screen to the approved frames, keep the stored experiment format, and add a New test menu on the experiments list.
 
 ## Files changed
-- `scripts/package_zip.py` — fixed zip metadata.
-- `tests/test-zip-reproducible.py` — reproducibility contract.
-- `.github/workflows/publish-update.yml` — Python 3.12 and the build-twice check.
-- `package.json` — `test:zip-reproducible`.
+- `includes/class-rwgo-sitewide-screen.php` — payload mapping, search and duplicate endpoints, screen model.
+- `includes/class-rwgo-sitewide.php` — screen delegate, UI save path, bulk checkbox ids, public variant copy.
+- `includes/class-rwgo-plugin.php` — load the screen class.
+- `admin/views/sitewide-screen.php`, `admin/css/rwgo-sitewide-screen.css`, `admin/js/rwgo-sitewide-screen.js` — grouped screen. Menus are fixed on `document.body`. Section cards use a 24px gap and `overflow: visible`.
+- `admin/views/partials/new-test-menu.php`, `admin/views/tests-list.php`, `admin/css/rwgo-admin.css` — New test menu for a single page test or a site-wide test, including an empty list.
+- `tests/Sitewide/RWGOSitewideScreenTest.php` — stored-format mapping, search permission, and the experiments menu.
+- Version files stay at 0.5.10 (`RWGO_VERSION`, plugin header, readme Stable tag, README, changelog).
 
 ## Not changed
-- Plugin version, readme Stable tag, and `RWGO_VERSION` stay 0.5.9.
+- Stored option name and shape (`rwgo_sitewide_experiment`).
+- Create Test wizard.
+- Runtime assignment and public request path.
 - No tag and no publish.
-- Foxhole entry order and the included paths (`admin/`, `assets/`, `includes/`, `merged-geo-ai/`, main PHP, `readme.txt`).
 
 ## Commands
-- Before the fix, a timestamp-only `touch` changed the zip SHA-256 and left names, CRCs, and sizes identical.
-- `python3 tests/test-zip-reproducible.py` passed. `git archive HEAD` with and without `CI=true` hashed to `de7578a4abb2df3e0905df48f168e00518b2cc70c6e69cffa1422e4708a75107`.
-- Two consecutive `python3 scripts/package_zip.py` runs on this branch, then two with `CI=true`, all hashed to that same value. `python3 tests/test-zip-js-order.py` passed.
+- `php /tmp/phpunit-9.6.phar --filter RWGOSitewideScreenTest` — 9 tests, 65 assertions, OK.
+- `php /tmp/phpunit-9.6.phar --filter 'RWGOSitewideScreenTest|RWGOSitewideAbilityTest'` — 18 tests, 152 assertions, OK.
+- Headless Chrome with WordPress `common.min.css` and `forms.min.css` rendered the populated screen at 1440×2200. Card gap measured 24px, card overlap 0, row did not overflow the content box.
 
 ## Remaining errors
-None from the zip checks.
+None from the tests above.

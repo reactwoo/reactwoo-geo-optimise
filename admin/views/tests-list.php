@@ -305,13 +305,12 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 		</div>
 	<?php endif; ?>
 
+	<?php include RWGO_PATH . 'admin/views/partials/new-test-menu.php'; ?>
+
 	<?php if ( empty( $rwgo_experiments ) ) : ?>
 		<div class="rwgo-panel rwgo-panel--hero">
 			<h2 class="rwgo-section__title"><?php esc_html_e( 'No tests yet', 'reactwoo-geo-optimise' ); ?></h2>
 			<p class="rwgo-section__lead"><?php esc_html_e( 'Create your first test to compare two versions of a page or product and track which one performs better.', 'reactwoo-geo-optimise' ); ?></p>
-			<p class="rwgo-actions">
-				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=rwgo-create-test' ) ); ?>"><?php esc_html_e( 'Create Test', 'reactwoo-geo-optimise' ); ?></a>
-			</p>
 		</div>
 	<?php else : ?>
 		<?php
