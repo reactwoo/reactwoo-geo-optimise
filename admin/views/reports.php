@@ -187,7 +187,24 @@ $rwgo_hub_embed = ! empty( $rwgo_optimise_hub_embed );
 				</ul>
 				<?php
 				if ( 'active' === $st && class_exists( 'RWGO_Experiment_Service', false ) ) :
-					if ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg, (int) $exp_post->ID ) ) :
+					$rwgo_health = RWGO_Experiment_Service::admin_variant_health( $cfg );
+					if ( ! empty( $rwgo_health['sitewide'] ) ) :
+						if ( ! empty( $rwgo_health['missing_variant'] ) ) :
+							?>
+				<div class="notice notice-warning inline rwgo-report-health"><p><?php esc_html_e( 'This site-wide test has no page pairs, variant header or footer, or product template pairs, so Variant B is missing.', 'reactwoo-geo-optimise' ); ?></p></div>
+							<?php
+						endif;
+						if ( ! empty( $rwgo_health['warnings'] ) && is_array( $rwgo_health['warnings'] ) ) :
+							foreach ( $rwgo_health['warnings'] as $rwgo_vw ) :
+								if ( ! is_array( $rwgo_vw ) || empty( $rwgo_vw['message'] ) ) {
+									continue;
+								}
+								?>
+				<div class="notice notice-warning inline rwgo-report-health"><p><?php echo esc_html( (string) $rwgo_vw['message'] ); ?></p></div>
+								<?php
+							endforeach;
+						endif;
+					elseif ( ! RWGO_Experiment_Service::variant_b_is_routable( $cfg, (int) $exp_post->ID ) ) :
 						?>
 				<div class="notice notice-warning inline rwgo-report-health"><p><?php esc_html_e( 'Variant B is not publicly viewable — assignment stays on Control; served and conversion splits may not reflect a live B experience.', 'reactwoo-geo-optimise' ); ?></p></div>
 						<?php

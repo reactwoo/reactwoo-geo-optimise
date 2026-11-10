@@ -4,29 +4,30 @@
 done
 
 ## Task
-Make `python scripts/package_zip.py` of a given tree byte-identical to the zip `.github/workflows/publish-update.yml` uploads. Do not bump the plugin version, and do not tag or publish.
+Stop site-wide experiments showing Incomplete / Missing variant in the experiments list, Edit Test, and Reports when delivery is configured through the page map, a variant header or footer, or product template pairs.
 
 ## Root cause
-`write_ordered_zip` called `ZipFile.write()`, which stores each file's filesystem mtime (`ZipInfo.from_file` → `time.localtime(st.st_mtime)`). The publish workflow used `python-version: "3.x"`. A timestamp-only `touch` of the same tree changed the SHA-256 and left names, CRCs, sizes, and order identical. That matches the v0.5.9 published zip (`e5589cff…`) versus a local build (`9dcf31df…`).
+Site-wide save writes `variants[control].page_id` and `variants[var_b].page_id` as 0. Delivery uses `page_map`, `theme_context.variant`, and `template_map`. The list badge, Edit Test health pill, and Reports warning treated a missing `var_b` page id as an incomplete single-page variant.
 
 ## Fix
-Entries are written with `writestr` and a stable `ZipInfo`: `SOURCE_DATE_EPOCH` when set and at least 1980-01-01, otherwise 1980-01-01 00:00:00 UTC, Unix creator, mode 0644, deflate level 9. Entry order and the `reactwoo-geo-optimise/` root are unchanged. The publish workflow pins CPython 3.12, does not install Composer dependencies, and fails if a second `package_zip.py` run hashes differently. `tests/test-zip-reproducible.py` packages `git archive HEAD` twice, with and without `CI=true`.
+`RWGO_Experiment_Service::admin_variant_health()` is admin-only. A site-wide test is complete when it has a page-map pair, a variant header or footer id, or a product template pair. Each mapped B page or template that is missing or not published is named in a warning. Single-page health still requires a publicly viewable Variant B page. `variant_b_is_routable()` and the stored config are unchanged.
 
 ## Files changed
-- `scripts/package_zip.py` — fixed zip metadata.
-- `tests/test-zip-reproducible.py` — reproducibility contract.
-- `.github/workflows/publish-update.yml` — Python 3.12 and the build-twice check.
-- `package.json` — `test:zip-reproducible`.
+- `includes/class-rwgo-experiment-service.php` — admin health helper.
+- `includes/class-rwgo-experiment-repository.php` — a site-wide test with no source page id is not warned as a missing single-page source.
+- `admin/views/tests-list.php`, `admin/views/edit-test.php`, `admin/views/reports.php` — consume the helper.
+- `admin/views/partials/test-variant-management-edit.php` — skip the single-page “no Variant B” block for site-wide tests.
+- `tests/Sitewide/RWGOAdminVariantHealthTest.php` — complete, draft warning, unmapped, and single-page cases.
+- Version files to 0.5.10.
 
 ## Not changed
-- Plugin version, readme Stable tag, and `RWGO_VERSION` stay 0.5.9.
+- Runtime assignment and site-wide delivery.
+- Stored page map, theme context, template map, and zero variant page ids.
+- Site-wide test settings screen form markup.
 - No tag and no publish.
-- Foxhole entry order and the included paths (`admin/`, `assets/`, `includes/`, `merged-geo-ai/`, main PHP, `readme.txt`).
 
 ## Commands
-- Before the fix, a timestamp-only `touch` changed the zip SHA-256 and left names, CRCs, and sizes identical.
-- `python3 tests/test-zip-reproducible.py` passed. `git archive HEAD` with and without `CI=true` hashed to `de7578a4abb2df3e0905df48f168e00518b2cc70c6e69cffa1422e4708a75107`.
-- Two consecutive `python3 scripts/package_zip.py` runs on this branch, then two with `CI=true`, all hashed to that same value. `python3 tests/test-zip-js-order.py` passed.
+- `php /tmp/phpunit.phar --configuration phpunit.xml.dist` — OK (128 tests, 855 assertions).
 
 ## Remaining errors
-None from the zip checks.
+None from the PHPUnit suite.

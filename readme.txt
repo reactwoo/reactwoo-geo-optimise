@@ -4,7 +4,7 @@ Requires at least: 6.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Stable tag: 0.5.9
+Stable tag: 0.5.10
 
 AI-assisted conversion optimisation and experiments on ReactWoo Geo Core. Includes merged Geo AI (review, recommendations, drafts) in the Optimise hub.
 
@@ -24,6 +24,9 @@ See Geo Core `docs/phases/phase-6.md` for the author checklist, `docs/MERGE-GEO-
 2. Activate this plugin.
 
 == Changelog ==
+
+= 0.5.10 =
+* **Fix:** A site-wide test is no longer marked Incomplete / Missing variant in the experiments list, Edit Test, and Reports when it has page map pairs, a variant header or footer, or product template pairs. Those screens name a mapped variant page or template only when that item is unpublished or missing. Single-page tests still need a publicly viewable Variant B page. Stored config and visitor delivery are unchanged.
 
 = 0.5.9 =
 * **Change:** AI generation uses your WordPress AI provider, then local execution. ReactWoo hosted AI is used only when the saved licence token is Decision Cloud Growth or Scale and that plan includes Geo Optimise. A saved hosted or legacy remote mode is kept, and behaves as automatic until that entitlement is present. Intelligence workflows and cloud snapshot sync show "Available with ReactWoo Decision Cloud" without calling the hosted AI API. Licence login and update checks are unchanged.
